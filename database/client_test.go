@@ -2,6 +2,7 @@ package database_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 )
@@ -22,4 +23,10 @@ func TestRefCounting(t *testing.T) {
 	client.Close()
 	client.Close()
 	client.Close()
+}
+
+type TestStruct struct {
+	time     time.Time
+	didOpen  bool
+	refCount int
 }
