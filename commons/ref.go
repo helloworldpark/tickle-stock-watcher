@@ -1,0 +1,27 @@
+package commons
+
+// Ref is a simple struct for reference counting.
+// Will panic if overreleased.
+type Ref struct {
+	ref int
+}
+
+// Retain increases reference count of the struct.
+func (r *Ref) Retain() {
+	r.ref++
+}
+
+// Release decreases reference count of the struct.
+// It is the holder's responsibility to make use of the reference count.
+// It panics if the struct is overreleased.
+func (r *Ref) Release() {
+	if r.ref <= 0 {
+		panic("Trying to overrelease a struct")
+	}
+	r.ref--
+}
+
+// Count returns the reference count of the struct.
+func (r *Ref) Count() int {
+	return r.ref
+}
