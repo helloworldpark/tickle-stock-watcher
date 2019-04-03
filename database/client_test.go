@@ -36,9 +36,19 @@ func TestInit(t *testing.T) {
 	// fmt.Println(filename)
 	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/mama.json")
 	client := database.CreateClient()
-	didInit := client.Init(credential)
-
-	if !didInit {
+	client.Init(credential)
+	client.Open()
+	if !client.IsOpen() {
 		t.Fail()
 	}
+	client.Open()
+	client.Close()
+	if !client.IsOpen() {
+		t.Fail()
+	}
+	client.Close()
+	if client.IsOpen() {
+		t.Fail()
+	}
+	client.Close()
 }

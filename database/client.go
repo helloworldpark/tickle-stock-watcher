@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"sync"
 
@@ -15,10 +14,10 @@ import (
 
 // DBClient is a handle to database
 type DBClient struct {
-	ref           *commons.Ref
-	mutex         sync.Mutex
-	isInitialized bool
-	db            *sql.DB
+	ref        *commons.Ref
+	mutex      sync.Mutex
+	db         *sql.DB
+	credential DBCredential
 }
 
 // DBCredential contains info needed to connect to DB
@@ -51,26 +50,11 @@ func CreateClient() *DBClient {
 	return &client
 }
 
-// Init initializes database connection
-// Returns true if initialized, false else
-func (client *DBClient) Init(credential DBCredential) bool {
-	defer client.mutex.Unlock()
-
+// Init prepares for opening database
+func (client *DBClient) Init(credential DBCredential) {
 	client.mutex.Lock()
-	if client.isInitialized {
-		logger.Info("[DB] Already initialized")
-		return true
-	}
-
-	openingQ := openingQuery(credential)
-	db, err := sql.Open("mysql", openingQ)
-	if err != nil {
-		logger.Panic("%v", err)
-		return false
-	}
-	logger.Info("[DB] Connected")
-	client.db = db
-	return true
+	client.credential = credential
+	client.mutex.Unlock()
 }
 
 // openingQuery generates SQL query for connection to database
@@ -96,7 +80,19 @@ func (client *DBClient) Open() {
 	client.mutex.Lock()
 	client.ref.Retain()
 	if client.ref.Count() == 2 {
-		fmt.Println("Open")
+		openingQ := openingQuery(client.credential)
+		db, err := sql.Open("mysql", openingQ)
+		if err != nil {
+			logger.Panic("%v", err)
+			return
+		}
+		logger.Info("[DB] Connected")
+		client.db = db
+
+		err = db.Ping()
+		if err != nil {
+			logger.Panic("%v", err)
+		}
 	}
 }
 
@@ -110,7 +106,8 @@ func (client *DBClient) Close() {
 	}
 	client.ref.Release()
 	if client.ref.Count() == 1 {
-		fmt.Println("Close")
+		client.db.Close()
+		client.db = nil
 	}
 }
 
