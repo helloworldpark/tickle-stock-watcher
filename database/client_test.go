@@ -8,14 +8,14 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	client := database.Create()
+	client := database.CreateClient()
 	if client == nil {
 		t.Fail()
 	}
 }
 
 func TestRefCounting(t *testing.T) {
-	client := database.Create()
+	client := database.CreateClient()
 	client.Open()
 	client.Open()
 	client.Open()
@@ -29,4 +29,16 @@ type TestStruct struct {
 	time     time.Time
 	didOpen  bool
 	refCount int
+}
+
+func TestInit(t *testing.T) {
+	// _, filename, _, _ := runtime.Caller(0)
+	// fmt.Println(filename)
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/mama.json")
+	client := database.CreateClient()
+	didInit := client.Init(credential)
+
+	if !didInit {
+		t.Fail()
+	}
 }
