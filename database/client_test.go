@@ -26,9 +26,9 @@ func TestRefCounting(t *testing.T) {
 }
 
 type TestStruct struct {
-	time     time.Time
-	didOpen  bool
-	refCount int
+	time    int64
+	didOpen bool
+	name    string
 }
 
 func TestInit(t *testing.T) {
@@ -37,7 +37,6 @@ func TestInit(t *testing.T) {
 	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/mama.json")
 	client := database.CreateClient()
 	client.Init(credential)
-	client.Open()
 	if !client.IsOpen() {
 		t.Fail()
 	}
@@ -51,4 +50,20 @@ func TestInit(t *testing.T) {
 		t.Fail()
 	}
 	client.Close()
+}
+
+func TestRegisterStruct(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+
+	defer client.Close()
+
+	register := make([]interface{}, 1)
+	register[0] = TestStruct{
+		time:    time.Now().Unix(),
+		didOpen: false,
+		name:    "",
+	}
+	client.RegisterStruct(register)
 }
