@@ -201,7 +201,7 @@ func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 
 	client.mutex.Lock()
 	err := client.dbmap.Insert(o...)
-	client.mutex.Unock()
+	client.mutex.Unlock()
 	return err == nil, err
 }
 
