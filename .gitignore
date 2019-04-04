@@ -13,3 +13,4 @@
 
 tickle-stock-watcher
 *.json
+vendor/*
