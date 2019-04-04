@@ -2,7 +2,6 @@ package database_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 )
@@ -56,14 +55,37 @@ func TestRegisterStruct(t *testing.T) {
 	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
 	client := database.CreateClient()
 	client.Init(credential)
+	client.Open()
 
 	defer client.Close()
 
-	register := make([]interface{}, 1)
-	register[0] = TestStruct{
-		time:    time.Now().Unix(),
-		didOpen: false,
-		name:    "",
+	register := make([]database.DBRegisterForm, 1)
+	keyCols := make([]string, 1)
+	keyCols[0] = "name"
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		SetKeys:    true,
+		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)
+}
+
+func TestDropTable(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		SetKeys:    false,
+		KeyColumns: nil,
+	}
+	client.RegisterStruct(register)
+	client.DropTable(register)
 }

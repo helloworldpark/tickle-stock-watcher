@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"reflect"
 	"sync"
 
 	"github.com/go-gorp/gorp"
@@ -57,7 +57,6 @@ func (client *DBClient) Init(credential DBCredential) {
 	client.mutex.Lock()
 	client.credential = credential
 	client.mutex.Unlock()
-	client.Open()
 }
 
 // openingQuery generates SQL query for connection to database
@@ -99,6 +98,9 @@ func (client *DBClient) Open() {
 		client.db = db
 
 		dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"}}
+		if dbmap == nil {
+			logger.Panic("DBMap is nil")
+		}
 		client.dbmap = dbmap
 	}
 }
@@ -127,26 +129,52 @@ func (client *DBClient) IsOpen() bool {
 	return client.ref.Count() > 0
 }
 
+// DBRegisterForm is a struct for registering struct type as a DB table
+type DBRegisterForm struct {
+	BaseStruct    interface{}
+	Name          string
+	SetKeys       bool
+	AutoIncrement bool
+	KeyColumns    []string
+}
+
 // RegisterStruct registers struct types to gorp.DbMap
 // Use this method as such:
-//  	register := make([]interface{})
-// 		register = append(register, Stock{})
-//      register = append(register, User{})
+//  	register := make([]DBRegisterForm{}, 2)
+// 		register[0] = Stock{}
+//      register[1] = User{}
 // 		RegisterStruct(register)
-func (client *DBClient) RegisterStruct(dummySlice []interface{}) {
+func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	if !client.IsOpen() {
 		return
 	}
 
-	for _, dummy := range dummySlice {
-		fmt.Printf("%v", dummy)
-		fmt.Printf("%v", client.dbmap)
-		client.dbmap.AddTable(dummy)
+	for _, form := range forms {
+		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
+		if form.SetKeys {
+			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
+		}
 	}
 	err := client.dbmap.CreateTablesIfNotExists()
 	if err != nil {
 		logger.Error("Creating table failed: %s", err.Error())
 	} else {
-		fmt.Println("Created table")
+		logger.Info("Created table")
+	}
+}
+
+// DropTable drops table of struct if exists
+func (client *DBClient) DropTable(forms []DBRegisterForm) {
+	if !client.IsOpen() {
+		return
+	}
+	var err error
+	for _, form := range forms {
+		err = client.dbmap.DropTableIfExists(form.BaseStruct)
+		if err != nil {
+			logger.Error("Dropping table failed: %s", err.Error())
+		} else {
+			logger.Info("Dropped table %s", reflect.TypeOf(form.BaseStruct).Name())
+		}
 	}
 }
