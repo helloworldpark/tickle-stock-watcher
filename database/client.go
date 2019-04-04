@@ -150,6 +150,7 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 		return
 	}
 
+	client.mutex.Lock()
 	for _, form := range forms {
 		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
 		if form.SetKeys {
@@ -162,6 +163,7 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	} else {
 		logger.Info("Created table")
 	}
+	client.mutex.Unlock()
 }
 
 // DropTable drops table of struct if exists
@@ -170,6 +172,7 @@ func (client *DBClient) DropTable(forms []DBRegisterForm) {
 		return
 	}
 	var err error
+	client.mutex.Lock()
 	for _, form := range forms {
 		err = client.dbmap.DropTableIfExists(form.BaseStruct)
 		if err != nil {
@@ -178,6 +181,7 @@ func (client *DBClient) DropTable(forms []DBRegisterForm) {
 			logger.Info("Dropped table %s", reflect.TypeOf(form.BaseStruct).Name())
 		}
 	}
+	client.mutex.Unlock()
 }
 
 type dbError struct {
@@ -195,7 +199,9 @@ func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	client.mutex.Lock()
 	err := client.dbmap.Insert(o...)
+	client.mutex.Unock()
 	return err == nil, err
 }
 
@@ -205,7 +211,9 @@ func (client *DBClient) Update(o ...interface{}) (bool, error) {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	client.mutex.Lock()
 	_, err := client.dbmap.Update(o...)
+	client.mutex.Unlock()
 	return err == nil, err
 }
 
@@ -215,7 +223,9 @@ func (client *DBClient) Select(bucket interface{}, query string, args ...interfa
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	client.mutex.Lock()
 	_, err := client.dbmap.Select(bucket, query, args...)
+	client.mutex.Unlock()
 	return err == nil, err
 }
 
@@ -236,6 +246,8 @@ func (client *DBClient) Delete(typeIndicator interface{}, query string, args ...
 	}
 
 	query = "delete from " + tableMap.TableName + " " + query
+	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)
+	client.mutex.Unlock()
 	return err == nil, err
 }
