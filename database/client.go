@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/go-gorp/gorp"
@@ -177,4 +178,64 @@ func (client *DBClient) DropTable(forms []DBRegisterForm) {
 			logger.Info("Dropped table %s", reflect.TypeOf(form.BaseStruct).Name())
 		}
 	}
+}
+
+type dbError struct {
+	msg string
+}
+
+func (err *dbError) Error() string {
+	return err.msg
+}
+
+// Insert inserts struct to database
+// Returns (false, nonnil error) if something wrong has happened
+func (client *DBClient) Insert(o ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	err := client.dbmap.Insert(o...)
+	return err == nil, err
+}
+
+// Update updates value to the database
+func (client *DBClient) Update(o ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	_, err := client.dbmap.Update(o...)
+	return err == nil, err
+}
+
+// Select returns the list matching the query through argument bucket.
+func (client *DBClient) Select(bucket interface{}, query string, args ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	_, err := client.dbmap.Select(bucket, query, args...)
+	return err == nil, err
+}
+
+// Delete deletes by appending a query starting with 'where'
+func (client *DBClient) Delete(typeIndicator interface{}, query string, args ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	query = strings.TrimSpace(query)
+	if !strings.HasPrefix(query, "where") {
+		return false, &dbError{msg: "Query string must start with 'where'"}
+	}
+
+	tableMap, err := client.dbmap.TableFor(reflect.TypeOf(typeIndicator), false)
+	if err != nil {
+		return false, err
+	}
+
+	query = "delete from " + tableMap.TableName + " " + query
+	_, err = client.dbmap.Exec(query, args...)
+	return err == nil, err
 }
