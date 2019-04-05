@@ -2,8 +2,6 @@ package watcher
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/anaskhan96/soup"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
@@ -11,16 +9,22 @@ import (
 )
 
 const (
+	dateFormat   = "2006.01.02"
 	pastURLormat = "https://finance.naver.com/item/sise_day.nhn?code=%s&page=%d"
 )
 
-// UnitCrawler is a crawler for a single stock
-type UnitCrawler struct {
+// UnitCrawler is a crawler
+type UnitCrawler interface {
+	Crawl(page int)
+}
+
+// PastCrawler is a crawler for a single stock for the past prices
+type PastCrawler struct {
 	Stock commons.Stock
 }
 
 // Crawl actually performs crawling
-func (worker UnitCrawler) Crawl(page int) {
+func (worker *PastCrawler) Crawl(page int) {
 	response, err := soup.Get(fmt.Sprintf(pastURLormat, worker.Stock.StockID, page))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
@@ -42,34 +46,14 @@ func (worker UnitCrawler) Crawl(page int) {
 	priceContents := daySiseContent.FindAll("tr", "onmouseover", "mouseOver(this)")
 	for _, row := range priceContents {
 		rowContents := row.FindAll("span")
-		rowDate := getDate(rowContents[0])
-		rowClose := getInteger(rowContents[1])
-		rowOpen := getInteger(rowContents[3])
-		rowHigh := getInteger(rowContents[4])
-		rowLow := getInteger(rowContents[5])
-		rowVolumn := getFloat(rowContents[6])
+		rowDate := commons.GetTimestamp(dateFormat, rowContents[0].Text())
+		rowClose := commons.GetInt(rowContents[1].Text())
+		rowOpen := commons.GetInt(rowContents[3].Text())
+		rowHigh := commons.GetInt(rowContents[4].Text())
+		rowLow := commons.GetInt(rowContents[5].Text())
+		rowVolumn := commons.GetDouble(rowContents[6].Text())
 
-		logger.Info("[Watcher] %s %d %d %d %d %f", rowDate, rowClose, rowOpen, rowHigh, rowLow, rowVolumn)
+		logger.Info("[Watcher] %d %d %d %d %d %f", rowDate, rowClose, rowOpen, rowHigh, rowLow, rowVolumn)
 	}
 
-}
-
-func getInteger(r soup.Root) int {
-	val, err := strconv.ParseInt(strings.ReplaceAll(r.Text(), ",", ""), 10, 32)
-	if err != nil {
-		logger.Panic("[Watcher] %s", err.Error())
-	}
-	return int(val)
-}
-
-func getDate(r soup.Root) string {
-	return r.Text()
-}
-
-func getFloat(r soup.Root) float64 {
-	val, err := strconv.ParseFloat(strings.ReplaceAll(r.Text(), ",", ""), 64)
-	if err != nil {
-		logger.Panic("[Watcher] %s", err.Error())
-	}
-	return val
 }
