@@ -13,19 +13,9 @@ const (
 	pastURLormat = "https://finance.naver.com/item/sise_day.nhn?code=%s&page=%d"
 )
 
-// UnitCrawler is a crawler
-type UnitCrawler interface {
-	Crawl(page int)
-}
-
-// PastCrawler is a crawler for a single stock for the past prices
-type PastCrawler struct {
-	Stock commons.Stock
-}
-
-// Crawl actually performs crawling
-func (worker *PastCrawler) Crawl(page int) {
-	response, err := soup.Get(fmt.Sprintf(pastURLormat, worker.Stock.StockID, page))
+// CrawlPast actually performs crawling
+func CrawlPast(stockID string, page int) {
+	response, err := soup.Get(fmt.Sprintf(pastURLormat, stockID, page))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
 		return

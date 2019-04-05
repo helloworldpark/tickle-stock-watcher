@@ -9,7 +9,5 @@ import (
 
 func TestCrawl(t *testing.T) {
 	stock := commons.Stock{Name: "Samsung Electronics", MarketType: commons.KOSPI, StockID: "005930"}
-	crawler := watcher.PastCrawler{Stock: stock}
-
-	crawler.Crawl(2)
+	watcher.CrawlPast(stock.StockID, 2)
 }
