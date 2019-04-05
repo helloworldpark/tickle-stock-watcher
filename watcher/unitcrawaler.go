@@ -22,16 +22,13 @@ func CrawlPast(stockID string, page int) {
 	}
 
 	daySise := soup.HTMLParse(response)
-	if daySise.Pointer == nil {
-		logger.Error("[Watcher] %s", daySise.Error.Error())
-		return
-	}
+	handleSoupError(daySise)
 
-	daySiseContent := daySise.Find("table", "class", "type2").Find("tbody")
-	if daySiseContent.Pointer == nil {
-		logger.Error("[Watcher] %s", daySiseContent.Error.Error())
-		return
-	}
+	daySiseContent := daySise.Find("table", "class", "type2")
+	handleSoupError(daySiseContent)
+
+	daySiseContent = daySiseContent.Find("tbody")
+	handleSoupError(daySiseContent)
 
 	priceContents := daySiseContent.FindAll("tr", "onmouseover", "mouseOver(this)")
 	for _, row := range priceContents {
@@ -45,5 +42,10 @@ func CrawlPast(stockID string, page int) {
 
 		logger.Info("[Watcher] %d %d %d %d %d %f", rowDate, rowClose, rowOpen, rowHigh, rowLow, rowVolumn)
 	}
+}
 
+func handleSoupError(r soup.Root) {
+	if r.Pointer == nil {
+		logger.Panic("[Watcher] %s", r.Error.Error())
+	}
 }
