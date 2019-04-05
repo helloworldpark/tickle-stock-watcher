@@ -8,6 +8,7 @@ require (
 	github.com/Shopify/sarama v1.21.0 // indirect
 	github.com/aclements/go-gg v0.0.0-20170323211221-abd1f791f5ee // indirect
 	github.com/aclements/go-moremath v0.0.0-20180329182055-b1aff36309c7 // indirect
+	github.com/anaskhan96/soup v1.1.1
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e // indirect
 	github.com/gliderlabs/ssh v0.1.3 // indirect
 	github.com/go-gorp/gorp v2.0.0+incompatible
