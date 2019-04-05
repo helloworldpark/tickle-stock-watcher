@@ -11,3 +11,8 @@ func TestCrawl(t *testing.T) {
 	stock := commons.Stock{Name: "Samsung Electronics", MarketType: commons.KOSPI, StockID: "005930"}
 	watcher.CrawlPast(stock.StockID, 2)
 }
+
+func TestCrawlNow(t *testing.T) {
+	stock := commons.Stock{Name: "Samsung Electronics", MarketType: commons.KOSPI, StockID: "005930"}
+	watcher.CrawlNow(stock.StockID, 0)
+}

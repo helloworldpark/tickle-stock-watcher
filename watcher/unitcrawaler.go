@@ -9,13 +9,14 @@ import (
 )
 
 const (
-	dateFormat   = "2006.01.02"
-	pastURLormat = "https://finance.naver.com/item/sise_day.nhn?code=%s&page=%d"
+	dateFormat    = "2006.01.02"
+	pastURLFormat = "https://finance.naver.com/item/sise_day.nhn?code=%s&page=%d"
+	nowURLFormat  = "https://finance.naver.com/item/main.nhn?code=%s"
 )
 
-// CrawlPast actually performs crawling
+// CrawlPast actually performs crawling for the past prices
 func CrawlPast(stockID string, page int) {
-	response, err := soup.Get(fmt.Sprintf(pastURLormat, stockID, page))
+	response, err := soup.Get(fmt.Sprintf(pastURLFormat, stockID, page))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
 		return
@@ -42,6 +43,33 @@ func CrawlPast(stockID string, page int) {
 
 		logger.Info("[Watcher] %d %d %d %d %d %f", rowDate, rowClose, rowOpen, rowHigh, rowLow, rowVolumn)
 	}
+}
+
+// CrawlNow actually performs crawling for the current prices
+func CrawlNow(stockID string, page int) {
+	response, err := soup.Get(fmt.Sprintf(nowURLFormat, stockID))
+	if err != nil {
+		logger.Error("[Watcher] %s", err.Error())
+		return
+	}
+
+	daySise := soup.HTMLParse(response)
+	handleSoupError(daySise)
+
+	nowSise := daySise.Find("div", "id", "chart_area")
+	handleSoupError(nowSise)
+
+	nowSise = daySise.Find("div", "class", "today")
+	handleSoupError(nowSise)
+
+	nowSise = nowSise.Find("em")
+	handleSoupError(nowSise)
+
+	nowSise = nowSise.Find("span", "class", "blind")
+	handleSoupError(nowSise)
+
+	price := commons.GetInt(nowSise.Text())
+	logger.Info("Price: %d", price)
 }
 
 func handleSoupError(r soup.Root) {
