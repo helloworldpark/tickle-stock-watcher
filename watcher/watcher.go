@@ -31,13 +31,13 @@ func New() Watcher {
 }
 
 // Register use it to register a new stock of interest.
-func (w Watcher) Register(stock Stock) {
+func (w *Watcher) Register(stock Stock) {
 	ref, _ := w.crawlers[stock]
 	w.crawlers[stock] = ref + 1
 }
 
 // Withdraw withdraws a stock which was of interest.
-func (w Watcher) Withdraw(stock Stock) {
+func (w *Watcher) Withdraw(stock Stock) {
 	ref, ok := w.crawlers[stock]
 	if !ok {
 		return
@@ -52,7 +52,9 @@ func (w Watcher) Withdraw(stock Stock) {
 // StartWatching use it to start watching the market.
 // sleepTime : This is for making the crawler to sleep for a while. Necessary not to be blacklisted by the data providers.
 // returns : <-chan StockPrice, which will give stock price until StopWatching is called.
-func (w Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
+func (w *Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
+	// Prepare new sentinel
+	w.sentinel = make(chan struct{})
 	// Construct function
 	workerFuncGenerator := func(stockID string, sentinel <-chan struct{}) workerFunc {
 		f := func() <-chan StockPrice {
@@ -102,15 +104,13 @@ func (w Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
 }
 
 // StopWatching call it when to stop watching the market.
-func (w Watcher) StopWatching() {
+func (w *Watcher) StopWatching() {
 	// Send signal to sentinel
 	close(w.sentinel)
-	// Prepare new sentinel
-	w.sentinel = make(chan struct{})
 }
 
 // Collect collects the past price data of the market.
-func (w Watcher) Collect() {
+func (w *Watcher) Collect() {
 	// Construct function
 
 	// Fan In
