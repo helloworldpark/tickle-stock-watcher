@@ -67,7 +67,6 @@ func TestRegisterStruct(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    true,
 		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)
@@ -85,7 +84,6 @@ func TestDropTable(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    false,
 		KeyColumns: nil,
 	}
 	client.RegisterStruct(register)
@@ -106,7 +104,6 @@ func TestInsert(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    true,
 		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)
@@ -134,7 +131,6 @@ func TestSelect(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    true,
 		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)
@@ -179,7 +175,6 @@ func TestDelete(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    true,
 		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)
@@ -205,7 +200,6 @@ func TestDeleteWrongQuery(t *testing.T) {
 	register[0] = database.DBRegisterForm{
 		BaseStruct: TestStruct{},
 		Name:       "",
-		SetKeys:    true,
 		KeyColumns: keyCols,
 	}
 	client.RegisterStruct(register)

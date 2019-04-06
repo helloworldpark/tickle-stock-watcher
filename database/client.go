@@ -134,9 +134,15 @@ func (client *DBClient) IsOpen() bool {
 type DBRegisterForm struct {
 	BaseStruct    interface{}
 	Name          string
-	SetKeys       bool
 	AutoIncrement bool
 	KeyColumns    []string
+	UniqueColumns []string
+}
+
+// DBRegisterable is an interface every struct which should be recorded in database should implement
+type DBRegisterable interface {
+	// GetDBRegisterForm returns a DBRegisterForm struct
+	GetDBRegisterForm() DBRegisterForm
 }
 
 // RegisterStruct registers struct types to gorp.DbMap
@@ -153,8 +159,37 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	client.mutex.Lock()
 	for _, form := range forms {
 		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
-		if form.SetKeys {
+		if form.KeyColumns != nil && len(form.KeyColumns) > 0 {
 			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
+		}
+		if form.UniqueColumns != nil && len(form.UniqueColumns) > 1 {
+			table.SetUniqueTogether(form.UniqueColumns...)
+		}
+	}
+	err := client.dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		logger.Error("Creating table failed: %s", err.Error())
+	} else {
+		logger.Info("Created table")
+	}
+	client.mutex.Unlock()
+}
+
+// RegisterStructFromRegisterables registers structs from slice of DBRegisterable
+func (client *DBClient) RegisterStructFromRegisterables(registerables []DBRegisterable) {
+	if !client.IsOpen() {
+		return
+	}
+
+	client.mutex.Lock()
+	for _, r := range registerables {
+		form := r.GetDBRegisterForm()
+		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
+		if form.KeyColumns != nil && len(form.KeyColumns) > 0 {
+			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
+		}
+		if form.UniqueColumns != nil && len(form.UniqueColumns) > 1 {
+			table.SetUniqueTogether(form.UniqueColumns...)
 		}
 	}
 	err := client.dbmap.CreateTablesIfNotExists()

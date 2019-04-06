@@ -6,6 +6,7 @@ import (
 	"github.com/anaskhan96/soup"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
 
 const (
@@ -46,11 +47,11 @@ func CrawlPast(stockID string, page int) {
 }
 
 // CrawlNow actually performs crawling for the current prices
-func CrawlNow(stockID string, page int) commons.StockPrice {
+func CrawlNow(stockID string, page int) structs.StockPrice {
 	response, err := soup.Get(fmt.Sprintf(nowURLFormat, stockID))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
-		return commons.StockPrice{Close: -1}
+		return structs.StockPrice{Close: -1}
 	}
 
 	daySise := soup.HTMLParse(response)
@@ -70,7 +71,7 @@ func CrawlNow(stockID string, page int) commons.StockPrice {
 
 	price := commons.GetInt(nowSise.Text())
 
-	stockPrice := commons.StockPrice{Close: price}
+	stockPrice := structs.StockPrice{Close: price}
 	return stockPrice
 }
 

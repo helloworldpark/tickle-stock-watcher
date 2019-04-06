@@ -4,14 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/helloworldpark/tickle-stock-watcher/commons"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
 
 // StockPrice is just a simple type alias
-type StockPrice = commons.StockPrice
+type StockPrice = structs.StockPrice
 
 // Stock is just a simple type alias
-type Stock = commons.Stock
+type Stock = structs.Stock
 type workerFunc = func() <-chan StockPrice
 
 // Watcher is a struct for watching the market
