@@ -46,11 +46,11 @@ func CrawlPast(stockID string, page int) {
 }
 
 // CrawlNow actually performs crawling for the current prices
-func CrawlNow(stockID string, page int) {
+func CrawlNow(stockID string, page int) commons.StockPrice {
 	response, err := soup.Get(fmt.Sprintf(nowURLFormat, stockID))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
-		return
+		return commons.StockPrice{Close: -1}
 	}
 
 	daySise := soup.HTMLParse(response)
@@ -69,7 +69,9 @@ func CrawlNow(stockID string, page int) {
 	handleSoupError(nowSise)
 
 	price := commons.GetInt(nowSise.Text())
-	logger.Info("Price: %d", price)
+
+	stockPrice := commons.StockPrice{Close: price}
+	return stockPrice
 }
 
 func handleSoupError(r soup.Root) {
