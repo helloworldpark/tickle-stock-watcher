@@ -15,12 +15,9 @@ type StockPrice struct {
 
 // GetDBRegisterForm is just an implementation
 func (s StockPrice) GetDBRegisterForm() database.DBRegisterForm {
-	uniqueCols := make([]string, 2)
-	uniqueCols[0] = "StockID"
-	uniqueCols[1] = "Timestamp"
 	form := database.DBRegisterForm{
 		BaseStruct:    StockPrice{},
-		UniqueColumns: uniqueCols,
+		UniqueColumns: []string{"StockID", "Timestamp"},
 	}
 	return form
 }

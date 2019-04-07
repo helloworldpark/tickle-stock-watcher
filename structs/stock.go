@@ -21,11 +21,9 @@ type Stock struct {
 
 // GetDBRegisterForm is just an implementation
 func (s Stock) GetDBRegisterForm() database.DBRegisterForm {
-	keyCols := make([]string, 1)
-	keyCols[0] = "StockID"
 	form := database.DBRegisterForm{
 		BaseStruct: Stock{},
-		KeyColumns: keyCols,
+		KeyColumns: []string{"StockID"},
 	}
 	return form
 }

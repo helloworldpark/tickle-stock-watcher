@@ -1,6 +1,7 @@
 package database_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -209,4 +210,36 @@ func TestDeleteWrongQuery(t *testing.T) {
 		logger.Error("Test Failed")
 	}
 	logger.Error("Test Success: %s", err.Error())
+}
+
+func TestSelectNull(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	keyCols := make([]string, 1)
+	keyCols[0] = "Time"
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		KeyColumns: keyCols,
+	}
+	client.RegisterStruct(register)
+
+	var bucket []TestStruct
+	fmt.Println(bucket)
+	fmt.Println(len(bucket))
+	fmt.Println(bucket == nil)
+	ok, err := client.Select(&bucket, "select * from TestStruct where Time=(select max(Time) from TestStruct where Name=?)", "Pepe")
+	if !ok {
+		logger.Error("Select failed: %s", err.Error())
+		t.Fail()
+	}
+	for _, v := range bucket {
+		logger.Info("%v", v)
+	}
 }
