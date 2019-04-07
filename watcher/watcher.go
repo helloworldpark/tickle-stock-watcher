@@ -45,26 +45,51 @@ func New(dbClient *database.DBClient) Watcher {
 // Else, it will collect price data from the beginning.
 func (w *Watcher) Register(stock Stock) {
 	_, ok := w.crawlers[stock.StockID]
-	if !ok {
-		var lastPrice []StockPrice
-		_, err := w.dbClient.Select(&lastPrice, "select * from StockPrice where Timestamp=(select max(Timestamp) from StockPrice where StockID=?)", stock.StockID)
-		if err != nil {
-			logger.Error("[Watcher] Error while peeking last price of %s: %s", stock.StockID, err.Error())
-		}
-		if len(lastPrice) == 0 {
-			w.crawlers[stock.StockID] = 0
-		} else {
-			w.crawlers[stock.StockID] = lastPrice[0].Timestamp
-		}
+	if ok {
+		return
+	}
+	var watchingStock []WatchingStock
+	_, err := w.dbClient.Select(watchingStock, "where StockID=?", stock.StockID)
+	if err != nil {
+		logger.Error("[Watcher] Error while querying WatcherStock from DB: %s", err.Error())
+		return
+	}
+	var newWatchingStock WatchingStock
+	if len(watchingStock) == 0 {
+		newWatchingStock.StockID = stock.StockID
+		newWatchingStock.IsWatching = true
+		newWatchingStock.LastPriceTimestamp = 0
+	} else {
+		newWatchingStock = watchingStock[0]
+		newWatchingStock.IsWatching = true
+	}
+	w.crawlers[stock.StockID] = newWatchingStock.LastPriceTimestamp
+	ok, _ = w.dbClient.Insert(&newWatchingStock)
+	if ok {
+		return
+	}
+	_, err = w.dbClient.Update(&newWatchingStock)
+	if err != nil {
+		logger.Error("[Watcher] %s", err.Error())
 	}
 }
 
 // Withdraw withdraws a stock which was of interest.
 func (w *Watcher) Withdraw(stock Stock) {
-	_, ok := w.crawlers[stock.StockID]
-	if ok {
-		delete(w.crawlers, stock.StockID)
+	lastTimestamp, ok := w.crawlers[stock.StockID]
+	if !ok {
+		return
 	}
+	watchingStock := WatchingStock{
+		StockID:            stock.StockID,
+		IsWatching:         false,
+		LastPriceTimestamp: lastTimestamp,
+	}
+	_, err := w.dbClient.Update(&watchingStock)
+	if err != nil {
+		logger.Error("[Watcher] Error while deleting WatchingStock: %s", err.Error())
+	}
+	delete(w.crawlers, stock.StockID)
 }
 
 // StartWatching use it to start watching the market.
@@ -129,6 +154,17 @@ func (w *Watcher) StopWatching() {
 
 // Collect collects the past price data of the market.
 func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
+	// 수집하기 전에 마지막으로 수집한 데가 어딘지 업데이트해둔다
+	var watching []WatchingStock
+	_, errWatching := w.dbClient.Select(watching, "where IsWatching=?", true)
+	if errWatching != nil {
+		logger.Error("[Watcher] Error while querying WatchingStock: %s", errWatching.Error())
+		return
+	}
+	for _, v := range watching {
+		w.crawlers[v.StockID] = v.LastPriceTimestamp
+	}
+
 	now := time.Now()
 	timezone, _ := time.LoadLocation("Asia/Seoul")
 	twoYearsBefore := time.Date(now.Year(), now.Month()-1, now.Day(), 0, 0, 0, 0, timezone)
@@ -242,6 +278,4 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 		}
 	}
 	wg2.Wait()
-
-	logger.Error("HERE??")
 }

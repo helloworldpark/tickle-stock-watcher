@@ -253,13 +253,30 @@ func (client *DBClient) Update(o ...interface{}) (bool, error) {
 }
 
 // Select returns the list matching the query through argument bucket.
+// Only slice is allowed to the argument `bucket`
 func (client *DBClient) Select(bucket interface{}, query string, args ...interface{}) (bool, error) {
 	if !client.IsOpen() {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	query = strings.TrimSpace(query)
+	if !strings.HasPrefix(query, "where") {
+		return false, &dbError{msg: "Query string must start with 'where'"}
+	}
+
+	t := reflect.TypeOf(bucket)
+	if t.Kind() != reflect.Slice {
+		return false, &dbError{msg: "Argument 'bucket' must be a slice"}
+	}
+
+	tableMap, err := client.dbmap.TableFor(t.Elem(), false)
+	if err != nil {
+		return false, err
+	}
+
+	query = "select * from " + tableMap.TableName + " " + query
 	client.mutex.Lock()
-	_, err := client.dbmap.Select(bucket, query, args...)
+	_, err = client.dbmap.Select(bucket, query, args...)
 	client.mutex.Unlock()
 	return err == nil, err
 }

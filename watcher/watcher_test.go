@@ -2,6 +2,7 @@ package watcher_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -60,4 +61,10 @@ func TestCrawlPast(t *testing.T) {
 
 	w.Collect(time.Duration(1000)*time.Millisecond, time.Duration(250)*time.Millisecond)
 	logger.Info("Finished!!")
+}
+
+func TestReflect(t *testing.T) {
+	aa := reflect.TypeOf([]structs.Stock{structs.Stock{}})
+	fmt.Println(aa)
+	fmt.Printf("Name: %v Kind: %v Elem: %v", aa.Name(), aa.Kind(), aa.Elem())
 }
