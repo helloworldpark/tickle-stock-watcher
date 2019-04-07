@@ -167,13 +167,13 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 
 	now := time.Now()
 	timezone, _ := time.LoadLocation("Asia/Seoul")
+	// TODO: 주식시장 개장일인지로 체크하는 로직으로 변경할 것
 	twoYearsBefore := time.Date(now.Year(), now.Month()-1, now.Day(), 0, 0, 0, 0, timezone)
 	if twoYearsBefore.Weekday() == time.Sunday {
 		twoYearsBefore = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, timezone)
 	} else if twoYearsBefore.Weekday() == time.Saturday {
 		twoYearsBefore = time.Date(now.Year(), now.Month(), now.Day()+2, 0, 0, 0, 0, timezone)
 	}
-	fmt.Println(twoYearsBefore)
 	timestampTwoYears := twoYearsBefore.Unix()
 
 	// Construct function
@@ -195,7 +195,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 					}
 
 					k := sort.Search(len(collected), func(i int) bool {
-						return pivotValue > collected[i].Timestamp
+						return collected[i].Timestamp <= pivotValue
 					})
 					shouldStop := k < len(collected)
 					return !shouldStop, k
