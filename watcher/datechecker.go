@@ -12,34 +12,40 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
+// DateChecker is a struct holding holidays as a map
 type DateChecker struct {
-	Holidays map[int64]bool
+	holidays map[int64]bool
 }
 
+// NewDateChecker returns a new DateChecker with holidays unfilled.
+// User must update the holidays.
 func NewDateChecker() DateChecker {
 	checker := DateChecker{
-		Holidays: make(map[int64]bool),
+		holidays: make(map[int64]bool),
 	}
 	return checker
 }
 
+// Year returns the current year.
 func (c *DateChecker) Year() int {
 	return time.Now().Year()
 }
 
+// IsHoliday checks if the day is holiday or not.
 func (c *DateChecker) IsHoliday(day time.Time) bool {
 	zeroDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
-	_, ok := c.Holidays[zeroDay.Unix()]
+	_, ok := c.holidays[zeroDay.Unix()]
 	return ok
 }
 
+// UpdateHolidays updates the holidays of the given year.
 func (c *DateChecker) UpdateHolidays(year int) {
 	holidays := downloadHolidays(year)
 	if len(holidays) == 0 {
 		return
 	}
 	for _, v := range holidays {
-		c.Holidays[v] = true
+		c.holidays[v] = true
 	}
 }
 
