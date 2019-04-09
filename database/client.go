@@ -134,9 +134,15 @@ func (client *DBClient) IsOpen() bool {
 type DBRegisterForm struct {
 	BaseStruct    interface{}
 	Name          string
-	SetKeys       bool
 	AutoIncrement bool
 	KeyColumns    []string
+	UniqueColumns []string
+}
+
+// DBRegisterable is an interface every struct which should be recorded in database should implement
+type DBRegisterable interface {
+	// GetDBRegisterForm returns a DBRegisterForm struct
+	GetDBRegisterForm() DBRegisterForm
 }
 
 // RegisterStruct registers struct types to gorp.DbMap
@@ -153,8 +159,37 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	client.mutex.Lock()
 	for _, form := range forms {
 		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
-		if form.SetKeys {
+		if form.KeyColumns != nil && len(form.KeyColumns) > 0 {
 			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
+		}
+		if form.UniqueColumns != nil && len(form.UniqueColumns) > 1 {
+			table.SetUniqueTogether(form.UniqueColumns...)
+		}
+	}
+	err := client.dbmap.CreateTablesIfNotExists()
+	if err != nil {
+		logger.Error("Creating table failed: %s", err.Error())
+	} else {
+		logger.Info("Created table")
+	}
+	client.mutex.Unlock()
+}
+
+// RegisterStructFromRegisterables registers structs from slice of DBRegisterable
+func (client *DBClient) RegisterStructFromRegisterables(registerables []DBRegisterable) {
+	if !client.IsOpen() {
+		return
+	}
+
+	client.mutex.Lock()
+	for _, r := range registerables {
+		form := r.GetDBRegisterForm()
+		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
+		if form.KeyColumns != nil && len(form.KeyColumns) > 0 {
+			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
+		}
+		if form.UniqueColumns != nil && len(form.UniqueColumns) > 1 {
+			table.SetUniqueTogether(form.UniqueColumns...)
 		}
 	}
 	err := client.dbmap.CreateTablesIfNotExists()
@@ -218,13 +253,30 @@ func (client *DBClient) Update(o ...interface{}) (bool, error) {
 }
 
 // Select returns the list matching the query through argument bucket.
+// Only slice is allowed to the argument `bucket`
 func (client *DBClient) Select(bucket interface{}, query string, args ...interface{}) (bool, error) {
 	if !client.IsOpen() {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	query = strings.TrimSpace(query)
+	if !strings.HasPrefix(query, "where") {
+		return false, &dbError{msg: "Query string must start with 'where'"}
+	}
+
+	t := reflect.TypeOf(bucket)
+	if t.Kind() != reflect.Slice {
+		return false, &dbError{msg: "Argument 'bucket' must be a slice"}
+	}
+
+	tableMap, err := client.dbmap.TableFor(t.Elem(), false)
+	if err != nil {
+		return false, err
+	}
+
+	query = "select * from " + tableMap.TableName + " " + query
 	client.mutex.Lock()
-	_, err := client.dbmap.Select(bucket, query, args...)
+	_, err = client.dbmap.Select(bucket, query, args...)
 	client.mutex.Unlock()
 	return err == nil, err
 }

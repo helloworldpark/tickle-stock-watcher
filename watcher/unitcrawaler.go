@@ -6,6 +6,7 @@ import (
 	"github.com/anaskhan96/soup"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
 
 const (
@@ -15,11 +16,11 @@ const (
 )
 
 // CrawlPast actually performs crawling for the past prices
-func CrawlPast(stockID string, page int) {
+func CrawlPast(stockID string, page int) []structs.StockPrice {
 	response, err := soup.Get(fmt.Sprintf(pastURLFormat, stockID, page))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
-		return
+		return nil
 	}
 
 	daySise := soup.HTMLParse(response)
@@ -32,25 +33,38 @@ func CrawlPast(stockID string, page int) {
 	handleSoupError(daySiseContent)
 
 	priceContents := daySiseContent.FindAll("tr", "onmouseover", "mouseOver(this)")
-	for _, row := range priceContents {
+	if priceContents == nil || len(priceContents) == 0 {
+		return nil
+	}
+	result := make([]structs.StockPrice, len(priceContents))
+	for i, row := range priceContents {
 		rowContents := row.FindAll("span")
-		rowDate := commons.GetTimestamp(dateFormat, rowContents[0].Text())
+		rowTimestamp := commons.GetTimestamp(dateFormat, rowContents[0].Text())
 		rowClose := commons.GetInt(rowContents[1].Text())
 		rowOpen := commons.GetInt(rowContents[3].Text())
 		rowHigh := commons.GetInt(rowContents[4].Text())
 		rowLow := commons.GetInt(rowContents[5].Text())
 		rowVolumn := commons.GetDouble(rowContents[6].Text())
 
-		logger.Info("[Watcher] %d %d %d %d %d %f", rowDate, rowClose, rowOpen, rowHigh, rowLow, rowVolumn)
+		result[i] = structs.StockPrice{
+			StockID:   stockID,
+			Timestamp: rowTimestamp,
+			Open:      rowOpen,
+			Close:     rowClose,
+			High:      rowHigh,
+			Low:       rowLow,
+			Volume:    rowVolumn,
+		}
 	}
+	return result
 }
 
 // CrawlNow actually performs crawling for the current prices
-func CrawlNow(stockID string, page int) {
+func CrawlNow(stockID string, page int) structs.StockPrice {
 	response, err := soup.Get(fmt.Sprintf(nowURLFormat, stockID))
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
-		return
+		return structs.StockPrice{Close: -1}
 	}
 
 	daySise := soup.HTMLParse(response)
@@ -69,7 +83,9 @@ func CrawlNow(stockID string, page int) {
 	handleSoupError(nowSise)
 
 	price := commons.GetInt(nowSise.Text())
-	logger.Info("Price: %d", price)
+
+	stockPrice := structs.StockPrice{Close: price}
+	return stockPrice
 }
 
 func handleSoupError(r soup.Root) {
