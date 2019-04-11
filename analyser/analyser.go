@@ -142,15 +142,22 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 			funcParam = nil
 		}
 	}
+	fmt.Println("TokensToReplace", len(tokenToReplace))
 
 	// Switch found ones
 	var newTokens []token
 	if len(tokenToReplace) > 0 {
-		shouldReplace := func(mQuad quad, idx int) bool {
-			return mQuad.start == idx
+		shouldPop := func(t token) bool {
+			return t.Kind == govaluate.VARIABLE
 		}
-		shouldSkip := func(mQuad quad, idx int) bool {
-			return mQuad.start < idx && idx <= mQuad.end
+		replaceStart := func(mQuad quad, idx int) bool {
+			return (mQuad).start == idx
+		}
+		replaceGoing := func(mQuad quad, idx int) bool {
+			return (mQuad).start < idx && idx < (mQuad).end
+		}
+		replaceEnded := func(mQuad quad, idx int) bool {
+			return (mQuad).end == idx
 		}
 		quadToToken := func(mQuad quad) []token {
 			ret := make([]token, 0)
@@ -187,33 +194,124 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		newTokens = make([]token, 0)
 		var lastQuad *quad
 		for i, t := range tmpTokens {
+			if lastQuad != nil {
+				fmt.Println(i, t, *lastQuad, len(tokenToReplace))
+			} else {
+				fmt.Println(i, t, nil, len(tokenToReplace))
+			}
 			if len(tokenToReplace) == 0 {
+				newTokens = append(newTokens, t)
+			} else {
+				if shouldPop(t) {
+					lastQuad = &tokenToReplace[0]
+				}
 				if lastQuad == nil {
 					newTokens = append(newTokens, t)
-				} else {
-					if shouldSkip(*lastQuad, i) {
-						continue
-					}
-					newTokens = append(newTokens, t)
+					continue
 				}
-			} else {
-				lastQuad = &tokenToReplace[0]
-				if shouldReplace(*lastQuad, i) {
+				if replaceStart(*lastQuad, i) {
 					replacements := quadToToken(*lastQuad)
 					for _, r := range replacements {
 						newTokens = append(newTokens, r)
 					}
-					tokenToReplace = tokenToReplace[1:]
-				} else if shouldSkip(*lastQuad, i) {
+				} else if replaceGoing(*lastQuad, i) {
 					continue
-				} else {
-					newTokens = append(newTokens, t)
+				} else if replaceEnded(*lastQuad, i) {
+					lastQuad = nil
+					tokenToReplace = tokenToReplace[1:]
 				}
 			}
 		}
 	} else {
 		newTokens = tmpTokens
 	}
+
+	for _, t := range newTokens {
+		fmt.Printf("Kind: %v, Value: %v\n", t.Kind, t.Value)
+	}
+
+	// Convert tokens into techan strategy
+	// Tokens are put into binary tree
+	// operators:
+	//          -: 0(Negation)
+	//        * /: 1
+	//        + -: 2
+	//  < <= >= >: 3
+	//      && ||: 4
+	//        ( ): 5
+	opPrecedence := map[string]int{
+		"*": 1, "/": 1, "**": 1,
+		"+": 2, "-": 2,
+		"<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3,
+		"&&": 4, "||": 4,
+		"(": 5, ")": 5,
+	}
+	postfixToken := make([]token, 0)
+	operatorStack := make([]token, 0)
+	functionStarted := false
+	for _, t := range newTokens {
+		if functionStarted {
+			if t.Kind == govaluate.CLAUSE_CLOSE {
+				functionStarted = false
+			}
+			continue
+		}
+		if t.Kind == govaluate.FUNCTION {
+			functionStarted = true
+			postfixToken = append(postfixToken, t)
+		} else if t.Kind == govaluate.NUMERIC {
+			postfixToken = append(postfixToken, t)
+		} else if t.Kind == govaluate.COMPARATOR ||
+			t.Kind == govaluate.LOGICALOP ||
+			t.Kind == govaluate.MODIFIER ||
+			t.Kind == govaluate.CLAUSE ||
+			t.Kind == govaluate.CLAUSE_CLOSE {
+
+			op, ok := t.Value.(string)
+			if !ok {
+				clause, _ := t.Value.(int32)
+				if clause == '(' {
+					op = "("
+				} else if clause == ')' {
+					op = ")"
+				} else {
+					return false, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+				}
+			}
+			p := opPrecedence[op]
+			for j := len(operatorStack) - 1; j >= 0; j-- {
+				o := operatorStack[j]
+				// 내 연산자 순위가 스택보다 높으면
+				// 내가 들어간다
+				// 아니면
+				// 내가 스택보다 순위가 높을 때까지 애들을 다 postfixToken에 옮긴다
+				if opPrecedence[op] > p {
+					break
+				} else {
+					if o.Kind != govaluate.CLAUSE && o.Kind != govaluate.CLAUSE_CLOSE {
+						postfixToken = append(postfixToken, o)
+					}
+					operatorStack = operatorStack[:j]
+				}
+			}
+			operatorStack = append(operatorStack, t)
+		} else if t.Kind == govaluate.PREFIX {
+			// 연산자 순위가 스택보다 무조건 높으므로
+			// 내가 들어간다
+			operatorStack = append(operatorStack, t)
+		} else {
+			return false, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+		}
+	}
+	for j := len(operatorStack) - 1; j >= 0; j-- {
+		postfixToken = append(postfixToken, operatorStack[j])
+		operatorStack = operatorStack[:j]
+	}
+	fmt.Println("-------------")
+	for _, t := range postfixToken {
+		fmt.Printf("Postfix Token %v, %v\n", t.Kind, t.Value)
+	}
+	fmt.Println("-------------")
 
 	// Cache into map
 	userKey := userStockPosition{
