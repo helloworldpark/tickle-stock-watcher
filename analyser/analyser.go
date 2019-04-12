@@ -26,7 +26,7 @@ type userStockSide struct {
 type Analyser struct {
 	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
 	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
-	userStrategy    map[userStockSide]techan.Strategy
+	userStrategy    map[userStockSide]Event
 	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
 }
 
@@ -49,7 +49,7 @@ func (this AnalyserError) Error() string {
 func NewAnalyser() *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
-	newAnalyser.userStrategy = make(map[userStockSide]techan.Strategy)
+	newAnalyser.userStrategy = make(map[userStockSide]Event)
 	newAnalyser.timeSeriesCache = make(map[string]*techan.TimeSeries)
 	newAnalyser.ruleMap = make(map[string]ruleGen)
 	newAnalyser.cacheFunctions()
@@ -340,7 +340,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 	}
 
 	// Create strategy using postfix tokens
-	strategy, err := this.createStrategy(postfixToken, orderSide)
+	event, err := this.createEvent(postfixToken, orderSide)
 	if err != nil {
 		return false, err
 	}
@@ -351,7 +351,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 		stockid:   stockid,
 		orderside: orderSide,
 	}
-	this.userStrategy[userKey] = strategy
+	this.userStrategy[userKey] = event
 	return true, nil
 }
 
@@ -430,18 +430,13 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	return postfixToken, nil
 }
 
-func (this *Analyser) createStrategy(tokens []token, orderSide techan.OrderSide) (techan.Strategy, error) {
-	// rule, err := this.createRule(tokens)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	strategy := techan.RuleStrategy{UnstablePeriod: 0}
-	// if isEntry {
-	// 	strategy.EntryRule = rule
-	// } else {
-	// 	strategy.ExitRule = rule
-	// }
-	return strategy, nil
+func (this *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (Event, error) {
+	rule, err := this.createRule(tokens)
+	if err != nil {
+		return nil, err
+	}
+	event := NewEvent(orderSide, rule)
+	return event, nil
 }
 
 func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
@@ -543,7 +538,6 @@ func Test() {
 }
 
 // Analyser의 상태 관리 관련한 함수들
-
 func (this *Analyser) RegisterStock(stockid string) {
 	_, ok := this.timeSeriesCache[stockid]
 	if !ok {
