@@ -114,7 +114,24 @@ func (this *Analyser) cacheIndicators() {
 		return nil, AnalyserError{msg: fmt.Sprintf("Too much parameters: got %d, need less or equal to 3", len(a))}
 	}
 	this.indicatorMap["macd"] = funcMacd
+
 	// RSI
+	funcRsi := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 1 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Not enough parameters: got %d, need more or equal to 1", len(a))}
+		}
+		timeframe := int(a[0].(float64))
+		return newRSI(series, timeframe), nil
+	}
+	this.indicatorMap["macd"] = funcRsi
+
+	// Close Price
+	funcClose := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		return techan.NewClosePriceIndicator(series), nil
+	}
+	this.indicatorMap["close"] = funcClose
+	this.indicatorMap["price"] = funcClose
+	this.indicatorMap["closeprice"] = funcClose
 }
 
 func (this *Analyser) cacheRules() {
@@ -199,6 +216,10 @@ func (this *Analyser) cacheRules() {
 		return NewCrossEqualIndicatorRule(r1, r2), nil
 	}
 	this.ruleMap["=="] = funcEq
+}
+
+func newRSI(series *techan.TimeSeries, timeframe int) techan.Indicator {
+	return techan.NewRelativeStrengthIndexIndicator(techan.NewClosePriceIndicator(series), timeframe)
 }
 
 func newMACD(series *techan.TimeSeries, shortWindow, longWindow int) techan.Indicator {
