@@ -3,7 +3,6 @@ package analyser
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"strings"
 	"time"
 
@@ -136,87 +135,48 @@ func (this *Analyser) cacheIndicators() {
 }
 
 func (this *Analyser) cacheRules() {
-	funcAnd := func(args ...interface{}) (techan.Rule, error) {
-		if len(args) != 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+	appendRuleComparer := func(op string, ctor func(lhs, rhs techan.Rule) techan.Rule) {
+		f := func(args ...interface{}) (techan.Rule, error) {
+			if len(args) != 2 {
+				return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args))}
+			}
+			r1, ok := args[0].(techan.Rule)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+			}
+			r2, ok := args[1].(techan.Rule)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+			}
+			return ctor(r1, r2), nil
 		}
-		r1, ok := args[0].(techan.Rule)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
-		}
-		r2, ok := args[1].(techan.Rule)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
-		}
-		return techan.And(r1, r2), nil
+		this.ruleMap[op] = f
 	}
-	this.ruleMap["&&"] = funcAnd
+	appendRuleComparer("&&", techan.And)
+	appendRuleComparer("||", techan.Or)
 
-	funcOr := func(args ...interface{}) (techan.Rule, error) {
-		if len(args) != 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+	appendIndicatorComparer := func(op string, ctor func(lhs, rhs techan.Indicator) techan.Rule) {
+		f := func(args ...interface{}) (techan.Rule, error) {
+			if len(args) != 2 {
+				return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args))}
+			}
+			r1, ok := args[0].(techan.Indicator)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+			}
+			r2, ok := args[1].(techan.Indicator)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+			}
+			return ctor(r1, r2), nil
 		}
-		r1, ok := args[0].(techan.Rule)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
-		}
-		r2, ok := args[1].(techan.Rule)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
-		}
-		return techan.Or(r1, r2), nil
+		this.ruleMap[op] = f
 	}
-	this.ruleMap["||"] = funcOr
-
-	funcGrt := func(args ...interface{}) (techan.Rule, error) {
-		if len(args) != 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
-		}
-		r1, ok := args[0].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
-		}
-		r2, ok := args[1].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
-		}
-		return techan.NewCrossUpIndicatorRule(r1, r2), nil
-	}
-	this.ruleMap[">="] = funcGrt
-	this.ruleMap[">"] = funcGrt
-
-	funcLrt := func(args ...interface{}) (techan.Rule, error) {
-		if len(args) != 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
-		}
-		r1, ok := args[0].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
-		}
-		r2, ok := args[1].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
-		}
-		return techan.NewCrossDownIndicatorRule(r1, r2), nil
-	}
-	this.ruleMap["<="] = funcLrt
-	this.ruleMap["<"] = funcLrt
-
-	funcEq := func(args ...interface{}) (techan.Rule, error) {
-		if len(args) != 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
-		}
-		r1, ok := args[0].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
-		}
-		r2, ok := args[1].(techan.Indicator)
-		if !ok {
-			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
-		}
-		return NewCrossEqualIndicatorRule(r1, r2), nil
-	}
-	this.ruleMap["=="] = funcEq
+	appendIndicatorComparer(">=", techan.NewCrossUpIndicatorRule)
+	appendIndicatorComparer(">", techan.NewCrossUpIndicatorRule)
+	appendIndicatorComparer("<=", techan.NewCrossDownIndicatorRule)
+	appendIndicatorComparer("<", techan.NewCrossDownIndicatorRule)
+	appendIndicatorComparer("==", NewCrossEqualIndicatorRule)
 }
 
 func newRSI(series *techan.TimeSeries, timeframe int) techan.Indicator {
@@ -531,49 +491,6 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 	}
 
 	return rules[0], nil
-}
-
-func Test() {
-	aa, _ := govaluate.NewEvaluableExpression("true == false")
-	tokens := aa.Tokens()
-	v, err := aa.Evaluate(nil)
-	fmt.Println(v, err)
-	fmt.Println(tokens)
-
-	function := map[string]govaluate.ExpressionFunction{
-		"identity": func(a ...interface{}) (interface{}, error) {
-			if len(a) == 2 {
-				fmt.Printf("A[1] = %v\n", a[1])
-			}
-			return a[0], nil
-		},
-	}
-	expString := "identity(x)"
-	identityExpression, err := govaluate.NewEvaluableExpressionWithFunctions(expString, function)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	fmt.Println(identityExpression.String())
-	fmt.Println(identityExpression.Tokens())
-
-	testExpression := "identity(1.0, 2.0) == 1.0"
-	bb, err := govaluate.ParseTokens(testExpression, nil)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	fmt.Println("----")
-	for _, v := range bb {
-		fmt.Printf("Kind: %v, Value: %v, ValueType: %v\n",
-			v.Kind, v.Value, reflect.TypeOf(v.Value),
-		)
-	}
-	fmt.Println("---------")
-
-	bb[0] = identityExpression.Tokens()[0]
-	newExpression, err := govaluate.NewEvaluableExpressionFromTokens(bb)
-	result, err := newExpression.Evaluate(nil)
-	fmt.Println(result)
-	fmt.Println(err)
 }
 
 // Analyser의 상태 관리 관련한 함수들
