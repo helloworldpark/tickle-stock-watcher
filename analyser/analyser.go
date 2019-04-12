@@ -23,6 +23,20 @@ type userStockSide struct {
 	orderside techan.OrderSide
 }
 
+// Error is an error struct
+type Error struct {
+	msg string
+}
+
+func (err Error) Error() string {
+	return "[Analyser] " + err.msg
+}
+
+func newError(msg string) Error {
+	return Error{msg: msg}
+}
+
+// Analyser is a struct for signalling to users by condition they have set.
 type Analyser struct {
 	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
 	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
@@ -30,6 +44,7 @@ type Analyser struct {
 	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
 }
 
+// Operator Precedence
 var opPrecedence = map[string]int{
 	"*": 1, "/": 1, "**": 1,
 	"+": 2, "-": 2,
@@ -38,14 +53,7 @@ var opPrecedence = map[string]int{
 	"&&": 5, "||": 5,
 }
 
-type AnalyserError struct {
-	msg string
-}
-
-func (this AnalyserError) Error() string {
-	return "[Analyser] " + this.msg
-}
-
+// NewAnalyser creates and returns a pointer of a new prepared Analyser struct
 func NewAnalyser() *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
@@ -56,7 +64,7 @@ func NewAnalyser() *Analyser {
 	return &newAnalyser
 }
 
-func NewTestAnalyser() *Analyser {
+func newTestAnalyser() *Analyser {
 	analyser := NewAnalyser()
 	analyser.RegisterStock("123456")
 	series := analyser.timeSeriesCache["123456"]
@@ -69,39 +77,39 @@ func NewTestAnalyser() *Analyser {
 	return analyser
 }
 
-func (this *Analyser) cacheFunctions() {
-	this.cacheIndicators()
-	this.cacheRules()
+func (a *Analyser) cacheFunctions() {
+	a.cacheIndicators()
+	a.cacheRules()
 }
 
-func (this *Analyser) cacheIndicators() {
+func (a *Analyser) cacheIndicators() {
 	// +-*/
 	modifierAppender := func(operator string, ctor func(lhs, rhs techan.Indicator) techan.Indicator) {
 		f := func(series *techan.TimeSeries, args ...interface{}) (techan.Indicator, error) {
 			if len(args) != 2 {
-				return nil, AnalyserError{msg: fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(args))}
+				return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(args)))
 			}
 			lhs, ok := args[0].(techan.Indicator)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
+				return nil, newError(fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0]))
 			}
 			rhs, ok := args[1].(techan.Indicator)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
+				return nil, newError(fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1]))
 			}
 			return ctor(lhs, rhs), nil
 		}
-		this.indicatorMap[operator] = f
+		a.indicatorMap[operator] = f
 	}
-	modifierAppender("+", NewPlusIndicator)
-	modifierAppender("-", NewMinusIndicator)
-	modifierAppender("*", NewMultiplyIndicator)
-	modifierAppender("/", NewDivideIndicator)
+	modifierAppender("+", newPlusIndicator)
+	modifierAppender("-", newMinusIndicator)
+	modifierAppender("*", newMultiplyIndicator)
+	modifierAppender("/", newDivideIndicator)
 
 	// MACD
 	funcMacd := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) < 2 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(a))}
+			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(a)))
 		}
 		shortWindow := int(a[0].(float64))
 		longWindow := int(a[1].(float64))
@@ -111,46 +119,46 @@ func (this *Analyser) cacheIndicators() {
 			signalWindow := int(a[2].(float64))
 			return newMACDHist(series, shortWindow, longWindow, signalWindow), nil
 		}
-		return nil, AnalyserError{msg: fmt.Sprintf("Too much parameters: got %d, need less or equal to 3", len(a))}
+		return nil, newError(fmt.Sprintf("Too much parameters: got %d, need less or equal to 3", len(a)))
 	}
-	this.indicatorMap["macd"] = funcMacd
+	a.indicatorMap["macd"] = funcMacd
 
 	// RSI
 	funcRsi := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 1 {
-			return nil, AnalyserError{msg: fmt.Sprintf("Not enough parameters: got %d, need more or equal to 1", len(a))}
+			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need more or equal to 1", len(a)))
 		}
 		timeframe := int(a[0].(float64))
 		return newRSI(series, timeframe), nil
 	}
-	this.indicatorMap["rsi"] = funcRsi
+	a.indicatorMap["rsi"] = funcRsi
 
 	// Close Price
 	funcClose := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		return techan.NewClosePriceIndicator(series), nil
 	}
-	this.indicatorMap["close"] = funcClose
-	this.indicatorMap["price"] = funcClose
-	this.indicatorMap["closeprice"] = funcClose
+	a.indicatorMap["close"] = funcClose
+	a.indicatorMap["price"] = funcClose
+	a.indicatorMap["closeprice"] = funcClose
 }
 
-func (this *Analyser) cacheRules() {
+func (a *Analyser) cacheRules() {
 	appendRuleComparer := func(op string, ctor func(lhs, rhs techan.Rule) techan.Rule) {
 		f := func(args ...interface{}) (techan.Rule, error) {
 			if len(args) != 2 {
-				return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args))}
+				return nil, newError(fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args)))
 			}
 			r1, ok := args[0].(techan.Rule)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+				return nil, newError(fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0]))
 			}
 			r2, ok := args[1].(techan.Rule)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+				return nil, newError(fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1]))
 			}
 			return ctor(r1, r2), nil
 		}
-		this.ruleMap[op] = f
+		a.ruleMap[op] = f
 	}
 	appendRuleComparer("&&", techan.And)
 	appendRuleComparer("||", techan.Or)
@@ -158,19 +166,19 @@ func (this *Analyser) cacheRules() {
 	appendIndicatorComparer := func(op string, ctor func(lhs, rhs techan.Indicator) techan.Rule) {
 		f := func(args ...interface{}) (techan.Rule, error) {
 			if len(args) != 2 {
-				return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args))}
+				return nil, newError(fmt.Sprintf("Arguments for rule '%s' must be 2, you are %d", op, len(args)))
 			}
 			r1, ok := args[0].(techan.Indicator)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+				return nil, newError(fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0]))
 			}
 			r2, ok := args[1].(techan.Indicator)
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+				return nil, newError(fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1]))
 			}
 			return ctor(r1, r2), nil
 		}
-		this.ruleMap[op] = f
+		a.ruleMap[op] = f
 	}
 	appendIndicatorComparer(">=", techan.NewCrossUpIndicatorRule)
 	appendIndicatorComparer(">", techan.NewCrossUpIndicatorRule)
@@ -199,25 +207,25 @@ type quad struct {
 	end   int
 }
 
-func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderSide techan.OrderSide, strategyStatement string) (bool, error) {
+func (a *Analyser) parseAndCacheStrategy(userid int64, stockid string, orderSide techan.OrderSide, strategyStatement string) (bool, error) {
 	// First, parse tokens
-	tmpTokens, err := this.parseTokens(strategyStatement)
+	tmpTokens, err := a.parseTokens(strategyStatement)
 	if err != nil {
 		return false, err
 	}
 
-	newTokens, err := this.searchAndReplaceToFunctionTokens(tmpTokens, stockid)
+	newTokens, err := a.searchAndReplaceToFunctionTokens(tmpTokens, stockid)
 	if err != nil {
 		return false, err
 	}
 
-	postfixToken, err := this.reorderTokenByPostfix(newTokens)
+	postfixToken, err := a.reorderTokenByPostfix(newTokens)
 	if err != nil {
 		return false, err
 	}
 
 	// Create strategy using postfix tokens
-	event, err := this.createEvent(postfixToken, orderSide)
+	event, err := a.createEvent(postfixToken, orderSide)
 	if err != nil {
 		return false, err
 	}
@@ -228,11 +236,11 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 		stockid:   stockid,
 		orderside: orderSide,
 	}
-	this.userStrategy[userKey] = event
+	a.userStrategy[userKey] = event
 	return true, nil
 }
 
-func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid string) ([]token, error) {
+func (a *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid string) ([]token, error) {
 	// Search for token to switch to pre-cached function
 	isFuncFound := false
 	funcIdxStart := -1
@@ -249,9 +257,9 @@ func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid s
 			// Change function name to lower case
 			(&t).Value = strings.ToLower(t.Value.(string))
 			funcName = t.Value.(string)
-			v, ok := this.indicatorMap[funcName]
+			v, ok := a.indicatorMap[funcName]
 			if !ok {
-				return nil, AnalyserError{msg: fmt.Sprintf("Unsupported function used: %s", funcName)}
+				return nil, newError(fmt.Sprintf("Unsupported function used: %s", funcName))
 			}
 			isFuncFound = ok
 			funcIdxStart = i
@@ -260,7 +268,7 @@ func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid s
 		} else if isFuncFound && t.Kind == govaluate.NUMERIC {
 			funcParam = append(funcParam, t.Value.(float64))
 		} else if isFuncFound && t.Kind == govaluate.CLAUSE_CLOSE {
-			generatedIndicator, err := funcBody(this.timeSeriesCache[stockid], funcParam...)
+			generatedIndicator, err := funcBody(a.timeSeriesCache[stockid], funcParam...)
 			if err != nil {
 				return nil, err
 			}
@@ -347,11 +355,11 @@ func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid s
 	return newTokens, nil
 }
 
-func (this *Analyser) parseTokens(statement string) ([]token, error) {
+func (a *Analyser) parseTokens(statement string) ([]token, error) {
 	return govaluate.ParseTokens(statement, nil)
 }
 
-func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
+func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	// Convert tokens into techan strategy
 	// Tokens are reordered by postfix notation
 	// operators:
@@ -391,7 +399,7 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 				} else if clause == ')' {
 					op = ")"
 				} else {
-					return nil, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+					return nil, newError(fmt.Sprintf("Invalid token: %v", t))
 				}
 				(&t).Value = op
 			}
@@ -417,7 +425,7 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 			// 내가 들어간다
 			operatorStack = append(operatorStack, t)
 		} else {
-			return nil, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+			return nil, newError(fmt.Sprintf("Invalid token: %v", t))
 		}
 	}
 	for j := len(operatorStack) - 1; j >= 0; j-- {
@@ -429,8 +437,8 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	return postfixToken, nil
 }
 
-func (this *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (EventTrigger, error) {
-	rule, err := this.createRule(tokens)
+func (a *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (EventTrigger, error) {
+	rule, err := a.createRule(tokens)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +446,7 @@ func (this *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (E
 	return eventTrigger, nil
 }
 
-func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
+func (a *Analyser) createRule(tokens []token) (techan.Rule, error) {
 	indicators := make([]techan.Indicator, 0)
 	rules := make([]techan.Rule, 0)
 	for len(tokens) > 0 {
@@ -452,12 +460,12 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 		} else if t.Kind == govaluate.PREFIX {
 			v := indicators[len(indicators)-1]
 			indicators = indicators[:(len(indicators) - 1)]
-			indicators = append(indicators, NewNegateIndicator(v))
+			indicators = append(indicators, newNegateIndicator(v))
 		} else if t.Kind == govaluate.COMPARATOR {
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
-			ruleMaker := this.ruleMap[t.Value.(string)]
+			ruleMaker := a.ruleMap[t.Value.(string)]
 			rule, err := ruleMaker(lhs, rhs)
 			if err != nil {
 				return nil, err
@@ -467,7 +475,7 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			rhs := rules[len(rules)-1]
 			lhs := rules[len(rules)-2]
 			rules = rules[:(len(rules) - 2)]
-			ruleMaker := this.ruleMap[t.Value.(string)]
+			ruleMaker := a.ruleMap[t.Value.(string)]
 			rule, err := ruleMaker(lhs, rhs)
 			if err != nil {
 				return nil, err
@@ -477,7 +485,7 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
-			operated, err := this.indicatorMap[t.Value.(string)](nil, lhs, rhs)
+			operated, err := a.indicatorMap[t.Value.(string)](nil, lhs, rhs)
 			if err != nil {
 				return nil, err
 			}
@@ -494,13 +502,17 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 }
 
 // Analyser의 상태 관리 관련한 함수들
-func (this *Analyser) RegisterStock(stockid string) {
-	_, ok := this.timeSeriesCache[stockid]
+
+// RegisterStock registers stock items so that Analyser starts tracking the price.
+func (a *Analyser) RegisterStock(stockid string) {
+	_, ok := a.timeSeriesCache[stockid]
 	if !ok {
-		this.timeSeriesCache[stockid] = techan.NewTimeSeries()
+		a.timeSeriesCache[stockid] = techan.NewTimeSeries()
 	}
 }
 
-func (this *Analyser) UnregisterStock(stockid string) {
-	delete(this.timeSeriesCache, stockid)
+// UnregisterStock unregisters stock items.
+// If there still are needs to others, Analyser will keep tracking the stock item.
+func (a *Analyser) UnregisterStock(stockid string) {
+	delete(a.timeSeriesCache, stockid)
 }

@@ -7,16 +7,6 @@ import (
 	"github.com/sdcoffey/techan"
 )
 
-func TestStrategy(t *testing.T) {
-	analyser := NewTestAnalyser()
-	result, err := analyser.ParseAndCacheStrategy(1, "123456", 0, "(-macd(26, 9, 6) == 0 - 3) && (macd(26, 9, 6) <= 30)")
-	if !result {
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}
-}
-
 func TestRuleGeneration(t *testing.T) {
 	handleErr := func(err error) {
 		if err != nil {
@@ -24,7 +14,7 @@ func TestRuleGeneration(t *testing.T) {
 		}
 		fmt.Println("------------------")
 	}
-	analyser := NewTestAnalyser()
+	analyser := newTestAnalyser()
 	tokens, err := analyser.parseTokens("Price() < 0")
 	handleErr(err)
 	tokens, err = analyser.searchAndReplaceToFunctionTokens(tokens, "123456")

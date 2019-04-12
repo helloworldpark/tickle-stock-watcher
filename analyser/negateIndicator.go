@@ -7,7 +7,7 @@ type negateIndicator struct {
 	indicator techan.Indicator
 }
 
-func NewNegateIndicator(indicator techan.Indicator) techan.Indicator {
+func newNegateIndicator(indicator techan.Indicator) techan.Indicator {
 	return negateIndicator{indicator: indicator}
 }
 

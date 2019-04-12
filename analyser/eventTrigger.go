@@ -4,6 +4,7 @@ import (
 	"github.com/sdcoffey/techan"
 )
 
+// EventTrigger is an interface for triggering events.
 type EventTrigger interface {
 	OrderSide() techan.OrderSide
 	HasHappened(index int, record *techan.TradingRecord) bool
@@ -16,6 +17,7 @@ type eventTrigger struct {
 	prefix    string
 }
 
+// NewEventTrigger will create an EventTrigger for notifiying price changes
 func NewEventTrigger(orderSide techan.OrderSide, rule techan.Rule) EventTrigger {
 	prefix := "[BUY] "
 	if orderSide == techan.SELL {

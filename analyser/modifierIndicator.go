@@ -14,7 +14,7 @@ type plusIndicator struct {
 	dualOperatorIndicator
 }
 
-func NewPlusIndicator(lhs, rhs techan.Indicator) techan.Indicator {
+func newPlusIndicator(lhs, rhs techan.Indicator) techan.Indicator {
 	return plusIndicator{dualOperatorIndicator{lhs: lhs, rhs: rhs}}
 }
 
@@ -26,7 +26,7 @@ type minusIndicator struct {
 	dualOperatorIndicator
 }
 
-func NewMinusIndicator(lhs, rhs techan.Indicator) techan.Indicator {
+func newMinusIndicator(lhs, rhs techan.Indicator) techan.Indicator {
 	return minusIndicator{dualOperatorIndicator{lhs: lhs, rhs: rhs}}
 }
 
@@ -38,7 +38,7 @@ type multIndicator struct {
 	dualOperatorIndicator
 }
 
-func NewMultiplyIndicator(lhs, rhs techan.Indicator) techan.Indicator {
+func newMultiplyIndicator(lhs, rhs techan.Indicator) techan.Indicator {
 	return multIndicator{dualOperatorIndicator{lhs: lhs, rhs: rhs}}
 }
 
@@ -50,7 +50,7 @@ type divIndicator struct {
 	dualOperatorIndicator
 }
 
-func NewDivideIndicator(lhs, rhs techan.Indicator) techan.Indicator {
+func newDivideIndicator(lhs, rhs techan.Indicator) techan.Indicator {
 	return divIndicator{dualOperatorIndicator{lhs: lhs, rhs: rhs}}
 }
 
