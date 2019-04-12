@@ -57,3 +57,15 @@ func newDivideIndicator(lhs, rhs techan.Indicator) techan.Indicator {
 func (id divIndicator) Calculate(index int) big.Decimal {
 	return id.lhs.Calculate(index).Div(id.rhs.Calculate(index))
 }
+
+type negateIndicator struct {
+	indicator techan.Indicator
+}
+
+func newNegateIndicator(indicator techan.Indicator) techan.Indicator {
+	return negateIndicator{indicator: indicator}
+}
+
+func (ni negateIndicator) Calculate(index int) big.Decimal {
+	return ni.indicator.Calculate(index).Neg()
+}
