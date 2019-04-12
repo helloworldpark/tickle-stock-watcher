@@ -501,7 +501,7 @@ func (a *Analyser) createRule(tokens []token) (techan.Rule, error) {
 	return rules[0], nil
 }
 
-// Analyser의 상태 관리 관련한 함수들
+// Analyser의 상태 관리와 관련한 함수들
 
 // RegisterStock registers stock items so that Analyser starts tracking the price.
 func (a *Analyser) RegisterStock(stockid string) {
