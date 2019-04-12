@@ -15,6 +15,7 @@ import (
 type token = govaluate.ExpressionToken
 type expression = govaluate.EvaluableExpression
 type indicatorGen = func(*techan.TimeSeries, ...interface{}) (techan.Indicator, error)
+type ruleGen = func(...interface{}) (techan.Rule, error)
 
 type userStockPosition struct {
 	userid   int64
@@ -23,7 +24,8 @@ type userStockPosition struct {
 }
 
 type Analyser struct {
-	techFuncMap     map[string]indicatorGen // Function Name: Function Generator
+	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
+	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
 	userStrategy    map[userStockPosition]*expression
 	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
 }
@@ -33,14 +35,16 @@ type AnalyserError struct {
 }
 
 func (this AnalyserError) Error() string {
-	return this.msg
+	return "[Analyser] " + this.msg
 }
 
 func NewAnalyser() *Analyser {
 	newAnalyser := Analyser{}
-	newAnalyser.techFuncMap = make(map[string]indicatorGen)
+	newAnalyser.indicatorMap = make(map[string]indicatorGen)
 	newAnalyser.userStrategy = make(map[userStockPosition]*expression)
 	newAnalyser.timeSeriesCache = make(map[string]*techan.TimeSeries)
+	newAnalyser.ruleMap = make(map[string]ruleGen)
+	newAnalyser.cacheFunctions()
 	return &newAnalyser
 }
 
@@ -57,7 +61,35 @@ func NewTestAnalyser() *Analyser {
 	return analyser
 }
 
-func (this *Analyser) CacheFunctions() {
+func (this *Analyser) cacheFunctions() {
+	this.cacheIndicators()
+	this.cacheRules()
+}
+
+func (this *Analyser) cacheIndicators() {
+	// +-*/
+	modifierAppender := func(operator string, ctor func(lhs, rhs techan.Indicator) techan.Indicator) {
+		f := func(series *techan.TimeSeries, args ...interface{}) (techan.Indicator, error) {
+			if len(args) != 2 {
+				return nil, AnalyserError{msg: fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(args))}
+			}
+			lhs, ok := args[0].(techan.Indicator)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
+			}
+			rhs, ok := args[1].(techan.Indicator)
+			if !ok {
+				return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
+			}
+			return ctor(lhs, rhs), nil
+		}
+		this.indicatorMap[operator] = f
+	}
+	modifierAppender("+", NewPlusIndicator)
+	modifierAppender("-", NewMinusIndicator)
+	modifierAppender("*", NewMultiplyIndicator)
+	modifierAppender("/", NewDivideIndicator)
+
 	// MACD
 	funcMacd := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) < 2 {
@@ -73,8 +105,92 @@ func (this *Analyser) CacheFunctions() {
 		}
 		return nil, AnalyserError{msg: fmt.Sprintf("Too much parameters: got %d, need less or equal to 3", len(a))}
 	}
-	this.techFuncMap["macd"] = funcMacd
+	this.indicatorMap["macd"] = funcMacd
 	// RSI
+}
+
+func (this *Analyser) cacheRules() {
+	funcAnd := func(args ...interface{}) (techan.Rule, error) {
+		if len(args) != 2 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+		}
+		r1, ok := args[0].(techan.Rule)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+		}
+		r2, ok := args[1].(techan.Rule)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+		}
+		return techan.And(r1, r2), nil
+	}
+	this.ruleMap["&&"] = funcAnd
+
+	funcOr := func(args ...interface{}) (techan.Rule, error) {
+		if len(args) != 2 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+		}
+		r1, ok := args[0].(techan.Rule)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Rule, you are %v", args[0])}
+		}
+		r2, ok := args[1].(techan.Rule)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Rule, you are %v", args[1])}
+		}
+		return techan.Or(r1, r2), nil
+	}
+	this.ruleMap["||"] = funcOr
+
+	funcGrt := func(args ...interface{}) (techan.Rule, error) {
+		if len(args) != 2 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+		}
+		r1, ok := args[0].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
+		}
+		r2, ok := args[1].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
+		}
+		return techan.NewCrossUpIndicatorRule(r1, r2), nil
+	}
+	this.ruleMap[">="] = funcGrt
+	this.ruleMap[">"] = funcGrt
+
+	funcLrt := func(args ...interface{}) (techan.Rule, error) {
+		if len(args) != 2 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+		}
+		r1, ok := args[0].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
+		}
+		r2, ok := args[1].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
+		}
+		return techan.NewCrossDownIndicatorRule(r1, r2), nil
+	}
+	this.ruleMap["<="] = funcLrt
+	this.ruleMap["<"] = funcLrt
+
+	funcEq := func(args ...interface{}) (techan.Rule, error) {
+		if len(args) != 2 {
+			return nil, AnalyserError{msg: fmt.Sprintf("Arguments for rule '&&' must be 2, you are %d", len(args))}
+		}
+		r1, ok := args[0].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0])}
+		}
+		r2, ok := args[1].(techan.Indicator)
+		if !ok {
+			return nil, AnalyserError{msg: fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1])}
+		}
+		return NewCrossEqualIndicatorRule(r1, r2), nil
+	}
+	this.ruleMap["=="] = funcEq
 }
 
 func newMACD(series *techan.TimeSeries, shortWindow, longWindow int) techan.Indicator {
@@ -114,7 +230,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		// If found ')', append a pair of (name, function, startIdx, endIdx)
 		if t.Kind == govaluate.VARIABLE {
 			funcName = t.Value.(string)
-			v, ok := this.techFuncMap[funcName]
+			v, ok := this.indicatorMap[funcName]
 			if !ok {
 				return false, AnalyserError{msg: fmt.Sprintf("Unsupported function used: %s", funcName)}
 			}
@@ -161,17 +277,18 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		}
 		quadToToken := func(mQuad quad) []token {
 			ret := make([]token, 0)
-			var expFunc govaluate.ExpressionFunction
-			expFunc = func(a ...interface{}) (interface{}, error) {
-				if len(a) != 1 {
-					logger.Panic("[Analyser] Too may parameter for techan function: %v", a)
-				}
-				idx, ok := a[0].(float64)
-				if !ok {
-					logger.Panic("[Analyser] Something weird value has come into the techan function as a parameter: %v", a)
-				}
-				return mQuad.body.Calculate(int(idx)), nil
-			}
+			// var expFunc govaluate.ExpressionFunction
+			// expFunc = func(a ...interface{}) (interface{}, error) {
+			// 	if len(a) != 1 {
+			// 		logger.Panic("[Analyser] Too may parameter for techan function: %v", a)
+			// 	}
+			// 	idx, ok := a[0].(float64)
+			// 	if !ok {
+			// 		logger.Panic("[Analyser] Something weird value has come into the techan function as a parameter: %v", a)
+			// 	}
+			// 	return mQuad.body.Calculate(int(idx)), nil
+			// }
+			expFunc := mQuad.body
 			ret = append(ret, token{
 				Kind:  govaluate.FUNCTION,
 				Value: expFunc,
@@ -233,12 +350,12 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 	// Convert tokens into techan strategy
 	// Tokens are put into binary tree
 	// operators:
-	//          -: 0(Negation)
-	//        * /: 1
-	//        + -: 2
-	//  < <= >= >: 3
-	//      && ||: 4
-	//        ( ): 5
+	//             -: 0(Negation)
+	//           * /: 1
+	//           + -: 2
+	//  < <= == >= >: 3
+	//         && ||: 4
+	//           ( ): 5
 	opPrecedence := map[string]int{
 		"*": 1, "/": 1, "**": 1,
 		"+": 2, "-": 2,
@@ -313,6 +430,8 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 	}
 	fmt.Println("-------------")
 
+	// Create strategy using postfix tokens
+
 	// Cache into map
 	userKey := userStockPosition{
 		userid:   userid,
@@ -325,6 +444,75 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 	}
 	this.userStrategy[userKey] = parsedExpression
 	return true, nil
+}
+
+func (this *Analyser) createStrategy(tokens []token, isEntry bool) (techan.Strategy, error) {
+	rule, err := this.createRule(tokens)
+	if err != nil {
+		return nil, err
+	}
+	strategy := techan.RuleStrategy{UnstablePeriod: 0}
+	if isEntry {
+		strategy.EntryRule = rule
+	} else {
+		strategy.ExitRule = rule
+	}
+	return strategy, nil
+}
+
+func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
+	indicators := make([]techan.Indicator, 0)
+	rules := make([]techan.Rule, 0)
+	for len(tokens) > 0 {
+		t := tokens[0]
+		tokens = tokens[1:]
+
+		if t.Kind == govaluate.FUNCTION {
+			indicators = append(indicators, t.Value.(techan.Indicator))
+		} else if t.Kind == govaluate.NUMERIC {
+			indicators = append(indicators, techan.NewConstantIndicator(t.Value.(float64)))
+		} else if t.Kind == govaluate.PREFIX {
+			v := indicators[len(indicators)-1]
+			indicators = indicators[:(len(indicators) - 1)]
+			indicators = append(indicators, NewNegateIndicator(v))
+		} else if t.Kind == govaluate.COMPARATOR {
+			rhs := indicators[len(indicators)-1]
+			lhs := indicators[len(indicators)-2]
+			indicators = indicators[:(len(indicators) - 2)]
+			ruleMaker := this.ruleMap[t.Value.(string)]
+			rule, err := ruleMaker(lhs, rhs)
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, rule)
+		} else if t.Kind == govaluate.LOGICALOP {
+			rhs := rules[len(rules)-1]
+			lhs := rules[len(rules)-2]
+			rules = rules[:(len(rules) - 2)]
+			ruleMaker := this.ruleMap[t.Value.(string)]
+			rule, err := ruleMaker(lhs, rhs)
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, rule)
+		} else if t.Kind == govaluate.MODIFIER {
+			rhs := indicators[len(indicators)-1]
+			lhs := indicators[len(indicators)-2]
+			indicators = indicators[:(len(indicators) - 2)]
+			operated, err := this.indicatorMap[t.Value.(string)](nil, lhs, rhs)
+			if err != nil {
+				return nil, err
+			}
+			indicators = append(indicators, operated)
+		}
+	}
+
+	if len(rules) != 1 {
+		// Something wrong
+		logger.Panic("[Analyser] Something is wrong: rule must be generated unique.")
+	}
+
+	return rules[0], nil
 }
 
 func (this *Analyser) PrintAllStrategy() {
