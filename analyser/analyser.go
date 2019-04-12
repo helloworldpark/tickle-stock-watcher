@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/helloworldpark/govaluate"
@@ -123,7 +124,7 @@ func (this *Analyser) cacheIndicators() {
 		timeframe := int(a[0].(float64))
 		return newRSI(series, timeframe), nil
 	}
-	this.indicatorMap["macd"] = funcRsi
+	this.indicatorMap["rsi"] = funcRsi
 
 	// Close Price
 	funcClose := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
@@ -285,6 +286,8 @@ func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid s
 		// If we have, start collecting params
 		// If found ')', append a pair of (name, function, startIdx, endIdx)
 		if t.Kind == govaluate.VARIABLE {
+			// Change function name to lower case
+			(&t).Value = strings.ToLower(t.Value.(string))
 			funcName = t.Value.(string)
 			v, ok := this.indicatorMap[funcName]
 			if !ok {
@@ -501,7 +504,6 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			}
 			rules = append(rules, rule)
 		} else if t.Kind == govaluate.LOGICALOP {
-			fmt.Printf("[LOGIC] token: %v, rules(%d): %v\n", t.Value, len(rules), rules)
 			rhs := rules[len(rules)-1]
 			lhs := rules[len(rules)-2]
 			rules = rules[:(len(rules) - 2)]
@@ -512,7 +514,6 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			}
 			rules = append(rules, rule)
 		} else if t.Kind == govaluate.MODIFIER {
-			fmt.Printf("[MODIF] token: %v, indicators: %v\n", t.Value, indicators)
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]

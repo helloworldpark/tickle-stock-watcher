@@ -29,7 +29,7 @@ func TestRuleGeneration(t *testing.T) {
 		fmt.Println("------------------")
 	}
 	analyser := NewTestAnalyser()
-	tokens, err := analyser.parseTokens("close() > 0")
+	tokens, err := analyser.parseTokens("Price() < 0")
 	handleErr(err)
 	tokens, err = analyser.searchAndReplaceToFunctionTokens(tokens, "123456")
 	handleErr(err)
