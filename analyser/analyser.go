@@ -17,17 +17,25 @@ type expression = govaluate.EvaluableExpression
 type indicatorGen = func(*techan.TimeSeries, ...interface{}) (techan.Indicator, error)
 type ruleGen = func(...interface{}) (techan.Rule, error)
 
-type userStockPosition struct {
-	userid   int64
-	stockid  string
-	position int
+type userStockSide struct {
+	userid    int64
+	stockid   string
+	orderside techan.OrderSide
 }
 
 type Analyser struct {
 	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
 	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
-	userStrategy    map[userStockPosition]*expression
+	userStrategy    map[userStockSide]techan.Strategy
 	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
+}
+
+var opPrecedence = map[string]int{
+	"*": 1, "/": 1, "**": 1,
+	"+": 2, "-": 2,
+	"<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3,
+	"&&": 4, "||": 4,
+	"(": 5, ")": 5,
 }
 
 type AnalyserError struct {
@@ -41,7 +49,7 @@ func (this AnalyserError) Error() string {
 func NewAnalyser() *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
-	newAnalyser.userStrategy = make(map[userStockPosition]*expression)
+	newAnalyser.userStrategy = make(map[userStockSide]techan.Strategy)
 	newAnalyser.timeSeriesCache = make(map[string]*techan.TimeSeries)
 	newAnalyser.ruleMap = make(map[string]ruleGen)
 	newAnalyser.cacheFunctions()
@@ -209,9 +217,9 @@ type quad struct {
 	end   int
 }
 
-func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, position int, strategy string) (bool, error) {
+func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderSide techan.OrderSide, strategyStatement string) (bool, error) {
 	// First, parse tokens
-	tmpTokens, err := govaluate.ParseTokens(strategy, nil)
+	tmpTokens, err := govaluate.ParseTokens(strategyStatement, nil)
 	if err != nil {
 		return false, err
 	}
@@ -258,7 +266,6 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 			funcParam = nil
 		}
 	}
-	fmt.Println("TokensToReplace", len(tokenToReplace))
 
 	// Switch found ones
 	var newTokens []token
@@ -277,17 +284,6 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		}
 		quadToToken := func(mQuad quad) []token {
 			ret := make([]token, 0)
-			// var expFunc govaluate.ExpressionFunction
-			// expFunc = func(a ...interface{}) (interface{}, error) {
-			// 	if len(a) != 1 {
-			// 		logger.Panic("[Analyser] Too may parameter for techan function: %v", a)
-			// 	}
-			// 	idx, ok := a[0].(float64)
-			// 	if !ok {
-			// 		logger.Panic("[Analyser] Something weird value has come into the techan function as a parameter: %v", a)
-			// 	}
-			// 	return mQuad.body.Calculate(int(idx)), nil
-			// }
 			expFunc := mQuad.body
 			ret = append(ret, token{
 				Kind:  govaluate.FUNCTION,
@@ -311,11 +307,6 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		newTokens = make([]token, 0)
 		var lastQuad *quad
 		for i, t := range tmpTokens {
-			if lastQuad != nil {
-				fmt.Println(i, t, *lastQuad, len(tokenToReplace))
-			} else {
-				fmt.Println(i, t, nil, len(tokenToReplace))
-			}
 			if len(tokenToReplace) == 0 {
 				newTokens = append(newTokens, t)
 			} else {
@@ -343,12 +334,30 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 		newTokens = tmpTokens
 	}
 
-	for _, t := range newTokens {
-		fmt.Printf("Kind: %v, Value: %v\n", t.Kind, t.Value)
+	postfixToken, err := this.reorderTokenByPostfix(newTokens)
+	if err != nil {
+		return false, err
 	}
 
+	// Create strategy using postfix tokens
+	strategy, err := this.createStrategy(postfixToken, orderSide)
+	if err != nil {
+		return false, err
+	}
+
+	// Cache into map
+	userKey := userStockSide{
+		userid:    userid,
+		stockid:   stockid,
+		orderside: orderSide,
+	}
+	this.userStrategy[userKey] = strategy
+	return true, nil
+}
+
+func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	// Convert tokens into techan strategy
-	// Tokens are put into binary tree
+	// Tokens are reordered by postfix notation
 	// operators:
 	//             -: 0(Negation)
 	//           * /: 1
@@ -356,17 +365,11 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 	//  < <= == >= >: 3
 	//         && ||: 4
 	//           ( ): 5
-	opPrecedence := map[string]int{
-		"*": 1, "/": 1, "**": 1,
-		"+": 2, "-": 2,
-		"<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3,
-		"&&": 4, "||": 4,
-		"(": 5, ")": 5,
-	}
+
 	postfixToken := make([]token, 0)
 	operatorStack := make([]token, 0)
 	functionStarted := false
-	for _, t := range newTokens {
+	for _, t := range tokens {
 		if functionStarted {
 			if t.Kind == govaluate.CLAUSE_CLOSE {
 				functionStarted = false
@@ -392,7 +395,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 				} else if clause == ')' {
 					op = ")"
 				} else {
-					return false, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+					return nil, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
 				}
 			}
 			p := opPrecedence[op]
@@ -417,46 +420,27 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, positi
 			// 내가 들어간다
 			operatorStack = append(operatorStack, t)
 		} else {
-			return false, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
+			return nil, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
 		}
 	}
 	for j := len(operatorStack) - 1; j >= 0; j-- {
 		postfixToken = append(postfixToken, operatorStack[j])
 		operatorStack = operatorStack[:j]
 	}
-	fmt.Println("-------------")
-	for _, t := range postfixToken {
-		fmt.Printf("Postfix Token %v, %v\n", t.Kind, t.Value)
-	}
-	fmt.Println("-------------")
-
-	// Create strategy using postfix tokens
-
-	// Cache into map
-	userKey := userStockPosition{
-		userid:   userid,
-		stockid:  stockid,
-		position: position,
-	}
-	parsedExpression, err := govaluate.NewEvaluableExpressionFromTokens(newTokens)
-	if err != nil {
-		return false, err
-	}
-	this.userStrategy[userKey] = parsedExpression
-	return true, nil
+	return postfixToken, nil
 }
 
-func (this *Analyser) createStrategy(tokens []token, isEntry bool) (techan.Strategy, error) {
-	rule, err := this.createRule(tokens)
-	if err != nil {
-		return nil, err
-	}
+func (this *Analyser) createStrategy(tokens []token, orderSide techan.OrderSide) (techan.Strategy, error) {
+	// rule, err := this.createRule(tokens)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	strategy := techan.RuleStrategy{UnstablePeriod: 0}
-	if isEntry {
-		strategy.EntryRule = rule
-	} else {
-		strategy.ExitRule = rule
-	}
+	// if isEntry {
+	// 	strategy.EntryRule = rule
+	// } else {
+	// 	strategy.ExitRule = rule
+	// }
 	return strategy, nil
 }
 
@@ -513,12 +497,6 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 	}
 
 	return rules[0], nil
-}
-
-func (this *Analyser) PrintAllStrategy() {
-	for k, v := range this.userStrategy {
-		fmt.Printf("Key: %v, Value: %v", k, v.Vars())
-	}
 }
 
 func Test() {

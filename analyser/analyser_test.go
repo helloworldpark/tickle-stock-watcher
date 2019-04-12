@@ -20,5 +20,4 @@ func TestStrategy(t *testing.T) {
 			fmt.Println(err.Error())
 		}
 	}
-	analyser.PrintAllStrategy()
 }
