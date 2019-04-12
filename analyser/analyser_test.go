@@ -7,10 +7,6 @@ import (
 	"github.com/sdcoffey/techan"
 )
 
-func TestTest(t *testing.T) {
-	Test()
-}
-
 func TestStrategy(t *testing.T) {
 	analyser := NewTestAnalyser()
 	result, err := analyser.ParseAndCacheStrategy(1, "123456", 0, "(-macd(26, 9, 6) == 0 - 3) && (macd(26, 9, 6) <= 30)")

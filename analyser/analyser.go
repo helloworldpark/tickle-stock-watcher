@@ -26,7 +26,7 @@ type userStockSide struct {
 type Analyser struct {
 	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
 	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
-	userStrategy    map[userStockSide]Event
+	userStrategy    map[userStockSide]EventTrigger
 	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
 }
 
@@ -49,7 +49,7 @@ func (this AnalyserError) Error() string {
 func NewAnalyser() *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
-	newAnalyser.userStrategy = make(map[userStockSide]Event)
+	newAnalyser.userStrategy = make(map[userStockSide]EventTrigger)
 	newAnalyser.timeSeriesCache = make(map[string]*techan.TimeSeries)
 	newAnalyser.ruleMap = make(map[string]ruleGen)
 	newAnalyser.cacheFunctions()
@@ -429,13 +429,13 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	return postfixToken, nil
 }
 
-func (this *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (Event, error) {
+func (this *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (EventTrigger, error) {
 	rule, err := this.createRule(tokens)
 	if err != nil {
 		return nil, err
 	}
-	event := NewEvent(orderSide, rule)
-	return event, nil
+	eventTrigger := NewEventTrigger(orderSide, rule)
+	return eventTrigger, nil
 }
 
 func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
