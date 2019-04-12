@@ -34,8 +34,8 @@ var opPrecedence = map[string]int{
 	"*": 1, "/": 1, "**": 1,
 	"+": 2, "-": 2,
 	"<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3,
-	"&&": 4, "||": 4,
-	"(": 5, ")": 5,
+	"(": 4, ")": 4,
+	"&&": 5, "||": 5,
 }
 
 type AnalyserError struct {
@@ -219,11 +219,38 @@ type quad struct {
 
 func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderSide techan.OrderSide, strategyStatement string) (bool, error) {
 	// First, parse tokens
-	tmpTokens, err := govaluate.ParseTokens(strategyStatement, nil)
+	tmpTokens, err := this.parseTokens(strategyStatement)
 	if err != nil {
 		return false, err
 	}
 
+	newTokens, err := this.searchAndReplaceToFunctionTokens(tmpTokens, stockid)
+	if err != nil {
+		return false, err
+	}
+
+	postfixToken, err := this.reorderTokenByPostfix(newTokens)
+	if err != nil {
+		return false, err
+	}
+
+	// Create strategy using postfix tokens
+	event, err := this.createEvent(postfixToken, orderSide)
+	if err != nil {
+		return false, err
+	}
+
+	// Cache into map
+	userKey := userStockSide{
+		userid:    userid,
+		stockid:   stockid,
+		orderside: orderSide,
+	}
+	this.userStrategy[userKey] = event
+	return true, nil
+}
+
+func (this *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid string) ([]token, error) {
 	// Search for token to switch to pre-cached function
 	isFuncFound := false
 	funcIdxStart := -1
@@ -231,7 +258,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 	var funcBody indicatorGen
 	var funcParam []interface{}
 	tokenToReplace := make([]quad, 0)
-	for i, t := range tmpTokens {
+	for i, t := range tokens {
 		// Find function
 		// If found, check if we have
 		// If we have, start collecting params
@@ -240,7 +267,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 			funcName = t.Value.(string)
 			v, ok := this.indicatorMap[funcName]
 			if !ok {
-				return false, AnalyserError{msg: fmt.Sprintf("Unsupported function used: %s", funcName)}
+				return nil, AnalyserError{msg: fmt.Sprintf("Unsupported function used: %s", funcName)}
 			}
 			isFuncFound = ok
 			funcIdxStart = i
@@ -251,7 +278,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 		} else if isFuncFound && t.Kind == govaluate.CLAUSE_CLOSE {
 			generatedIndicator, err := funcBody(this.timeSeriesCache[stockid], funcParam...)
 			if err != nil {
-				return false, err
+				return nil, err
 			}
 
 			tokenToReplace = append(tokenToReplace, quad{
@@ -306,7 +333,7 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 
 		newTokens = make([]token, 0)
 		var lastQuad *quad
-		for i, t := range tmpTokens {
+		for i, t := range tokens {
 			if len(tokenToReplace) == 0 {
 				newTokens = append(newTokens, t)
 			} else {
@@ -331,28 +358,13 @@ func (this *Analyser) ParseAndCacheStrategy(userid int64, stockid string, orderS
 			}
 		}
 	} else {
-		newTokens = tmpTokens
+		newTokens = tokens
 	}
+	return newTokens, nil
+}
 
-	postfixToken, err := this.reorderTokenByPostfix(newTokens)
-	if err != nil {
-		return false, err
-	}
-
-	// Create strategy using postfix tokens
-	event, err := this.createEvent(postfixToken, orderSide)
-	if err != nil {
-		return false, err
-	}
-
-	// Cache into map
-	userKey := userStockSide{
-		userid:    userid,
-		stockid:   stockid,
-		orderside: orderSide,
-	}
-	this.userStrategy[userKey] = event
-	return true, nil
+func (this *Analyser) parseTokens(statement string) ([]token, error) {
+	return govaluate.ParseTokens(statement, nil)
 }
 
 func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
@@ -397,6 +409,7 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 				} else {
 					return nil, AnalyserError{msg: fmt.Sprintf("Invalid token: %v", t)}
 				}
+				(&t).Value = op
 			}
 			p := opPrecedence[op]
 			for j := len(operatorStack) - 1; j >= 0; j-- {
@@ -405,7 +418,7 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 				// 내가 들어간다
 				// 아니면
 				// 내가 스택보다 순위가 높을 때까지 애들을 다 postfixToken에 옮긴다
-				if opPrecedence[op] > p {
+				if opPrecedence[o.Value.(string)] > p {
 					break
 				} else {
 					if o.Kind != govaluate.CLAUSE && o.Kind != govaluate.CLAUSE_CLOSE {
@@ -424,7 +437,9 @@ func (this *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 		}
 	}
 	for j := len(operatorStack) - 1; j >= 0; j-- {
-		postfixToken = append(postfixToken, operatorStack[j])
+		if operatorStack[j].Kind != govaluate.CLAUSE && operatorStack[j].Kind != govaluate.CLAUSE_CLOSE {
+			postfixToken = append(postfixToken, operatorStack[j])
+		}
 		operatorStack = operatorStack[:j]
 	}
 	return postfixToken, nil
@@ -465,6 +480,7 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			}
 			rules = append(rules, rule)
 		} else if t.Kind == govaluate.LOGICALOP {
+			fmt.Printf("[LOGIC] token: %v, rules(%d): %v\n", t.Value, len(rules), rules)
 			rhs := rules[len(rules)-1]
 			lhs := rules[len(rules)-2]
 			rules = rules[:(len(rules) - 2)]
@@ -475,6 +491,7 @@ func (this *Analyser) createRule(tokens []token) (techan.Rule, error) {
 			}
 			rules = append(rules, rule)
 		} else if t.Kind == govaluate.MODIFIER {
+			fmt.Printf("[MODIF] token: %v, indicators: %v\n", t.Value, indicators)
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
