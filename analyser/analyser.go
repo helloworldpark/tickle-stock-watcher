@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/helloworldpark/govaluate"
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/sdcoffey/big"
 	"github.com/sdcoffey/techan"
 )
@@ -17,10 +19,10 @@ type expression = govaluate.EvaluableExpression
 type indicatorGen = func(*techan.TimeSeries, ...interface{}) (techan.Indicator, error)
 type ruleGen = func(...interface{}) (techan.Rule, error)
 
-type userStockSide struct {
-	userid    int64
-	stockid   string
+type userSide struct {
+	userid    int
 	orderside techan.OrderSide
+	repeat    bool
 }
 
 // Error is an error struct
@@ -36,14 +38,6 @@ func newError(msg string) Error {
 	return Error{msg: msg}
 }
 
-// Analyser is a struct for signalling to users by condition they have set.
-type Analyser struct {
-	indicatorMap    map[string]indicatorGen // Function Name: Indicator Generator Function
-	ruleMap         map[string]ruleGen      // Function Name: Rule Generator Function
-	userStrategy    map[userStockSide]EventTrigger
-	timeSeriesCache map[string]*techan.TimeSeries // StockID: Time Series
-}
-
 // Operator Precedence
 var opPrecedence = map[string]int{
 	"*": 1, "/": 1, "**": 1,
@@ -53,28 +47,50 @@ var opPrecedence = map[string]int{
 	"&&": 5, "||": 5,
 }
 
+// Analyser is a struct for signalling to users by condition they have set.
+type Analyser struct {
+	indicatorMap map[string]indicatorGen // Function Name: Indicator Generator Function
+	ruleMap      map[string]ruleGen      // Function Name: Rule Generator Function
+	userStrategy map[userSide]EventTrigger
+	timeSeries   *techan.TimeSeries
+	counter      *commons.Ref
+	stockID      string
+}
+
 // NewAnalyser creates and returns a pointer of a new prepared Analyser struct
-func NewAnalyser() *Analyser {
+func newAnalyser(stockID string) *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
-	newAnalyser.userStrategy = make(map[userStockSide]EventTrigger)
-	newAnalyser.timeSeriesCache = make(map[string]*techan.TimeSeries)
+	newAnalyser.userStrategy = make(map[userSide]EventTrigger)
+	newAnalyser.timeSeries = techan.NewTimeSeries()
 	newAnalyser.ruleMap = make(map[string]ruleGen)
+	newAnalyser.counter = &commons.Ref{}
+	newAnalyser.stockID = stockID
 	newAnalyser.cacheFunctions()
 	return &newAnalyser
 }
 
 func newTestAnalyser() *Analyser {
-	analyser := NewAnalyser()
-	analyser.RegisterStock("123456")
-	series := analyser.timeSeriesCache["123456"]
+	analyser := newAnalyser("123456")
 	for i := 0; i < 100; i++ {
 		start := time.Date(0, 0, i, 0, 0, 0, 0, time.UTC)
 		candle := techan.NewCandle(techan.NewTimePeriod(start, time.Hour*6))
 		candle.ClosePrice = big.NewDecimal(math.Sin(float64(i)))
-		series.AddCandle(candle)
+		analyser.timeSeries.AddCandle(candle)
 	}
 	return analyser
+}
+
+func (a *Analyser) Retain() {
+	a.counter.Retain()
+}
+
+func (a *Analyser) Release() {
+	a.counter.Release()
+}
+
+func (a *Analyser) Count() int {
+	return a.counter.Count()
 }
 
 func (a *Analyser) cacheFunctions() {
@@ -207,14 +223,14 @@ type quad struct {
 	end   int
 }
 
-func (a *Analyser) parseAndCacheStrategy(userid int64, stockid string, orderSide techan.OrderSide, strategyStatement string) (bool, error) {
+func (a *Analyser) parseAndCacheStrategy(strategy structs.UserStock, callback EventCallback) (bool, error) {
 	// First, parse tokens
-	tmpTokens, err := a.parseTokens(strategyStatement)
+	tmpTokens, err := a.parseTokens(strategy.Strategy)
 	if err != nil {
 		return false, err
 	}
 
-	newTokens, err := a.searchAndReplaceToFunctionTokens(tmpTokens, stockid)
+	newTokens, err := a.searchAndReplaceToFunctionTokens(tmpTokens)
 	if err != nil {
 		return false, err
 	}
@@ -225,22 +241,23 @@ func (a *Analyser) parseAndCacheStrategy(userid int64, stockid string, orderSide
 	}
 
 	// Create strategy using postfix tokens
-	event, err := a.createEvent(postfixToken, orderSide)
+	orderSide := techan.OrderSide(strategy.OrderSide)
+	event, err := a.createEvent(postfixToken, orderSide, callback)
 	if err != nil {
 		return false, err
 	}
 
 	// Cache into map
-	userKey := userStockSide{
-		userid:    userid,
-		stockid:   stockid,
+	userKey := userSide{
+		userid:    strategy.UserID,
 		orderside: orderSide,
+		repeat:    strategy.Repeat,
 	}
 	a.userStrategy[userKey] = event
 	return true, nil
 }
 
-func (a *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid string) ([]token, error) {
+func (a *Analyser) searchAndReplaceToFunctionTokens(tokens []token) ([]token, error) {
 	// Search for token to switch to pre-cached function
 	isFuncFound := false
 	funcIdxStart := -1
@@ -268,7 +285,7 @@ func (a *Analyser) searchAndReplaceToFunctionTokens(tokens []token, stockid stri
 		} else if isFuncFound && t.Kind == govaluate.NUMERIC {
 			funcParam = append(funcParam, t.Value.(float64))
 		} else if isFuncFound && t.Kind == govaluate.CLAUSE_CLOSE {
-			generatedIndicator, err := funcBody(a.timeSeriesCache[stockid], funcParam...)
+			generatedIndicator, err := funcBody(a.timeSeries, funcParam...)
 			if err != nil {
 				return nil, err
 			}
@@ -437,12 +454,12 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
 	return postfixToken, nil
 }
 
-func (a *Analyser) createEvent(tokens []token, orderSide techan.OrderSide) (EventTrigger, error) {
+func (a *Analyser) createEvent(tokens []token, orderSide techan.OrderSide, callback EventCallback) (EventTrigger, error) {
 	rule, err := a.createRule(tokens)
 	if err != nil {
 		return nil, err
 	}
-	eventTrigger := NewEventTrigger(orderSide, rule)
+	eventTrigger := NewEventTrigger(orderSide, rule, callback)
 	return eventTrigger, nil
 }
 
@@ -501,18 +518,32 @@ func (a *Analyser) createRule(tokens []token) (techan.Rule, error) {
 	return rules[0], nil
 }
 
-// Analyser의 상태 관리와 관련한 함수들
-
-// RegisterStock registers stock items so that Analyser starts tracking the price.
-func (a *Analyser) RegisterStock(stockid string) {
-	_, ok := a.timeSeriesCache[stockid]
-	if !ok {
-		a.timeSeriesCache[stockid] = techan.NewTimeSeries()
-	}
+func (a *Analyser) appendStrategy(userStrategy structs.UserStock, callback EventCallback) (bool, error) {
+	return a.parseAndCacheStrategy(userStrategy, callback)
 }
 
-// UnregisterStock unregisters stock items.
-// If there still are needs to others, Analyser will keep tracking the stock item.
-func (a *Analyser) UnregisterStock(stockid string) {
-	delete(a.timeSeriesCache, stockid)
+func (a *Analyser) deleteStrategy(userid int, orderside techan.OrderSide) {
+	key := userSide{userid: userid, orderside: orderside}
+	delete(a.userStrategy, key)
+}
+
+func (a *Analyser) updateStockPrice(stockPrice structs.StockPrice, sleepTime time.Duration) {
+	end := time.Unix(stockPrice.Timestamp, 0)
+	start := end.Add(-sleepTime)
+	candle := techan.NewCandle(techan.NewTimePeriod(start, sleepTime))
+	candle.ClosePrice = big.NewDecimal(float64(stockPrice.Close))
+	a.timeSeries.AddCandle(candle)
+}
+
+func (a *Analyser) calculateStrategies() {
+	triggered := make(map[userSide]EventTrigger)
+	for k, v := range a.userStrategy {
+		if v.IsTriggered(a.timeSeries.LastIndex(), nil) {
+			triggered[k] = v
+		}
+	}
+	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
+	for k, v := range triggered {
+		v.OnEvent(closePrice, a.stockID, int(k.orderside))
+	}
 }
