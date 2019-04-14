@@ -38,7 +38,7 @@ func ClosingTime(t time.Time) int {
 
 // Year returns the current year.
 func (c *DateChecker) Year() int {
-	return time.Now().Year()
+	return commons.Now().Year()
 }
 
 // IsHoliday checks if the day is holiday or not.
@@ -66,7 +66,7 @@ func (c *DateChecker) UpdateHolidays(year int) {
 
 func downloadHolidays(year int) []int64 {
 	u := "http://marketdata.krx.co.kr/contents/COM/GenerateOTP.jspx?bld=MKD%2F01%2F0110%2F01100305%2Fmkd01100305_01&name=form&_="
-	u += strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
+	u += strconv.FormatInt(commons.Now().UnixNano()/1000000, 10)
 
 	resOTP, err := http.Get(u)
 	if err != nil {

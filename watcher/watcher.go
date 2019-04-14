@@ -170,7 +170,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 	// Construct function
 	workerFuncGenerator := func(stockID string) workerFunc {
 		f := func() <-chan StockPrice {
-			out := make(chan StockPrice)
+			outResult := make(chan StockPrice)
 			var pivotValue int64
 			if w.crawlers[stockID] < timestampTwoYears {
 				pivotValue = timestampTwoYears
@@ -178,7 +178,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 				pivotValue = w.crawlers[stockID]
 			}
 			go func() {
-				defer close(out)
+				defer close(outResult)
 
 				shouldCollectMore := func(collected []StockPrice) (bool, int) {
 					if len(collected) == 0 {
@@ -200,7 +200,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 					collected := CrawlPast(stockID, page)
 					shouldGo, k := shouldCollectMore(collected)
 					for i := 0; i < k; i++ {
-						out <- collected[i]
+						outResult <- collected[i]
 					}
 					if shouldGo {
 						page++
@@ -211,13 +211,13 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 					}
 				}
 			}()
-			return out
+			return outResult
 		}
 		return f
 	}
 	// Fan In
 	var wg sync.WaitGroup
-	out := make(chan StockPrice)
+	outCollect := make(chan StockPrice)
 	outWatchingStock := make(chan WatchingStock)
 	output := func(stockID string, c <-chan StockPrice) {
 		defer wg.Done()
@@ -226,7 +226,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 			if v.Timestamp > lastTimestamp {
 				lastTimestamp = v.Timestamp
 			}
-			out <- v
+			outCollect <- v
 		}
 		outWatchingStock <- WatchingStock{
 			StockID:            stockID,
@@ -242,7 +242,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 	}
 	go func() {
 		wg.Wait()
-		close(out)
+		close(outCollect)
 		close(outWatchingStock)
 	}()
 
@@ -262,7 +262,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 	}()
 	wg2.Add(1)
 
-	for v := range out {
+	for v := range outCollect {
 		_, err := w.dbClient.Insert(&v)
 		if err != nil {
 			logger.Error("[Watcher] %s", err.Error())

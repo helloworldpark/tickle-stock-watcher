@@ -514,12 +514,39 @@ func (a *Analyser) deleteStrategy(userid int, orderside techan.OrderSide) {
 	delete(a.userStrategy, key)
 }
 
-func (a *Analyser) updateStockPrice(stockPrice structs.StockPrice, sleepTime time.Duration) {
-	end := time.Unix(stockPrice.Timestamp, 0)
-	start := end.Add(-sleepTime)
-	candle := techan.NewCandle(techan.NewTimePeriod(start, sleepTime))
+func (a *Analyser) prepareWatching() {
+	newCandle := techan.NewCandle(techan.NewTimePeriod(commons.Today(), time.Hour*24))
+	a.timeSeries.AddCandle(newCandle)
+	for len(a.timeSeries.Candles) > 100 {
+		a.timeSeries.Candles = a.timeSeries.Candles[1:]
+	}
+}
+
+func (a *Analyser) watchStockPrice(stockPrice structs.StockPrice) {
+	lastCandle := a.timeSeries.LastCandle()
+	lastCandle.ClosePrice = big.NewDecimal(float64(stockPrice.Close))
+}
+
+func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
+	lastTimestamp := a.timeSeries.LastCandle().Period.Start.Unix()
+	if lastTimestamp > stockPrice.Timestamp {
+		return
+	}
+	var candle *techan.Candle
+	if lastTimestamp == stockPrice.Timestamp {
+		candle = a.timeSeries.LastCandle()
+	} else {
+		start := time.Unix(stockPrice.Timestamp, 0)
+		candle = techan.NewCandle(techan.NewTimePeriod(start, time.Hour*24))
+	}
+	candle.OpenPrice = big.NewDecimal(float64(stockPrice.Open))
 	candle.ClosePrice = big.NewDecimal(float64(stockPrice.Close))
-	a.timeSeries.AddCandle(candle)
+	candle.MaxPrice = big.NewDecimal(float64(stockPrice.High))
+	candle.MinPrice = big.NewDecimal(float64(stockPrice.Low))
+	candle.Volume = big.NewDecimal(float64(stockPrice.Volume))
+	if lastTimestamp < stockPrice.Timestamp {
+		a.timeSeries.AddCandle(candle)
+	}
 }
 
 func (a *Analyser) calculateStrategies() {

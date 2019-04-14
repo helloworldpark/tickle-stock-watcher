@@ -8,6 +8,16 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
+var timezoneSeoul *time.Location
+
+func init() {
+	seoul, err := time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		logger.Panic(err.Error())
+	}
+	timezoneSeoul = seoul
+}
+
 // GetInt parses string into int
 // s: string, comma allowed
 // if parsing fails: panics
@@ -32,10 +42,23 @@ func GetDouble(s string) float64 {
 
 // GetTimestamp returns timestamp from string value given layout.
 func GetTimestamp(layout, value string) int64 {
-	seoul, _ := time.LoadLocation("Asia/Seoul")
-	t, err := time.ParseInLocation(layout, value, seoul)
+	t, err := time.ParseInLocation(layout, value, timezoneSeoul)
 	if err != nil {
 		logger.Panic("[Helper] %s", err.Error())
 	}
 	return t.Unix()
+}
+
+// Now returns time.Now() of Asia/Seoul
+func Now() time.Time {
+	now := time.Now()
+	nowSeoul := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), timezoneSeoul)
+	return nowSeoul
+}
+
+// Today returns today's time.Time of Asia/Seoul
+func Today() time.Time {
+	now := time.Now()
+	todaySeoul := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, timezoneSeoul)
+	return todaySeoul
 }

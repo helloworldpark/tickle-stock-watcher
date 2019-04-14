@@ -2,7 +2,6 @@ package analyser
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
@@ -24,14 +23,12 @@ type analyserHolder struct {
 type AnalyserBroker struct {
 	analysers map[string]*analyserHolder
 	dbClient  *database.DBClient
-	sleepTime time.Duration
 }
 
-func NewAnalyserBroker(dbClient *database.DBClient, sleepTime time.Duration) *AnalyserBroker {
+func NewAnalyserBroker(dbClient *database.DBClient) *AnalyserBroker {
 	newBroker := AnalyserBroker{}
 	newBroker.analysers = make(map[string]*analyserHolder)
 	newBroker.dbClient = dbClient
-	newBroker.sleepTime = sleepTime
 
 	return &newBroker
 }
@@ -121,12 +118,21 @@ func (b *AnalyserBroker) FeedPrice(stockID string, provider <-chan structs.Stock
 		return
 	}
 	go func() {
+		holder.analyser.prepareWatching()
 		for price := range provider {
-			holder.analyser.updateStockPrice(price, b.sleepTime)
+			holder.analyser.watchStockPrice(price)
 			select {
 			case <-holder.sentinel:
 				return
 			}
 		}
 	}()
+}
+
+func (b *AnalyserBroker) UpdatePastPrice(stockPrice structs.StockPrice) {
+	holder, ok := b.analysers[stockPrice.StockID]
+	if !ok {
+		return
+	}
+	holder.analyser.appendPastStockPrice(stockPrice)
 }
