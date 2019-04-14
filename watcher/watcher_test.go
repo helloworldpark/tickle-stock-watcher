@@ -17,27 +17,29 @@ func TestWatcher(t *testing.T) {
 	w.Register(structs.Stock{Name: "Samsung Electronics", StockID: "005930", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Hanwha Chemicals", StockID: "009830", MarketType: structs.KOSPI})
-	timer := time.NewTimer(time.Duration(1) * time.Second)
+
+	fmt.Printf("%v Started!!!!\n", time.Now().Unix())
+	timer := time.NewTimer(time.Duration(10) * time.Second)
 	go func() {
 		<-timer.C
-		w.StopWatching()
+		w.StopWatchingStock("003490")
 	}()
 	handle := w.StartWatching(time.Duration(500) * time.Millisecond)
 	for v := range handle {
 		fmt.Println(v)
 	}
-	fmt.Println("Finished!!!!")
+	fmt.Printf("%v Finished!!!!\n", time.Now().Unix())
 
-	timer = time.NewTimer(time.Duration(1) * time.Second)
-	go func() {
-		<-timer.C
-		w.StopWatching()
-	}()
-	handle = w.StartWatching(time.Duration(500) * time.Millisecond)
-	for v := range handle {
-		fmt.Println(v)
-	}
-	fmt.Println("Finished Again!!!!")
+	// timer = time.NewTimer(time.Duration(10) * time.Second)
+	// go func() {
+	// 	<-timer.C
+	// 	w.StopWatching()
+	// }()
+	// handle = w.StartWatching(time.Duration(500) * time.Millisecond)
+	// for v := range handle {
+	// 	fmt.Println(v)
+	// }
+	// fmt.Printf("%v Finished Again!!!!\n", time.Now().Unix())
 }
 
 func TestCrawlPast(t *testing.T) {

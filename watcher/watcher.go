@@ -1,7 +1,6 @@
 package watcher
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -21,19 +20,21 @@ type Stock = structs.Stock
 // WatchingStock is just a simple type alias
 type WatchingStock = structs.WatchingStock
 type workerFunc = func() <-chan StockPrice
+type internalCrawler struct {
+	lastTimestamp int64
+	sentinel      chan struct{}
+}
 
 // Watcher is a struct for watching the market
 type Watcher struct {
-	crawlers map[string]int64 // key: Stock, value: last timestamp of the price info
-	sentinel chan struct{}
+	crawlers map[string]internalCrawler // key: Stock, value: last timestamp of the price info and sentinel
 	dbClient *database.DBClient
 }
 
 // New creates a new Watcher struct
 func New(dbClient *database.DBClient) Watcher {
 	watcher := Watcher{
-		crawlers: make(map[string]int64),
-		sentinel: make(chan struct{}),
+		crawlers: make(map[string]internalCrawler),
 		dbClient: dbClient,
 	}
 	return watcher
@@ -63,7 +64,10 @@ func (w *Watcher) Register(stock Stock) {
 		newWatchingStock = watchingStock[0]
 		newWatchingStock.IsWatching = true
 	}
-	w.crawlers[stock.StockID] = newWatchingStock.LastPriceTimestamp
+	w.crawlers[stock.StockID] = internalCrawler{
+		lastTimestamp: newWatchingStock.LastPriceTimestamp,
+		sentinel:      make(chan struct{}),
+	}
 	ok, _ = w.dbClient.Insert(&newWatchingStock)
 	if ok {
 		return
@@ -76,14 +80,14 @@ func (w *Watcher) Register(stock Stock) {
 
 // Withdraw withdraws a stock which was of interest.
 func (w *Watcher) Withdraw(stock Stock) {
-	lastTimestamp, ok := w.crawlers[stock.StockID]
+	crawler, ok := w.crawlers[stock.StockID]
 	if !ok {
 		return
 	}
 	watchingStock := WatchingStock{
 		StockID:            stock.StockID,
 		IsWatching:         false,
-		LastPriceTimestamp: lastTimestamp,
+		LastPriceTimestamp: crawler.lastTimestamp,
 	}
 	_, err := w.dbClient.Update(&watchingStock)
 	if err != nil {
@@ -97,7 +101,10 @@ func (w *Watcher) Withdraw(stock Stock) {
 // returns : <-chan StockPrice, which will give stock price until StopWatching is called.
 func (w *Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
 	// Prepare new sentinel
-	w.sentinel = make(chan struct{})
+	for key := range w.crawlers {
+		old := w.crawlers[key]
+		w.crawlers[key] = internalCrawler{lastTimestamp: old.lastTimestamp, sentinel: make(chan struct{})}
+	}
 	// Construct function
 	workerFuncGenerator := func(stockID string, sentinel <-chan struct{}) workerFunc {
 		f := func() <-chan StockPrice {
@@ -121,22 +128,18 @@ func (w *Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
 	// Fan In
 	var wg sync.WaitGroup
 	out := make(chan StockPrice)
-	output := func(c <-chan StockPrice, sentinel <-chan struct{}) {
+	output := func(c <-chan StockPrice) {
 		defer wg.Done()
 		for v := range c {
-			select {
-			case out <- v:
-			case <-sentinel:
-				return
-			}
+			out <- v
 		}
 	}
-	for stockID, ref := range w.crawlers {
-		if ref <= 0 {
+	for stockID, crawler := range w.crawlers {
+		if crawler.lastTimestamp < 0 {
 			continue
 		}
-		worker := workerFuncGenerator(stockID, w.sentinel)
-		go output(worker(), w.sentinel)
+		worker := workerFuncGenerator(stockID, w.crawlers[stockID].sentinel)
+		go output(worker())
 		wg.Add(1)
 	}
 	go func() {
@@ -149,7 +152,17 @@ func (w *Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
 // StopWatching call it when to stop watching the market.
 func (w *Watcher) StopWatching() {
 	// Send signal to sentinel
-	close(w.sentinel)
+	for k := range w.crawlers {
+		w.StopWatchingStock(k)
+	}
+}
+
+// StopWatchingStock call it when to stop watching the specific stock.
+func (w *Watcher) StopWatchingStock(stockID string) {
+	// Send signal to sentinel
+	if c, ok := w.crawlers[stockID]; ok {
+		close(c.sentinel)
+	}
 }
 
 // Collect collects the past price data of the market.
@@ -162,7 +175,11 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 		return
 	}
 	for _, v := range watching {
-		w.crawlers[v.StockID] = v.LastPriceTimestamp
+		sentinel := w.crawlers[v.StockID].sentinel
+		w.crawlers[v.StockID] = internalCrawler{
+			lastTimestamp: v.LastPriceTimestamp,
+			sentinel:      sentinel,
+		}
 	}
 
 	timestampTwoYears := getCollectionStartingDate(2017).Unix()
@@ -172,10 +189,10 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 		f := func() <-chan StockPrice {
 			outResult := make(chan StockPrice)
 			var pivotValue int64
-			if w.crawlers[stockID] < timestampTwoYears {
+			if w.crawlers[stockID].lastTimestamp < timestampTwoYears {
 				pivotValue = timestampTwoYears
 			} else {
-				pivotValue = w.crawlers[stockID]
+				pivotValue = w.crawlers[stockID].lastTimestamp
 			}
 			go func() {
 				defer close(outResult)
@@ -206,7 +223,6 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 						page++
 						time.Sleep(sleepTime)
 					} else {
-						fmt.Println(k, page)
 						break
 					}
 				}
