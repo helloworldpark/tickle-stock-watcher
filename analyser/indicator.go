@@ -69,3 +69,16 @@ func newNegateIndicator(indicator techan.Indicator) techan.Indicator {
 func (ni negateIndicator) Calculate(index int) big.Decimal {
 	return ni.indicator.Calculate(index).Neg()
 }
+
+func newRSI(series *techan.TimeSeries, timeframe int) techan.Indicator {
+	return techan.NewRelativeStrengthIndexIndicator(techan.NewClosePriceIndicator(series), timeframe)
+}
+
+func newMACD(series *techan.TimeSeries, shortWindow, longWindow int) techan.Indicator {
+	return techan.NewMACDIndicator(techan.NewClosePriceIndicator(series), shortWindow, longWindow)
+}
+
+func newMACDHist(series *techan.TimeSeries, shortWindow, longWindow, signalWindow int) techan.Indicator {
+	macd := newMACD(series, shortWindow, longWindow)
+	return techan.NewMACDHistogramIndicator(macd, signalWindow)
+}

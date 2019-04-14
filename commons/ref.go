@@ -1,5 +1,12 @@
 package commons
 
+// ReferenceCounting is an interface for reference counting structs
+type ReferenceCounting interface {
+	Retain()
+	Release()
+	Count() int
+}
+
 // Ref is a simple struct for reference counting.
 // Will panic if overreleased.
 type Ref struct {
