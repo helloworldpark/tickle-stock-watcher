@@ -57,7 +57,7 @@ type Analyser struct {
 	stockID      string
 }
 
-// NewAnalyser creates and returns a pointer of a new prepared Analyser struct
+// newAnalyser creates and returns a pointer of a new prepared Analyser struct
 func newAnalyser(stockID string) *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
@@ -81,14 +81,17 @@ func newTestAnalyser() *Analyser {
 	return analyser
 }
 
+// Retain implementation of ReferenceCounting
 func (a *Analyser) Retain() {
 	a.counter.Retain()
 }
 
+// Release implementation of ReferenceCounting
 func (a *Analyser) Release() {
 	a.counter.Release()
 }
 
+// Count implementation of ReferenceCounting
 func (a *Analyser) Count() int {
 	return a.counter.Count()
 }

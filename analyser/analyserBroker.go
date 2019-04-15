@@ -20,11 +20,13 @@ type analyserHolder struct {
 	sentinel chan bool
 }
 
+// AnalyserBroker is an Analysis Manager
 type AnalyserBroker struct {
 	analysers map[string]*analyserHolder
 	dbClient  *database.DBClient
 }
 
+// NewAnalyserBroker creates a new initialized pointer of AnalyserBroker
 func NewAnalyserBroker(dbClient *database.DBClient) *AnalyserBroker {
 	newBroker := AnalyserBroker{}
 	newBroker.analysers = make(map[string]*analyserHolder)
@@ -43,6 +45,7 @@ func newHolder(stockID string) *analyserHolder {
 	return &holder
 }
 
+// AddStrategy adds a user's strategy and a channel of StockPrice, with a callback which will be for sending push messages.
 func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan structs.StockPrice, callback EventCallback) (bool, error) {
 	// Handle analysers
 	holder, ok := b.analysers[userStrategy.StockID]
@@ -65,6 +68,8 @@ func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan str
 	return b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
 }
 
+// DeleteStrategy deletes a strategy from the managing list.
+// Analyser will be destroyed only if there are no need to manage it.
 func (b *AnalyserBroker) DeleteStrategy(user User, stockID string, orderSide int) (bool, error) {
 	// Handle analysers
 	holder, ok := b.analysers[stockID]
@@ -84,12 +89,10 @@ func (b *AnalyserBroker) DeleteStrategy(user User, stockID string, orderSide int
 
 	// Delete from DB
 	ok, err := b.dbClient.Delete(UserStock{}, "where UserID=? and StockID=? and OrderSide=?", user.UserID, stockID, orderSide)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return ok, err
 }
 
+// GetStrategy gets strategy of a specific user.
 func (b *AnalyserBroker) GetStrategy(user User) []UserStock {
 	var result []UserStock
 	_, err := b.dbClient.Select(result, "where UserID=?", user.UserID)
@@ -99,12 +102,14 @@ func (b *AnalyserBroker) GetStrategy(user User) []UserStock {
 	return result
 }
 
+// UpdateStrategyTriggers calculates all triggers and check if any push messages need to be sent.
 func (b *AnalyserBroker) UpdateStrategyTriggers() {
 	for _, v := range b.analysers {
 		v.analyser.calculateStrategies()
 	}
 }
 
+// FeedPrice is a function for updating the latest stock price.
 func (b *AnalyserBroker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	holder, ok := b.analysers[stockID]
 	if !ok {
@@ -126,10 +131,10 @@ func (b *AnalyserBroker) FeedPrice(stockID string, provider <-chan structs.Stock
 	}()
 }
 
+// UpdatePastPrice is for updating the past price of the stock.
 func (b *AnalyserBroker) UpdatePastPrice(stockPrice structs.StockPrice) {
 	holder, ok := b.analysers[stockPrice.StockID]
-	if !ok {
-		return
+	if ok {
+		holder.analyser.appendPastStockPrice(stockPrice)
 	}
-	holder.analyser.appendPastStockPrice(stockPrice)
 }
