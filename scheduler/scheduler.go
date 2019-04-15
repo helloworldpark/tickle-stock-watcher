@@ -1,15 +1,13 @@
 package scheduler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 )
 
-var aa = time.Now()
-
 type stoppable interface {
-	getTag() string
 	stop()
 	do()
 }
@@ -33,10 +31,6 @@ type taskPeriodicFinite struct {
 
 var taskMap = commons.NewConcurrentMap()
 
-func (task *taskTerminating) getTag() string {
-	return task.tag
-}
-
 func (task *taskTerminating) stop() {
 	task.timer.Stop()
 	taskMap.DeleteValue(task.tag)
@@ -44,10 +38,6 @@ func (task *taskTerminating) stop() {
 
 func (task *taskTerminating) do() {
 	task.todo()
-}
-
-func (task *taskPeriodic) getTag() string {
-	return task.tag
 }
 
 func (task *taskPeriodic) stop() {
@@ -69,18 +59,21 @@ func (task *taskPeriodicFinite) do() {
 	}
 }
 
+// Cancel task schedulled by tag
 func Cancel(tag string) {
 	task, ok := taskMap.GetValue(tag)
-	if !ok {
-		return
+	if ok {
+		task.(stoppable).stop()
+		fmt.Println("Cancelling " + tag)
 	}
-	task.(stoppable).stop()
 }
 
+// Schedule single task. Duplicated tag will overwrite the task to do.
 func Schedule(tag string, after time.Duration, todo func()) {
 	appendSingleTask(tag, after, todo, false)
 }
 
+// SchedulePeriodic task. Can set period, and when to start.
 func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 	todoAfter := func() {
 		task := taskPeriodic{
@@ -91,17 +84,19 @@ func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 		taskMap.SetValue(tag, &task)
 		go func() {
 			for range task.ticker.C {
-				task.todo()
+				(&task).do()
 			}
 		}()
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
 	} else {
+		Cancel(tag)
 		todoAfter()
 	}
 }
 
+// SchedulePeriodicFinite task. This is for periodic but terminating tasks.
 func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, todo func()) {
 	todoAfter := func() {
 		task := taskPeriodicFinite{
@@ -115,13 +110,14 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 		taskMap.SetValue(tag, &task)
 		go func() {
 			for range task.ticker.C {
-				task.todo()
+				(&task).do()
 			}
 		}()
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
 	} else {
+		Cancel(tag)
 		todoAfter()
 	}
 }
@@ -132,10 +128,11 @@ func appendSingleTask(tag string, after time.Duration, todo func(), reuseTag boo
 		todo:  todo,
 		timer: time.NewTimer(after),
 	}
-	taskMap.SetValue(task.getTag(), task)
+	Cancel(tag)
+	taskMap.SetValue(tag, &task)
 	go func() {
 		<-task.timer.C
-		task.do()
+		(&task).do()
 		if !reuseTag {
 			taskMap.DeleteValue(tag)
 		}
