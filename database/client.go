@@ -224,7 +224,7 @@ type dbError struct {
 }
 
 func (err *dbError) Error() string {
-	return err.msg
+	return "[DB]" + err.msg
 }
 
 // Insert inserts struct to database
@@ -248,6 +248,70 @@ func (client *DBClient) Update(o ...interface{}) (bool, error) {
 
 	client.mutex.Lock()
 	_, err := client.dbmap.Update(o...)
+	client.mutex.Unlock()
+	return err == nil, err
+}
+
+// Upsert performs update if the data is already inserted.
+func (client *DBClient) Upsert(o ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	if len(o) == 0 {
+		return false, &dbError{msg: "Argument 'o' is empty"}
+	}
+
+	target := reflect.ValueOf(o[0])
+	elements := target.Elem()
+	if target.Kind() != reflect.Ptr {
+		return false, &dbError{msg: "Argument 'o' must be pointer type"}
+	}
+
+	table, err := client.dbmap.TableFor(target.Type().Elem(), false)
+	if err != nil {
+		return false, err
+	}
+
+	queryBuffer := strings.Builder{}
+	queryBuffer.WriteString("insert into ")
+	queryBuffer.WriteString(table.TableName)
+
+	argsBuffer := strings.Builder{}
+	valsBuffer := strings.Builder{}
+	upsBuffer := strings.Builder{}
+
+	argsBuffer.WriteString(" (")
+	valsBuffer.WriteString(" values (")
+	upsBuffer.WriteString(" on duplicate key update ")
+
+	args := make([]interface{}, elements.NumField()*2)
+
+	for i := 0; i < elements.NumField(); i++ {
+		if i > 0 {
+			argsBuffer.WriteString(", ")
+			valsBuffer.WriteString(", ")
+			upsBuffer.WriteString(", ")
+		}
+		field := elements.Field(i).Interface()
+		fieldType := elements.Type().Field(i)
+		colname := table.ColMap(fieldType.Name).ColumnName
+		argsBuffer.WriteString(colname)
+		valsBuffer.WriteString("?")
+		upsBuffer.WriteString(colname)
+		upsBuffer.WriteString("=?")
+		args[i] = field
+		args[i+elements.NumField()] = field
+	}
+	argsBuffer.WriteString(")")
+	valsBuffer.WriteString(")")
+	queryBuffer.WriteString(argsBuffer.String())
+	queryBuffer.WriteString(valsBuffer.String())
+	queryBuffer.WriteString(upsBuffer.String())
+	query := queryBuffer.String()
+
+	client.mutex.Lock()
+	_, err = client.dbmap.Exec(query, args...)
 	client.mutex.Unlock()
 	return err == nil, err
 }

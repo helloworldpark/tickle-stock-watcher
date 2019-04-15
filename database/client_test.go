@@ -243,3 +243,33 @@ func TestSelectNull(t *testing.T) {
 		logger.Info("%v", v)
 	}
 }
+
+func TestUpsert(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	keyCols := make([]string, 1)
+	keyCols[0] = "Time"
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		KeyColumns: keyCols,
+	}
+	client.RegisterStruct(register)
+
+	t1 := TestStruct{Time: time.Now().UnixNano(), Name: "Meme", DidOpen: false}
+	t2 := TestStruct{Time: time.Now().UnixNano(), Name: "Nemp", DidOpen: true}
+
+	_, err := client.Upsert(&t1)
+	_, err = client.Upsert(&t2)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Test Success")
+	}
+}
