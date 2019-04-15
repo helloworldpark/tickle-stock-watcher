@@ -8,14 +8,15 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
-var timezoneSeoul *time.Location
+// AsiaSeoul is the timezone of Asia/Seoul
+var AsiaSeoul *time.Location
 
 func init() {
 	seoul, err := time.LoadLocation("Asia/Seoul")
 	if err != nil {
 		logger.Panic(err.Error())
 	}
-	timezoneSeoul = seoul
+	AsiaSeoul = seoul
 }
 
 // GetInt parses string into int
@@ -42,7 +43,7 @@ func GetDouble(s string) float64 {
 
 // GetTimestamp returns timestamp from string value given layout.
 func GetTimestamp(layout, value string) int64 {
-	t, err := time.ParseInLocation(layout, value, timezoneSeoul)
+	t, err := time.ParseInLocation(layout, value, AsiaSeoul)
 	if err != nil {
 		logger.Panic("[Helper] %s", err.Error())
 	}
@@ -52,13 +53,13 @@ func GetTimestamp(layout, value string) int64 {
 // Now returns time.Now() of Asia/Seoul
 func Now() time.Time {
 	now := time.Now()
-	nowSeoul := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), timezoneSeoul)
+	nowSeoul := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), AsiaSeoul)
 	return nowSeoul
 }
 
 // Today returns today's time.Time of Asia/Seoul
 func Today() time.Time {
 	now := time.Now()
-	todaySeoul := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, timezoneSeoul)
+	todaySeoul := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, AsiaSeoul)
 	return todaySeoul
 }

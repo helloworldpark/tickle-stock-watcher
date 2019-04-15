@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
@@ -270,23 +271,39 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 	}()
 	wg2.Add(1)
 
-	for v := range outCollect {
-		_, err := w.dbClient.Insert(&v)
+	// Write to DB by bucket
+	bucketSize := 2000
+	buckets := make([]*[]interface{}, 2)
+	bucket1 := make([]interface{}, bucketSize)
+	buckets[0] = &bucket1
+	bucket2 := make([]interface{}, bucketSize)
+	buckets[1] = &bucket2
+	activeBucket := 0
+	insertToDb := func(b *[]interface{}) {
+		_, err := w.dbClient.BulkInsert((*b)...)
 		if err != nil {
 			logger.Error("[Watcher] %s", err.Error())
 		}
 	}
+	for v := range outCollect {
+		*buckets[activeBucket] = append(*buckets[activeBucket], v)
+		if len(*buckets[activeBucket]) < 2000 {
+			continue
+		}
+		go insertToDb(buckets[activeBucket])
+		activeBucket = (activeBucket + 1) % 2
+	}
+	insertToDb(buckets[activeBucket])
 	wg2.Wait()
 }
 
 func getCollectionStartingDate(year int) time.Time {
-	timezone, _ := time.LoadLocation("Asia/Seoul")
-	start := time.Date(year, 1, 2, 0, 0, 0, 0, timezone)
+	start := time.Date(year, 1, 2, 0, 0, 0, 0, commons.AsiaSeoul)
 
 	if start.Weekday() == time.Sunday {
-		start = time.Date(start.Year(), start.Month(), 3, 0, 0, 0, 0, timezone)
+		start = time.Date(start.Year(), start.Month(), 3, 0, 0, 0, 0, commons.AsiaSeoul)
 	} else if start.Weekday() == time.Saturday {
-		start = time.Date(start.Year(), start.Month(), 4, 0, 0, 0, 0, timezone)
+		start = time.Date(start.Year(), start.Month(), 4, 0, 0, 0, 0, commons.AsiaSeoul)
 	}
 	return start
 }

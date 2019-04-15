@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -306,7 +305,6 @@ func (client *DBClient) BulkInsert(o ...interface{}) (bool, error) {
 	}
 
 	query := queryBuffer.String()
-	fmt.Println(query)
 
 	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)

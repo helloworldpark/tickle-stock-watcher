@@ -293,13 +293,14 @@ func TestBulkInsert(t *testing.T) {
 	}
 	client.RegisterStruct(register)
 
-	testdata := make([]interface{}, 200)
-	for i := 0; i < 200; i++ {
-		testdata[i] = &TestStruct{Time: int64(i + 50), Name: ("Meme" + strconv.Itoa(i)), DidOpen: i%2 == 0}
+	stress := 5000
+
+	testdata := make([]interface{}, stress)
+	for i := 0; i < stress; i++ {
+		testdata[i] = &TestStruct{Time: int64(i), Name: ("Meme" + strconv.Itoa(i)), DidOpen: i%2 == 0}
 	}
 
-	// client.Delete(TestStruct{}, "where Time < ?", 200)
-
+	client.Delete(TestStruct{}, "where Time < ?", stress)
 	countTime := func(f func()) int64 {
 		start := time.Now()
 		f()
@@ -314,7 +315,7 @@ func TestBulkInsert(t *testing.T) {
 	})
 	fmt.Printf("Time Bulk: %f\n", float64(timeBulk)/float64(time.Second))
 
-	// client.Delete(TestStruct{}, "where Time < ?", 200)
+	// client.Delete(TestStruct{}, "where Time < ?", stress)
 
 	// timeInsert := countTime(func() {
 	// 	_, err := client.Insert(testdata...)
