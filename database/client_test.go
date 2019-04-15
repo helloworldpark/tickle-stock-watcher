@@ -2,6 +2,7 @@ package database_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -272,4 +273,55 @@ func TestUpsert(t *testing.T) {
 	} else {
 		fmt.Println("Test Success")
 	}
+}
+
+func TestBulkInsert(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	keyCols := make([]string, 1)
+	keyCols[0] = "Time"
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		KeyColumns: keyCols,
+	}
+	client.RegisterStruct(register)
+
+	testdata := make([]interface{}, 200)
+	for i := 0; i < 200; i++ {
+		testdata[i] = &TestStruct{Time: int64(i + 50), Name: ("Meme" + strconv.Itoa(i)), DidOpen: i%2 == 0}
+	}
+
+	// client.Delete(TestStruct{}, "where Time < ?", 200)
+
+	countTime := func(f func()) int64 {
+		start := time.Now()
+		f()
+		return time.Now().UnixNano() - start.UnixNano()
+	}
+
+	timeBulk := countTime(func() {
+		_, err := client.BulkInsert(testdata...)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	})
+	fmt.Printf("Time Bulk: %f\n", float64(timeBulk)/float64(time.Second))
+
+	// client.Delete(TestStruct{}, "where Time < ?", 200)
+
+	// timeInsert := countTime(func() {
+	// 	_, err := client.Insert(testdata...)
+	// 	if err != nil {
+	// 		fmt.Println(err.Error())
+	// 	}
+	// })
+	// fmt.Printf("Time Insert: %f\n", float64(timeInsert)/float64(time.Second))
+
 }

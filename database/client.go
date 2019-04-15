@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -234,10 +235,87 @@ func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
+	var err error
 	client.mutex.Lock()
-	err := client.dbmap.Insert(o...)
+	err = client.dbmap.Insert(o...)
 	client.mutex.Unlock()
+
 	return err == nil, err
+}
+
+// BulkInsert inserts data by bulk, i.e. in a one query.
+// It may fail if any one of the data has a problem, i.e. all or none.
+func (client *DBClient) BulkInsert(o ...interface{}) (bool, error) {
+	if !client.IsOpen() {
+		return false, &dbError{msg: "Database is not open yet"}
+	}
+
+	// Check type of all elements of o
+	target := reflect.ValueOf(o[0])
+	elements := target.Elem()
+	targetType := target.Type()
+	if target.Kind() != reflect.Ptr {
+		return false, &dbError{msg: "Argument 'o' must be pointer type"}
+	}
+	for _, v := range o {
+		if reflect.TypeOf(v) != targetType {
+			return false, &dbError{msg: "When inserting into database, every struct must be of same type"}
+		}
+	}
+
+	table, err := client.dbmap.TableFor(target.Type().Elem(), false)
+	if err != nil {
+		return false, err
+	}
+
+	queryBuffer := strings.Builder{}
+	queryBuffer.WriteString("insert into ")
+	queryBuffer.WriteString(table.TableName)
+
+	argsBuffer := strings.Builder{}
+	valsBuffer := strings.Builder{}
+
+	argsBuffer.WriteString("(")
+	valsBuffer.WriteString("(")
+
+	for i := 0; i < elements.NumField(); i++ {
+		if i > 0 {
+			argsBuffer.WriteString(", ")
+			valsBuffer.WriteString(", ")
+		}
+		fieldType := elements.Type().Field(i).Name
+		colname := table.ColMap(fieldType).ColumnName
+		argsBuffer.WriteString(colname)
+		valsBuffer.WriteString("?")
+	}
+	argsBuffer.WriteString(")")
+	valsBuffer.WriteString(")")
+	queryBuffer.WriteString(argsBuffer.String())
+	queryBuffer.WriteString(" values ")
+
+	args := make([]interface{}, elements.NumField()*len(o))
+	for i := range o {
+		if i > 0 {
+			queryBuffer.WriteString(", ")
+		}
+		queryBuffer.WriteString(valsBuffer.String())
+		v := reflect.ValueOf(o[i]).Elem()
+		for j := 0; j < elements.NumField(); j++ {
+			args[i*elements.NumField()+j] = v.Field(j).Interface()
+		}
+	}
+
+	query := queryBuffer.String()
+	fmt.Println(query)
+
+	client.mutex.Lock()
+	_, err = client.dbmap.Exec(query, args...)
+	client.mutex.Unlock()
+
+	return err == nil, err
+
+	// fmt.Println(args)
+	// return true, err
 }
 
 // Update updates value to the database
