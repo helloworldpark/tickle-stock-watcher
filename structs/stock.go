@@ -8,8 +8,8 @@ type Market string
 const (
 	// KOSPI market
 	KOSPI = "kospi"
-	// KOSDAC market
-	KOSDAC = "kosdac"
+	// KOSDAQ market
+	KOSDAQ = "kosdaq"
 )
 
 // Stock is a struct describing each stock item
