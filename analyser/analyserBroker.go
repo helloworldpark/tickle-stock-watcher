@@ -58,14 +58,26 @@ func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan str
 		b.FeedPrice(userStrategy.StockID, provider)
 	}
 
+	// Add or update strategy of the analyser
+	ok, err := b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
+	if !ok {
+		holder.analyser.Release()
+		if holder.analyser.Count() <= 0 {
+			// Deactivate analyser
+			close(holder.sentinel)
+			// Delete analyser from list
+			delete(b.analysers, userStrategy.StockID)
+		}
+		return false, err
+	}
+
 	// Handle DB
-	ok, err := b.dbClient.Upsert(&userStrategy)
+	ok, err = b.dbClient.Upsert(&userStrategy)
 	if !ok {
 		return ok, err
 	}
 
-	// Add or update strategy of the analyser
-	return b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
+	return ok, err
 }
 
 // DeleteStrategy deletes a strategy from the managing list.
