@@ -34,3 +34,9 @@ func TestScheduler(t *testing.T) {
 	<-timer30.C
 	fmt.Println("Test finished")
 }
+
+func TestWeekdays(t *testing.T) {
+	ScheduleWeekdays("test", 14, func() {
+		fmt.Println("HAHA")
+	})
+}
