@@ -56,12 +56,9 @@ func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan str
 	}
 
 	// Handle DB
-	ok, err := b.dbClient.Insert(&userStrategy)
+	ok, err := b.dbClient.Upsert(&userStrategy)
 	if !ok {
-		ok, err = b.dbClient.Update(&userStrategy)
-		if err != nil {
-			return ok, err
-		}
+		return ok, err
 	}
 
 	// Add or update strategy of the analyser

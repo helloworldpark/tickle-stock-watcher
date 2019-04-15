@@ -68,11 +68,7 @@ func (w *Watcher) Register(stock Stock) {
 		lastTimestamp: newWatchingStock.LastPriceTimestamp,
 		sentinel:      make(chan struct{}),
 	}
-	ok, _ = w.dbClient.Insert(&newWatchingStock)
-	if ok {
-		return
-	}
-	_, err = w.dbClient.Update(&newWatchingStock)
+	_, err = w.dbClient.Upsert(&newWatchingStock)
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
 	}
@@ -266,11 +262,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 	go func() {
 		defer wg2.Done()
 		for v := range outWatchingStock {
-			ok, _ := w.dbClient.Insert(&v)
-			if ok {
-				return
-			}
-			_, err := w.dbClient.Update(&v)
+			_, err := w.dbClient.Upsert(&v)
 			if err != nil {
 				logger.Error("[Watcher] %s", err.Error())
 			}
