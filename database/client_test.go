@@ -137,19 +137,19 @@ func TestSelect(t *testing.T) {
 	}
 	client.RegisterStruct(register)
 
-	t1 := TestStruct{Time: time.Now().UnixNano(), Name: "Meme", DidOpen: false}
-	t2 := TestStruct{Time: time.Now().UnixNano() + 10, Name: "Neme", DidOpen: true}
-	t3 := TestStruct{Time: time.Now().UnixNano() + 20, Name: "Meme", DidOpen: true}
-	t4 := TestStruct{Time: time.Now().UnixNano() + 30, Name: "Neme", DidOpen: false}
+	// t1 := TestStruct{Time: time.Now().UnixNano(), Name: "Meme", DidOpen: false}
+	// t2 := TestStruct{Time: time.Now().UnixNano() + 10, Name: "Neme", DidOpen: true}
+	// t3 := TestStruct{Time: time.Now().UnixNano() + 20, Name: "Meme", DidOpen: true}
+	// t4 := TestStruct{Time: time.Now().UnixNano() + 30, Name: "Neme", DidOpen: false}
 
-	ok, err := client.Insert(&t1, &t2, &t3, &t4)
-	if !ok {
-		logger.Error("Insert failed: %s", err.Error())
-		t.Fail()
-	}
+	// ok, err := client.Insert(&t1, &t2, &t3, &t4)
+	// if !ok {
+	// 	logger.Error("Insert failed: %s", err.Error())
+	// 	t.Fail()
+	// }
 
 	var bucket []TestStruct
-	ok, err = client.Select(&bucket, "select * from TestStruct where Name=? and DidOpen=? order by Time", "Meme", true)
+	ok, err := client.Select(&bucket, "where Name=? and DidOpen=? order by Time", "Meme", true)
 	if !ok {
 		logger.Error("Select failed: %s", err.Error())
 		t.Fail()
@@ -325,4 +325,75 @@ func TestBulkInsert(t *testing.T) {
 	// })
 	// fmt.Printf("Time Insert: %f\n", float64(timeInsert)/float64(time.Second))
 
+}
+
+func TestQuery(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	keyCols := make([]string, 1)
+	keyCols[0] = "Time"
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestStruct{},
+		Name:       "",
+		KeyColumns: keyCols,
+	}
+	client.RegisterStruct(register)
+
+	stress := 5000
+	testdata := make([]interface{}, stress)
+	for i := 0; i < stress; i++ {
+		testdata[i] = TestStruct{Time: int64(i), Name: ("Pepe" + strconv.Itoa(i)), DidOpen: i%2 == 0}
+	}
+
+	_, err := client.Upsert(testdata...)
+	if err != nil {
+		fmt.Println("Upsert: " + err.Error())
+	}
+
+	var bucket []TestStruct
+	_, err = client.Select(&bucket, "where Time<=?", 10)
+	if err != nil {
+		fmt.Println("Select: " + err.Error())
+	}
+	for i := range bucket {
+		fmt.Println(bucket[i])
+	}
+}
+
+func TestExtractType(t *testing.T) {
+	// var v1 []TestStruct
+	// t1, err1 := database.ExtractStructType(reflect.TypeOf(v1))
+	// t2, err2 := database.ExtractStructType(reflect.TypeOf(&v1))
+	// var v3 []*TestStruct
+	// t3, err3 := database.ExtractStructType(reflect.TypeOf(&v3))
+	// var v4 int
+	// t4, err4 := database.ExtractStructType(reflect.TypeOf(&v4))
+	// var v5 func()
+	// t5, err5 := database.ExtractStructType(reflect.TypeOf(&v5))
+
+	// fmt.Println(t1, err1)
+	// fmt.Println(t2, err2)
+	// fmt.Println(t3, err3)
+	// fmt.Println(t4, err4)
+	// fmt.Println(t5, err5)
+}
+
+func TestAllSameType(t *testing.T) {
+	v1 := make([]interface{}, 3)
+	v1[0] = TestStruct{}
+	v1[1] = TestStruct{}
+	v1[2] = TestStruct{}
+	v2 := make([]interface{}, 3)
+	v2[0] = TestStruct{}
+	v2[1] = struct{}{}
+	v2[2] = 3
+
+	// fmt.Println(database.IsAllSameType(v1))
+	// fmt.Println(database.IsAllSameType(v2))
 }

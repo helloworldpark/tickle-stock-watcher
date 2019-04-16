@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -224,7 +225,7 @@ type dbError struct {
 }
 
 func (err *dbError) Error() string {
-	return "[DB]" + err.msg
+	return "[DB] " + err.msg
 }
 
 // Insert inserts struct to database
@@ -249,71 +250,16 @@ func (client *DBClient) BulkInsert(o ...interface{}) (bool, error) {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
-	// Check type of all elements of o
-	target := reflect.ValueOf(o[0])
-	elements := target.Elem()
-	targetType := target.Type()
-	if target.Kind() != reflect.Ptr {
-		return false, &dbError{msg: "Argument 'o' must be pointer type"}
-	}
-	for _, v := range o {
-		if reflect.TypeOf(v) != targetType {
-			return false, &dbError{msg: "When inserting into database, every struct must be of same type"}
-		}
-	}
-
-	table, err := client.dbmap.TableFor(target.Type().Elem(), false)
+	query, args, err := client.queryInsert(o, false)
 	if err != nil {
 		return false, err
 	}
-
-	queryBuffer := strings.Builder{}
-	queryBuffer.WriteString("insert into ")
-	queryBuffer.WriteString(table.TableName)
-
-	argsBuffer := strings.Builder{}
-	valsBuffer := strings.Builder{}
-
-	argsBuffer.WriteString("(")
-	valsBuffer.WriteString("(")
-
-	for i := 0; i < elements.NumField(); i++ {
-		if i > 0 {
-			argsBuffer.WriteString(", ")
-			valsBuffer.WriteString(", ")
-		}
-		fieldType := elements.Type().Field(i).Name
-		colname := table.ColMap(fieldType).ColumnName
-		argsBuffer.WriteString(colname)
-		valsBuffer.WriteString("?")
-	}
-	argsBuffer.WriteString(")")
-	valsBuffer.WriteString(")")
-	queryBuffer.WriteString(argsBuffer.String())
-	queryBuffer.WriteString(" values ")
-
-	args := make([]interface{}, elements.NumField()*len(o))
-	for i := range o {
-		if i > 0 {
-			queryBuffer.WriteString(", ")
-		}
-		queryBuffer.WriteString(valsBuffer.String())
-		v := reflect.ValueOf(o[i]).Elem()
-		for j := 0; j < elements.NumField(); j++ {
-			args[i*elements.NumField()+j] = v.Field(j).Interface()
-		}
-	}
-
-	query := queryBuffer.String()
 
 	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)
 	client.mutex.Unlock()
 
 	return err == nil, err
-
-	// fmt.Println(args)
-	// return true, err
 }
 
 // Update updates value to the database
@@ -334,62 +280,164 @@ func (client *DBClient) Upsert(o ...interface{}) (bool, error) {
 		return false, &dbError{msg: "Database is not open yet"}
 	}
 
-	if len(o) == 0 {
-		return false, &dbError{msg: "Argument 'o' is empty"}
-	}
-
-	target := reflect.ValueOf(o[0])
-	elements := target.Elem()
-	if target.Kind() != reflect.Ptr {
-		return false, &dbError{msg: "Argument 'o' must be pointer type"}
-	}
-
-	table, err := client.dbmap.TableFor(target.Type().Elem(), false)
+	query, args, err := client.queryInsert(o, true)
 	if err != nil {
 		return false, err
 	}
 
+	client.mutex.Lock()
+	_, err = client.dbmap.Exec(query, args...)
+	client.mutex.Unlock()
+	return err == nil, err
+}
+
+func (client *DBClient) queryInsert(o []interface{}, handleDuplicate bool) (string, []interface{}, error) {
+	if len(o) == 0 {
+		return "", nil, &dbError{msg: "Argument 'o' is empty"}
+	}
+	if !isAllSameType(o) {
+		return "", nil, &dbError{msg: "Every element of slice must be of same type"}
+	}
+	targetType, err := extractStructType(o)
+	if err != nil {
+		return "", nil, err
+	}
+
+	table, err := client.dbmap.TableFor(targetType, false)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Generate Query String
 	queryBuffer := strings.Builder{}
 	queryBuffer.WriteString("insert into ")
 	queryBuffer.WriteString(table.TableName)
 
 	argsBuffer := strings.Builder{}
 	valsBuffer := strings.Builder{}
-	upsBuffer := strings.Builder{}
 
 	argsBuffer.WriteString(" (")
-	valsBuffer.WriteString(" values (")
-	upsBuffer.WriteString(" on duplicate key update ")
+	valsBuffer.WriteString(" (")
 
-	args := make([]interface{}, elements.NumField()*2)
-
-	for i := 0; i < elements.NumField(); i++ {
+	for i := 0; i < targetType.NumField(); i++ {
 		if i > 0 {
 			argsBuffer.WriteString(", ")
 			valsBuffer.WriteString(", ")
-			upsBuffer.WriteString(", ")
 		}
-		field := elements.Field(i).Interface()
-		fieldType := elements.Type().Field(i)
-		colname := table.ColMap(fieldType.Name).ColumnName
+		fieldType := targetType.Field(i).Name
+		colname := table.ColMap(fieldType).ColumnName
 		argsBuffer.WriteString(colname)
 		valsBuffer.WriteString("?")
-		upsBuffer.WriteString(colname)
-		upsBuffer.WriteString("=?")
-		args[i] = field
-		args[i+elements.NumField()] = field
 	}
 	argsBuffer.WriteString(")")
 	valsBuffer.WriteString(")")
-	queryBuffer.WriteString(argsBuffer.String())
-	queryBuffer.WriteString(valsBuffer.String())
-	queryBuffer.WriteString(upsBuffer.String())
-	query := queryBuffer.String()
 
-	client.mutex.Lock()
-	_, err = client.dbmap.Exec(query, args...)
-	client.mutex.Unlock()
-	return err == nil, err
+	queryBuffer.WriteString(argsBuffer.String())
+	queryBuffer.WriteString(" values")
+
+	// Fill in arguments, too
+	args := make([]interface{}, targetType.NumField()*len(o))
+	for i := range o {
+		if i > 0 {
+			queryBuffer.WriteString(", ")
+		}
+		queryBuffer.WriteString(valsBuffer.String())
+
+		v := reflect.ValueOf(o[i])
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		for j := 0; j < targetType.NumField(); j++ {
+			args[i*targetType.NumField()+j] = v.Field(j).Interface()
+		}
+	}
+
+	if handleDuplicate {
+		queryBuffer.WriteString(" on duplicate key update ")
+
+		upsBuffer := strings.Builder{}
+		for i := 0; i < targetType.NumField(); i++ {
+			if i > 0 {
+				upsBuffer.WriteString(", ")
+			}
+			fieldType := targetType.Field(i).Name
+			colname := table.ColMap(fieldType).ColumnName
+			upsBuffer.WriteString(colname)
+			upsBuffer.WriteString("=values(")
+			upsBuffer.WriteString(colname)
+			upsBuffer.WriteString(")")
+		}
+		queryBuffer.WriteString(upsBuffer.String())
+	}
+
+	return queryBuffer.String(), args, nil
+}
+
+var nonStructElement = map[reflect.Kind]bool{
+	reflect.Invalid:       true,
+	reflect.Bool:          true,
+	reflect.Int:           true,
+	reflect.Int8:          true,
+	reflect.Int16:         true,
+	reflect.Int32:         true,
+	reflect.Int64:         true,
+	reflect.Uint:          true,
+	reflect.Uint8:         true,
+	reflect.Uint16:        true,
+	reflect.Uint32:        true,
+	reflect.Uint64:        true,
+	reflect.Uintptr:       true,
+	reflect.Float32:       true,
+	reflect.Float64:       true,
+	reflect.Complex64:     true,
+	reflect.Complex128:    true,
+	reflect.Array:         false,
+	reflect.Chan:          false,
+	reflect.Func:          true,
+	reflect.Interface:     false,
+	reflect.Map:           true,
+	reflect.Ptr:           false,
+	reflect.Slice:         false,
+	reflect.String:        true,
+	reflect.Struct:        false,
+	reflect.UnsafePointer: true,
+}
+
+func extractStructType(o interface{}) (reflect.Type, error) {
+	return extractStructTypeImpl(reflect.TypeOf(o), reflect.ValueOf(o))
+}
+
+func extractStructTypeImpl(targetType reflect.Type, targetValue reflect.Value) (reflect.Type, error) {
+	targetKind := targetType.Kind()
+
+	if targetKind == reflect.Struct {
+		return targetType, nil
+	} else if targetKind == reflect.Interface {
+		if targetValue.Kind() == reflect.Slice || targetValue.Kind() == reflect.Array {
+			if targetValue.Len() == 0 {
+				return nil, &dbError{msg: "Can't handle Interface"}
+			}
+			v := targetValue.Index(0).Elem()
+			return extractStructTypeImpl(v.Type(), v)
+		}
+		return nil, &dbError{msg: "Can't handle Interface"}
+	} else if nonStructElement[targetKind] {
+		return nil, &dbError{msg: fmt.Sprintf("Element but not struct: %s", targetType.Kind())}
+	}
+	return extractStructTypeImpl(targetType.Elem(), targetValue)
+}
+
+func isAllSameType(o []interface{}) bool {
+	if len(o) == 0 {
+		return true
+	}
+	targetType := reflect.TypeOf(o[0])
+	for i := range o {
+		if reflect.TypeOf(o[i]).Name() != targetType.Name() {
+			return false
+		}
+	}
+	return true
 }
 
 // Select returns the list matching the query through argument bucket.
@@ -405,11 +453,14 @@ func (client *DBClient) Select(bucket interface{}, query string, args ...interfa
 	}
 
 	t := reflect.TypeOf(bucket)
-	if t.Kind() != reflect.Slice {
+	if t.Kind() != reflect.Ptr {
+		return false, &dbError{msg: "Argument 'bucket' must be a pointer to slice"}
+	}
+	if t.Elem().Kind() != reflect.Slice {
 		return false, &dbError{msg: "Argument 'bucket' must be a slice"}
 	}
 
-	tableMap, err := client.dbmap.TableFor(t.Elem(), false)
+	tableMap, err := client.dbmap.TableFor(t.Elem().Elem(), false)
 	if err != nil {
 		return false, err
 	}
