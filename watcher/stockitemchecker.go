@@ -1,6 +1,11 @@
 package watcher
 
 import (
+	"bytes"
+
+	"golang.org/x/text/encoding/korean"
+	"golang.org/x/text/transform"
+
 	"github.com/anaskhan96/soup"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
@@ -50,7 +55,10 @@ func (checker *StockItemChecker) UpdateStocks() {
 		stocksDB = append(stocksDB, v)
 	}
 	kosdaq = nil
-	checker.dbClient.Upsert(stocksDB...)
+	_, err := checker.dbClient.Upsert(stocksDB...)
+	if err != nil {
+		logger.Error("[Watcher] Error while writing stock item info to database: %s", err.Error())
+	}
 }
 
 // https://minjejeon.github.io/learningstock/2017/09/07/download-krx-ticker-symbols-at-once.html
@@ -85,10 +93,18 @@ func downloadStockSymbols(market structs.Market) []structs.Stock {
 	result := make([]structs.Stock, len(trs))
 	for i, v := range trs {
 		tds := v.FindAll("td")
-		name := tds[0].Text()
+		name := euckr2utf8(tds[0].Text())
 		id := tds[1].Text()
 		result[i] = structs.Stock{StockID: id, Name: name, MarketType: market}
 	}
 
 	return result
+}
+
+func euckr2utf8(s string) string {
+	var buf bytes.Buffer
+	wr := transform.NewWriter(&buf, korean.EUCKR.NewDecoder())
+	wr.Write([]byte(s))
+	wr.Close()
+	return buf.String()
 }
