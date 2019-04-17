@@ -19,11 +19,11 @@ type DateChecker struct {
 
 // NewDateChecker returns a new DateChecker with holidays unfilled.
 // User must update the holidays.
-func NewDateChecker() DateChecker {
+func NewDateChecker() *DateChecker {
 	checker := DateChecker{
 		holidays: make(map[int64]bool),
 	}
-	return checker
+	return &checker
 }
 
 // OpeningTime tells when the market opens on the given day.

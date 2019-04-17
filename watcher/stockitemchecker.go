@@ -20,12 +20,12 @@ type StockItemChecker struct {
 
 // NewStockItemChecker returns a new StockItemChecker with stocks unfilled.
 // User must update the stocks.
-func NewStockItemChecker(dbClient *database.DBClient) StockItemChecker {
+func NewStockItemChecker(dbClient *database.DBClient) *StockItemChecker {
 	checker := StockItemChecker{
 		stocks:   make(map[string]structs.Stock),
 		dbClient: dbClient,
 	}
-	return checker
+	return &checker
 }
 
 // IsValid checks if the given stock ID exists in the list.

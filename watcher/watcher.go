@@ -33,12 +33,12 @@ type Watcher struct {
 }
 
 // New creates a new Watcher struct
-func New(dbClient *database.DBClient) Watcher {
+func New(dbClient *database.DBClient) *Watcher {
 	watcher := Watcher{
 		crawlers: make(map[string]internalCrawler),
 		dbClient: dbClient,
 	}
-	return watcher
+	return &watcher
 }
 
 // Register use it to register a new stock of interest.
