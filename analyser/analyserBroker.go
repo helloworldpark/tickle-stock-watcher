@@ -23,6 +23,7 @@ type analyserHolder struct {
 // AnalyserBroker is an Analysis Manager
 type AnalyserBroker struct {
 	analysers map[string]*analyserHolder
+	users     map[int]map[string]bool
 	dbClient  *database.DBClient
 }
 
@@ -31,6 +32,7 @@ func NewAnalyserBroker(dbClient *database.DBClient) *AnalyserBroker {
 	newBroker := AnalyserBroker{}
 	newBroker.analysers = make(map[string]*analyserHolder)
 	newBroker.dbClient = dbClient
+	newBroker.users = make(map[int]map[string]bool)
 
 	return &newBroker
 }
@@ -49,24 +51,49 @@ func newHolder(stockID string) *analyserHolder {
 func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan structs.StockPrice, callback EventCallback) (bool, error) {
 	// Handle analysers
 	holder, ok := b.analysers[userStrategy.StockID]
+	userStockList, userOK := b.users[userStrategy.UserID]
+	retainedAnalyser := false
+
 	if ok {
-		holder.analyser.Retain()
+		if !userOK {
+			// 이 주식은 다른 사람이 전략을 넣은 적이 있는데, 이 유저는 처음
+			holder.analyser.Retain()
+
+			userStockList = make(map[string]bool)
+			userStockList[userStrategy.StockID] = true
+			b.users[userStrategy.UserID] = userStockList
+
+			retainedAnalyser = true
+		}
 	} else {
+		if userOK {
+			// 유저가 예전에 다른 주식의 전략은 넣은 적 있지만, 이번 주식의 전략은 어쨌건 새로 추가
+			userStockList[userStrategy.StockID] = true
+			b.users[userStrategy.UserID] = userStockList
+		} else {
+			// 유저도 뉴비, 주식도 뉴비
+			userStockList = make(map[string]bool)
+			userStockList[userStrategy.StockID] = true
+			b.users[userStrategy.UserID] = userStockList
+		}
 		// Create analyser
 		b.analysers[userStrategy.StockID] = newHolder(userStrategy.StockID)
 		// Activate analyser
 		b.FeedPrice(userStrategy.StockID, provider)
+		retainedAnalyser = true
 	}
 
 	// Add or update strategy of the analyser
 	ok, err := b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
 	if !ok {
-		holder.analyser.Release()
-		if holder.analyser.Count() <= 0 {
-			// Deactivate analyser
-			close(holder.sentinel)
-			// Delete analyser from list
-			delete(b.analysers, userStrategy.StockID)
+		if retainedAnalyser {
+			holder.analyser.Release()
+			if holder.analyser.Count() <= 0 {
+				// Deactivate analyser
+				close(holder.sentinel)
+				// Delete analyser from list
+				delete(b.analysers, userStrategy.StockID)
+			}
 		}
 		return false, err
 	}
