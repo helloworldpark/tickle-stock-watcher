@@ -28,15 +28,17 @@ type internalCrawler struct {
 
 // Watcher is a struct for watching the market
 type Watcher struct {
-	crawlers map[string]internalCrawler // key: Stock, value: last timestamp of the price info and sentinel
-	dbClient *database.DBClient
+	crawlers  map[string]internalCrawler // key: Stock ID, value: last timestamp of the price info and sentinel
+	dbClient  *database.DBClient
+	sleepTime time.Duration
 }
 
 // New creates a new Watcher struct
-func New(dbClient *database.DBClient) *Watcher {
+func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 	watcher := Watcher{
-		crawlers: make(map[string]internalCrawler),
-		dbClient: dbClient,
+		crawlers:  make(map[string]internalCrawler),
+		dbClient:  dbClient,
+		sleepTime: sleepingTime,
 	}
 	return &watcher
 }
@@ -93,55 +95,29 @@ func (w *Watcher) Withdraw(stock Stock) {
 	delete(w.crawlers, stock.StockID)
 }
 
-// StartWatching use it to start watching the market.
-// sleepTime : This is for making the crawler to sleep for a while. Necessary not to be blacklisted by the data providers.
+// StartWatchingStock use it to start watching the market.
+// A channel of StockPrice is returned to get the price info for the given stock id.
+// The channel is valid only for one day, since the channel will be closed after the market closing time.
 // returns : <-chan StockPrice, which will give stock price until StopWatching is called.
-func (w *Watcher) StartWatching(sleepTime time.Duration) <-chan StockPrice {
+func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
+	old := w.crawlers[stockID]
+	if old.lastTimestamp < 0 {
+		return nil
+	}
 	// Prepare new sentinel
-	for key := range w.crawlers {
-		old := w.crawlers[key]
-		w.crawlers[key] = internalCrawler{lastTimestamp: old.lastTimestamp, sentinel: make(chan struct{})}
-	}
+	w.crawlers[stockID] = internalCrawler{lastTimestamp: old.lastTimestamp, sentinel: make(chan struct{})}
 	// Construct function
-	workerFuncGenerator := func(stockID string, sentinel <-chan struct{}) workerFunc {
-		f := func() <-chan StockPrice {
-			out := make(chan StockPrice)
-			go func() {
-				defer close(out)
-				for {
-					select {
-					case out <- CrawlNow(stockID, 0):
-						time.Sleep(sleepTime)
-					case <-sentinel:
-						return
-					}
-				}
-			}()
-			return out
-		}
-		return f
-	}
-
-	// Fan In
-	var wg sync.WaitGroup
 	out := make(chan StockPrice)
-	output := func(c <-chan StockPrice) {
-		defer wg.Done()
-		for v := range c {
-			out <- v
-		}
-	}
-	for stockID, crawler := range w.crawlers {
-		if crawler.lastTimestamp < 0 {
-			continue
-		}
-		worker := workerFuncGenerator(stockID, w.crawlers[stockID].sentinel)
-		go output(worker())
-		wg.Add(1)
-	}
 	go func() {
-		wg.Wait()
-		close(out)
+		defer close(out)
+		for {
+			select {
+			case out <- CrawlNow(stockID, 0):
+				time.Sleep(w.sleepTime)
+			case <-w.crawlers[stockID].sentinel:
+				return
+			}
+		}
 	}()
 	return out
 }
@@ -163,7 +139,7 @@ func (w *Watcher) StopWatchingStock(stockID string) {
 }
 
 // Collect collects the past price data of the market.
-func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
+func (w *Watcher) Collect() {
 	// 수집하기 전에 마지막으로 수집한 데가 어딘지 업데이트해둔다
 	var watching []WatchingStock
 	_, errWatching := w.dbClient.Select(watching, "where IsWatching=?", true)
@@ -218,7 +194,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 					}
 					if shouldGo {
 						page++
-						time.Sleep(sleepTime)
+						time.Sleep(w.sleepTime)
 					} else {
 						break
 					}
@@ -251,7 +227,7 @@ func (w *Watcher) Collect(sleepTime, collectTimedelta time.Duration) {
 		worker := workerFuncGenerator(stockID)
 		go output(stockID, worker())
 		wg.Add(1)
-		time.Sleep(collectTimedelta)
+		time.Sleep(w.sleepTime)
 	}
 	go func() {
 		wg.Wait()

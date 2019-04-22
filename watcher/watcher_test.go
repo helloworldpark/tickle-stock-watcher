@@ -13,7 +13,7 @@ import (
 )
 
 func TestWatcher(t *testing.T) {
-	w := watcher.New(nil)
+	w := watcher.New(nil, time.Millisecond*500)
 	w.Register(structs.Stock{Name: "Samsung Electronics", StockID: "005930", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Hanwha Chemicals", StockID: "009830", MarketType: structs.KOSPI})
@@ -24,7 +24,7 @@ func TestWatcher(t *testing.T) {
 		<-timer.C
 		w.StopWatchingStock("003490")
 	}()
-	handle := w.StartWatching(time.Duration(500) * time.Millisecond)
+	handle := w.StartWatchingStock("003490")
 	for v := range handle {
 		fmt.Println(v)
 	}
@@ -56,12 +56,12 @@ func TestCrawlPast(t *testing.T) {
 		structs.WatchingStock{},
 	})
 
-	w := watcher.New(client)
+	w := watcher.New(client, time.Millisecond*500)
 	w.Register(structs.Stock{Name: "Samsung Electronics", StockID: "005930", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Hanwha Chemicals", StockID: "009830", MarketType: structs.KOSPI})
 
-	w.Collect(time.Duration(1000)*time.Millisecond, time.Duration(250)*time.Millisecond)
+	w.Collect()
 	logger.Info("Finished!!")
 }
 
