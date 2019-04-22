@@ -22,23 +22,30 @@ type RequestHandler interface {
 }
 
 type General struct {
-	priceWatcher        *watcher.Watcher
-	dateChecker         *watcher.DateChecker
-	itemChecker         *watcher.StockItemChecker
-	broker              *analyser.AnalyserBroker
-	watcherSleepingTime time.Duration
+	priceWatcher *watcher.Watcher
+	dateChecker  *watcher.DateChecker
+	itemChecker  *watcher.StockItemChecker
+	broker       *analyser.AnalyserBroker
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
 
 	g := General{
-		priceWatcher:        watcher.New(dbClient),
-		dateChecker:         watcher.NewDateChecker(),
-		itemChecker:         watcher.NewStockItemChecker(dbClient),
-		broker:              analyser.NewAnalyserBroker(dbClient),
-		watcherSleepingTime: time.Millisecond * 500,
+		priceWatcher: watcher.New(dbClient, time.Millisecond*500),
+		dateChecker:  watcher.NewDateChecker(),
+		itemChecker:  watcher.NewStockItemChecker(dbClient),
+		broker:       analyser.NewAnalyserBroker(dbClient),
 	}
 	return &g
+}
+
+func allStrategies(client *database.DBClient) []structs.UserStock {
+	var userStrategyList []structs.UserStock
+	_, err := client.Select(&userStrategyList, "where true")
+	if err != nil {
+		logger.Panic("Error while selecting user strategies: %s", err.Error())
+	}
+	return userStrategyList
 }
 
 func main() {
@@ -81,17 +88,13 @@ func main() {
 	push.InitTelegram(*telegramPath)
 
 	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, AnalyserBroker 초기화
-	var userStrategyList []structs.UserStock
-	_, err := client.Select(&userStrategyList, "where true")
-	if err != nil {
-		logger.Panic("Error while selecting user strategies: %s", err.Error())
-	}
-	for _, v := range userStrategyList {
+	for _, v := range allStrategies(client) {
 		stock, ok := general.itemChecker.StockFromID(v.StockID)
 		if !ok {
 			continue
 		}
 		general.priceWatcher.Register(stock)
+		// TODO: implement callback
 		// general.broker.AddStrategy(v, callback)
 	}
 
@@ -104,13 +107,16 @@ func main() {
 		if !isMarketOpen {
 			return
 		}
-		// general.priceWatcher.StartWatching(general.watcherSleepingTime)
+		for _, v := range allStrategies(client) {
+			provider := general.priceWatcher.StartWatchingStock(v.StockID)
+			general.broker.FeedPrice(v.StockID, provider)
+		}
 	})
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
 		general.priceWatcher.StopWatching()
 	})
 	scheduler.ScheduleEveryday("CollectPrice", 6, func() {
-		general.priceWatcher.Collect(general.watcherSleepingTime, general.watcherSleepingTime)
+		general.priceWatcher.Collect()
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
