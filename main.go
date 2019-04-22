@@ -1,9 +1,19 @@
 package main
 
 import (
+	"flag"
+	"fmt"
+	"time"
+
+	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
+
 	"github.com/gin-gonic/gin"
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
+	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/push"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
@@ -12,42 +22,110 @@ type RequestHandler interface {
 }
 
 type General struct {
-	priceWatcher *watcher.Watcher
-	dateChecker  *watcher.DateChecker
-	itemChecker  *watcher.StockItemChecker
-	broker       *analyser.AnalyserBroker
+	priceWatcher        *watcher.Watcher
+	dateChecker         *watcher.DateChecker
+	itemChecker         *watcher.StockItemChecker
+	broker              *analyser.AnalyserBroker
+	watcherSleepingTime time.Duration
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
 
 	g := General{
-		priceWatcher: watcher.New(dbClient),
-		dateChecker:  watcher.NewDateChecker(),
-		itemChecker:  watcher.NewStockItemChecker(dbClient),
-		broker:       analyser.NewAnalyserBroker(dbClient),
+		priceWatcher:        watcher.New(dbClient),
+		dateChecker:         watcher.NewDateChecker(),
+		itemChecker:         watcher.NewStockItemChecker(dbClient),
+		broker:              analyser.NewAnalyserBroker(dbClient),
+		watcherSleepingTime: time.Millisecond * 500,
 	}
 	return &g
 }
 
 func main() {
+	defer logger.Close()
+
+	credPath := flag.String("credential", "", "Credential for DB access")
+	telegramPath := flag.String("telegram", "", "Telegram token for webhook")
+	flag.Parse()
+
+	if credPath == nil || *credPath == "" {
+		logger.Panic("No -credential provided")
+	}
+
+	if telegramPath == nil || *telegramPath == "" {
+		logger.Panic("No -telegram provided")
+	}
 
 	// DB Client 생성
+	credential := database.LoadCredential(*credPath)
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+	defer client.Close()
+
+	// DB 테이블 초기화
+	client.RegisterStructFromRegisterables([]database.DBRegisterable{
+		structs.Stock{}, structs.StockPrice{}, structs.User{}, structs.UserStock{}, structs.WatchingStock{},
+	})
 
 	// General 생성
+	general := NewGeneral(client)
 
 	// DateChecker 초기화
+	general.dateChecker.UpdateHolidays(commons.Now().Year())
 
 	// ItemChecker 초기화
+	general.itemChecker.UpdateStocks()
+
+	// TelegramClient 초기화
+	push.InitTelegram(*telegramPath)
 
 	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, AnalyserBroker 초기화
+	var userStrategyList []structs.UserStock
+	_, err := client.Select(&userStrategyList, "where true")
+	if err != nil {
+		logger.Panic("Error while selecting user strategies: %s", err.Error())
+	}
+	for _, v := range userStrategyList {
+		stock, ok := general.itemChecker.StockFromID(v.StockID)
+		if !ok {
+			continue
+		}
+		general.priceWatcher.Register(stock)
+		// general.broker.AddStrategy(v, callback)
+	}
 
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
 	// PriceWatcher는 주중, 장이 열리는 날이면 06시부터 오늘로부터 이전 날까지의 가격 정보 수집
+	scheduler.ScheduleWeekdays("WatchPrice", watcher.OpeningTime(time.Time{}), func() {
+		// 오늘 장날인지 확인
+		isMarketOpen := general.dateChecker.IsHoliday(commons.Now())
+		if !isMarketOpen {
+			return
+		}
+		// general.priceWatcher.StartWatching(general.watcherSleepingTime)
+	})
+	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
+		general.priceWatcher.StopWatching()
+	})
+	scheduler.ScheduleEveryday("CollectPrice", 6, func() {
+		general.priceWatcher.Collect(general.watcherSleepingTime, general.watcherSleepingTime)
+	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
+	now := commons.Now()
+	dec29 := time.Date(now.Year(), time.December, 29, 7, 0, 0, 0, commons.AsiaSeoul)
+	ttl := dec29.Sub(now)
+	scheduler.SchedulePeriodic("HolidayCheck", time.Hour*24*365, ttl, func() {
+		year := commons.Now().Year()
+		general.dateChecker.UpdateHolidays(year)
+	})
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
+	scheduler.ScheduleEveryday("StockItemUpdate", 5, func() {
+		general.itemChecker.UpdateStocks()
+	})
 
 	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
 
@@ -61,6 +139,17 @@ func main() {
 
 	router.GET("/", func(c *gin.Context) {
 		c.String(200, "Hello World!")
+	})
+
+	router.POST("/api/telegram/"+push.GetTelegramToken(), func(c *gin.Context) {
+		var v interface{}
+		err := c.BindJSON(&v)
+		if err == nil {
+			fmt.Println(v)
+		} else {
+			fmt.Println(err.Error())
+		}
+		c.String(200, "")
 	})
 
 	router.Run("127.0.0.1:5003")

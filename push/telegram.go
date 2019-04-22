@@ -42,6 +42,10 @@ type telegramUpdate struct {
 	message  telegramMessage
 }
 
+func GetTelegramToken() string {
+	return telegramToken
+}
+
 func InitTelegram(filePath string) {
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -60,7 +64,7 @@ func SetTelegramWebhook(filePath string) {
 	}
 	url := "https://api.telegram.org/bot" + telegramToken + "/" + "setWebhook"
 	body := map[string]interface{}{
-		"url":             "https://stock.ticklemeta.kr/" + telegramToken,
+		"url":             "https://stock.ticklemeta.kr/api/telegram/" + telegramToken,
 		"allowed_updates": []string{"message"},
 	}
 	bodyBytes, err := json.Marshal(body)

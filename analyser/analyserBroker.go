@@ -47,8 +47,8 @@ func newHolder(stockID string) *analyserHolder {
 	return &holder
 }
 
-// AddStrategy adds a user's strategy and a channel of StockPrice, with a callback which will be for sending push messages.
-func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan structs.StockPrice, callback EventCallback) (bool, error) {
+// AddStrategy adds a user's strategy with a callback which will be for sending push messages.
+func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, callback EventCallback) (bool, error) {
 	// Handle analysers
 	holder, ok := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
@@ -78,8 +78,6 @@ func (b *AnalyserBroker) AddStrategy(userStrategy UserStock, provider <-chan str
 		}
 		// Create analyser
 		b.analysers[userStrategy.StockID] = newHolder(userStrategy.StockID)
-		// Activate analyser
-		b.FeedPrice(userStrategy.StockID, provider)
 		retainedAnalyser = true
 	}
 

@@ -35,9 +35,10 @@ func (checker *StockItemChecker) IsValid(stockid string) bool {
 }
 
 // StockFromID finds structs.Stock from stock id
-func (checker *StockItemChecker) StockFromID(stockid string) structs.Stock {
-	stock, _ := checker.stocks[stockid]
-	return stock
+// returns false if not found
+func (checker *StockItemChecker) StockFromID(stockid string) (structs.Stock, bool) {
+	stock, ok := checker.stocks[stockid]
+	return stock, ok
 }
 
 // UpdateStocks updates stock info from the KRX server.
