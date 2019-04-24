@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
@@ -151,9 +150,9 @@ func main() {
 		var v interface{}
 		err := c.BindJSON(&v)
 		if err == nil {
-			fmt.Println(v)
+			logger.Info("[Main] Telegram Update: %v", v)
 		} else {
-			fmt.Println(err.Error())
+			logger.Error("[Main] Telegram Update Error: %s", err.Error())
 		}
 		c.String(200, "")
 	})
