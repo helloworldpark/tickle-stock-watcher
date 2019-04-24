@@ -115,7 +115,7 @@ func URLTelegramUpdate() string {
 }
 
 func OnTelegramUpdate(c *gin.Context) {
-	var v interface{}
+	var v telegramUpdate
 	err := c.BindJSON(&v)
 	if err == nil {
 		logger.Info("[Main] Telegram Update: %v", v)
