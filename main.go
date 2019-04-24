@@ -141,6 +141,9 @@ func main() {
 	// 3. 종목번호에 따른 가격, 종목 정보를 보여준다
 	// 4. 유저의 가입 처리를 한다
 
+	push.InitTelegram(*telegramPath)
+	push.SetTelegramWebhook()
+
 	router := gin.Default()
 
 	router.GET("/", func(c *gin.Context) {

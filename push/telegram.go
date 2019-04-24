@@ -58,7 +58,7 @@ func InitTelegram(filePath string) {
 	}
 }
 
-func SetTelegramWebhook(filePath string) {
+func SetTelegramWebhook() {
 	if telegramToken == "" {
 		logger.Panic("[Push] Telegram client not initialized")
 	}
@@ -73,11 +73,13 @@ func SetTelegramWebhook(filePath string) {
 	}
 	bodyBuffer := bytes.NewBuffer(bodyBytes)
 	resp, err := telegramClient.Post(url, "application/json", bodyBuffer)
+	if err != nil {
+		logger.Error("[Push] Error while sending request to Telegram setWebhook: %s", err.Error())
+		return
+	}
+
 	defer resp.Body.Close()
 
-	if err != nil {
-		logger.Error("[Push] Error happened: %s", err.Error())
-	}
 	if resp.StatusCode/100 == 2 {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
