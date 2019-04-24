@@ -16,33 +16,33 @@ import (
 var telegramToken = ""
 var telegramClient = &http.Client{Timeout: time.Second * 30}
 
-type telegramUser struct {
-	id           int64
-	isBot        bool   `json:"is_bot"`
-	firstName    string `json:"first_name"`
-	lastName     string `json:"last_name"`
-	username     string
-	languageCode string `json:"language_code"`
+type TelegramUser struct {
+	ID           int64  `json:"id"`
+	IsBot        bool   `json:"is_bot"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Username     string `json:"username"`
+	LanguageCode string `json:"language_code"`
 }
 
-type telegramChat struct {
-	id       int64
-	chatType string `json:"type"`
-	title    string
-	username string
+type TelegramChat struct {
+	ID       int64  `json:"id"`
+	ChatType string `json:"type"`
+	Title    string `json:"title"`
+	Username string `json:"username"`
 }
 
-type telegramMessage struct {
-	messageID int64 `json:"message_id"`
-	from      telegramUser
-	date      int64
-	chat      telegramChat
-	text      string
+type TelegramMessage struct {
+	MessageID int64        `json:"message_id"`
+	From      TelegramUser `json:"from"`
+	Date      int64        `json:"date"`
+	Chat      TelegramChat `json:"chat"`
+	Text      string       `json:"text"`
 }
 
-type telegramUpdate struct {
-	updateID int64 `json:"update_id"`
-	message  telegramMessage
+type TelegramUpdate struct {
+	UpdateID int64           `json:"update_id"`
+	Message  TelegramMessage `json:"message"`
 }
 
 func GetTelegramToken() string {
@@ -115,7 +115,7 @@ func URLTelegramUpdate() string {
 }
 
 func OnTelegramUpdate(c *gin.Context) {
-	var v telegramUpdate
+	var v TelegramUpdate
 	err := c.BindJSON(&v)
 	if err == nil {
 		logger.Info("[Main] Telegram Update: %v", v)
