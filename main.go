@@ -25,7 +25,7 @@ type General struct {
 	priceWatcher *watcher.Watcher
 	dateChecker  *watcher.DateChecker
 	itemChecker  *watcher.StockItemChecker
-	broker       *analyser.AnalyserBroker
+	broker       *analyser.Broker
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
@@ -34,7 +34,7 @@ func NewGeneral(dbClient *database.DBClient) *General {
 		priceWatcher: watcher.New(dbClient, time.Millisecond*500),
 		dateChecker:  watcher.NewDateChecker(),
 		itemChecker:  watcher.NewStockItemChecker(dbClient),
-		broker:       analyser.NewAnalyserBroker(dbClient),
+		broker:       analyser.NewBroker(dbClient),
 	}
 	return &g
 }
@@ -87,7 +87,7 @@ func main() {
 	// TelegramClient 초기화
 	push.InitTelegram(*telegramPath)
 
-	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, AnalyserBroker 초기화
+	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker 초기화
 	for _, v := range allStrategies(client) {
 		stock, ok := general.itemChecker.StockFromID(v.StockID)
 		if !ok {
