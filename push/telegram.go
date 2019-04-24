@@ -3,11 +3,13 @@ package push
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
@@ -106,4 +108,19 @@ func SetTelegramWebhook() {
 	} else {
 		logger.Error("[Push] Telegram setWebhook Status Error: %d", resp.StatusCode)
 	}
+}
+
+func URLTelegramUpdate() string {
+	return fmt.Sprintf("/api/telegram/%s", GetTelegramTokenForURL())
+}
+
+func OnTelegramUpdate(c *gin.Context) {
+	var v interface{}
+	err := c.BindJSON(&v)
+	if err == nil {
+		logger.Info("[Main] Telegram Update: %v", v)
+	} else {
+		logger.Error("[Main] Telegram Update Error: %s", err.Error())
+	}
+	c.String(200, "")
 }

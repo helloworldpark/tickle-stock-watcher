@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
@@ -147,16 +146,7 @@ func main() {
 		c.String(200, "Hello World!")
 	})
 
-	router.POST(fmt.Sprintf("/api/telegram/%s", push.GetTelegramTokenForURL()), func(c *gin.Context) {
-		var v interface{}
-		err := c.BindJSON(&v)
-		if err == nil {
-			logger.Info("[Main] Telegram Update: %v", v)
-		} else {
-			logger.Error("[Main] Telegram Update Error: %s", err.Error())
-		}
-		c.String(200, "")
-	})
+	router.POST(push.URLTelegramUpdate(), push.OnTelegramUpdate)
 
 	router.Run("127.0.0.1:5003")
 }
