@@ -51,20 +51,22 @@ func GetTelegramTokenForURL() string {
 	return strings.Split(telegramToken, ":")[0]
 }
 
+type tokenStruct struct {
+	Token string `json:"token"`
+}
+
 func InitTelegram(filePath string) {
-	logger.Info("Telegram File Path : %s", filePath)
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		logger.Panic("%v", err)
 	}
 
-	var token struct{ token string }
+	var token tokenStruct
 	if err := json.Unmarshal(raw, &token); err != nil {
 		logger.Panic("%v", err)
 	}
 
-	telegramToken = token.token
-	logger.Info("Telegram Token: %s", telegramToken)
+	telegramToken = token.Token
 }
 
 func SetTelegramWebhook() {

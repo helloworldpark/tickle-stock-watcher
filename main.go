@@ -159,5 +159,4 @@ func main() {
 	})
 
 	router.Run("127.0.0.1:5003")
-	logger.Info("[Main] Router ON")
 }
