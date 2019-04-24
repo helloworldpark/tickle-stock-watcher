@@ -3,8 +3,8 @@ package push
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -64,7 +64,7 @@ func InitTelegram(filePath string) {
 	}
 
 	telegramToken = token.token
-	fmt.Println("Telegram Token: ", telegramToken)
+	log.Print("Telegram Token: ", telegramToken)
 }
 
 func SetTelegramWebhook() {
