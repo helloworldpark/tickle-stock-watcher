@@ -53,6 +53,7 @@ func GetTelegramTokenForURL() string {
 }
 
 func InitTelegram(filePath string) {
+	log.Print("Telegram File Path ", filePath)
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		logger.Panic("%v", err)
