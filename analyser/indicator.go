@@ -66,6 +66,11 @@ func newNegateIndicator(indicator techan.Indicator) techan.Indicator {
 	return negateIndicator{indicator: indicator}
 }
 
+func newNegateIndicatorFromFloat(c float64) techan.Indicator {
+	constIndicator := techan.NewConstantIndicator(c)
+	return negateIndicator{indicator: constIndicator}
+}
+
 func (ni negateIndicator) Calculate(index int) big.Decimal {
 	return ni.indicator.Calculate(index).Neg()
 }

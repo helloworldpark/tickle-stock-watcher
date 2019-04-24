@@ -40,11 +40,11 @@ func newError(msg string) Error {
 
 // Operator Precedence
 var opPrecedence = map[string]int{
-	"*": 1, "/": 1, "**": 1,
-	"+": 2, "-": 2,
-	"<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3,
-	"(": 4, ")": 4,
-	"&&": 5, "||": 5,
+	"*": 6, "/": 6, "**": 6,
+	"+": 5, "-": 5,
+	"<": 4, "<=": 4, ">": 4, ">=": 4, "==": 4,
+	"(": 3, ")": 3,
+	"&&": 2, "||": 2,
 }
 
 // Analyser is a struct for signalling to users by condition they have set.
@@ -206,13 +206,6 @@ func (a *Analyser) cacheRules() {
 	appendIndicatorComparer("==", NewCrossEqualIndicatorRule)
 }
 
-type quad struct {
-	name  string
-	body  techan.Indicator
-	start int
-	end   int
-}
-
 func (a *Analyser) parseAndCacheStrategy(strategy structs.UserStock, callback EventCallback) (bool, error) {
 	// First, parse tokens
 	tmpTokens, err := a.parseTokens(strategy.Strategy)
@@ -220,7 +213,7 @@ func (a *Analyser) parseAndCacheStrategy(strategy structs.UserStock, callback Ev
 		return false, err
 	}
 
-	newTokens, err := a.searchAndReplaceToFunctionTokens(tmpTokens)
+	newTokens, err := a.tidyTokens(tmpTokens)
 	if err != nil {
 		return false, err
 	}
@@ -247,204 +240,146 @@ func (a *Analyser) parseAndCacheStrategy(strategy structs.UserStock, callback Ev
 	return true, nil
 }
 
-func (a *Analyser) searchAndReplaceToFunctionTokens(tokens []token) ([]token, error) {
-	// Search for token to switch to pre-cached function
-	isFuncFound := false
-	funcIdxStart := -1
-	funcName := ""
-	var funcBody indicatorGen
-	var funcParam []interface{}
-	tokenToReplace := make([]quad, 0)
-	for i, t := range tokens {
-		// Find function
-		// If found, check if we have
-		// If we have, start collecting params
-		// If found ')', append a pair of (name, function, startIdx, endIdx)
-		if t.Kind == govaluate.VARIABLE {
-			// Change function name to lower case
-			(&t).Value = strings.ToLower(t.Value.(string))
-			funcName = t.Value.(string)
-			v, ok := a.indicatorMap[funcName]
-			if !ok {
-				return nil, newError(fmt.Sprintf("Unsupported function used: %s", funcName))
-			}
-			isFuncFound = ok
-			funcIdxStart = i
-			funcBody = v
-			funcParam = make([]interface{}, 0)
-		} else if isFuncFound && t.Kind == govaluate.NUMERIC {
-			funcParam = append(funcParam, t.Value.(float64))
-		} else if isFuncFound && t.Kind == govaluate.CLAUSE_CLOSE {
-			generatedIndicator, err := funcBody(a.timeSeries, funcParam...)
-			if err != nil {
-				return nil, err
-			}
-
-			tokenToReplace = append(tokenToReplace, quad{
-				name:  funcName,
-				body:  generatedIndicator,
-				start: funcIdxStart,
-				end:   i,
-			})
-			isFuncFound = false
-			funcName = ""
-			funcBody = nil
-			funcParam = nil
-		}
-	}
-
-	// Switch found ones
-	var newTokens []token
-	if len(tokenToReplace) > 0 {
-		shouldPop := func(t token) bool {
-			return t.Kind == govaluate.VARIABLE
-		}
-		replaceStart := func(mQuad quad, idx int) bool {
-			return (mQuad).start == idx
-		}
-		replaceGoing := func(mQuad quad, idx int) bool {
-			return (mQuad).start < idx && idx < (mQuad).end
-		}
-		replaceEnded := func(mQuad quad, idx int) bool {
-			return (mQuad).end == idx
-		}
-		quadToToken := func(mQuad quad) []token {
-			ret := make([]token, 0)
-			expFunc := mQuad.body
-			ret = append(ret, token{
-				Kind:  govaluate.FUNCTION,
-				Value: expFunc,
-			})
-			ret = append(ret, token{
-				Kind:  govaluate.CLAUSE,
-				Value: '(',
-			})
-			ret = append(ret, token{
-				Kind:  govaluate.VARIABLE,
-				Value: "x",
-			})
-			ret = append(ret, token{
-				Kind:  govaluate.CLAUSE_CLOSE,
-				Value: ')',
-			})
-			return ret
-		}
-
-		newTokens = make([]token, 0)
-		var lastQuad *quad
-		for i, t := range tokens {
-			if len(tokenToReplace) == 0 {
-				newTokens = append(newTokens, t)
-			} else {
-				if shouldPop(t) {
-					lastQuad = &tokenToReplace[0]
-				}
-				if lastQuad == nil {
-					newTokens = append(newTokens, t)
-					continue
-				}
-				if replaceStart(*lastQuad, i) {
-					replacements := quadToToken(*lastQuad)
-					for _, r := range replacements {
-						newTokens = append(newTokens, r)
-					}
-				} else if replaceGoing(*lastQuad, i) {
-					continue
-				} else if replaceEnded(*lastQuad, i) {
-					lastQuad = nil
-					tokenToReplace = tokenToReplace[1:]
-				}
-			}
-		}
-	} else {
-		newTokens = tokens
-	}
-	return newTokens, nil
-}
-
 func (a *Analyser) parseTokens(statement string) ([]token, error) {
 	return govaluate.ParseTokens(statement, nil)
 }
 
-func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]token, error) {
+func (a *Analyser) tidyTokens(tokens []token) ([]token, error) {
+	for i := range tokens {
+		t := &(tokens[i])
+		if t.Kind == govaluate.VARIABLE {
+			// Change function name to lower case
+			t.Value = strings.ToLower(t.Value.(string))
+			_, ok := a.indicatorMap[t.Value.(string)]
+			if !ok {
+				return nil, newError(fmt.Sprintf("Unsupported function used: %s", t.Value.(string)))
+			}
+		} else if t.Kind == govaluate.CLAUSE {
+			t.Value = "("
+		} else if t.Kind == govaluate.CLAUSE_CLOSE {
+			t.Value = ")"
+		}
+	}
+	return tokens, nil
+}
+
+type function struct {
+	t    token
+	argc int
+}
+
+func newFunction(t token, argc int) *function {
+	f := function{t: t}
+	switch t.Kind {
+	case govaluate.NUMERIC, govaluate.CLAUSE, govaluate.CLAUSE_CLOSE:
+		f.argc = 0
+	case govaluate.PREFIX:
+		f.argc = 1
+	case govaluate.VARIABLE:
+		f.argc = argc
+	default:
+		f.argc = 2
+	}
+	return &f
+}
+
+func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 	// Convert tokens into techan strategy
 	// Tokens are reordered by postfix notation
 	// operators:
-	//             -: 0(Negation)
-	//           * /: 1
-	//           + -: 2
-	//  < <= == >= >: 3
-	//         && ||: 4
-	//           ( ): 5
+	//     functions: 8
+	//             -: 7(Negation)
+	//           * /: 6
+	//           + -: 5
+	//  < <= == >= >: 4
+	//         && ||: 3
+	//           ( ): 2
 
-	postfixToken := make([]token, 0)
-	operatorStack := make([]token, 0)
-	functionStarted := false
-	for _, t := range tokens {
-		if functionStarted {
-			if t.Kind == govaluate.CLAUSE_CLOSE {
-				functionStarted = false
-			}
-			continue
-		}
-		if t.Kind == govaluate.FUNCTION {
-			functionStarted = true
-			postfixToken = append(postfixToken, t)
-		} else if t.Kind == govaluate.NUMERIC {
-			postfixToken = append(postfixToken, t)
-		} else if t.Kind == govaluate.COMPARATOR ||
-			t.Kind == govaluate.LOGICALOP ||
-			t.Kind == govaluate.MODIFIER ||
-			t.Kind == govaluate.CLAUSE ||
-			t.Kind == govaluate.CLAUSE_CLOSE {
-
-			op, ok := t.Value.(string)
-			if !ok {
-				clause, _ := t.Value.(int32)
-				if clause == '(' {
-					op = "("
-				} else if clause == ')' {
-					op = ")"
-				} else {
-					return nil, newError(fmt.Sprintf("Invalid token: %v", t))
-				}
-				(&t).Value = op
-			}
-			p := opPrecedence[op]
+	postfixToken := make([]function, 0)
+	operatorStack := make([]*function, 0)
+	realFcnStack := make([]*function, 0)
+	clauseIdxStack := make([]int, 0)
+	for i := range tokens {
+		t := tokens[i]
+		switch t.Kind {
+		case govaluate.NUMERIC:
+			postfixToken = append(postfixToken, *newFunction(t, 0))
+		case govaluate.COMPARATOR, govaluate.LOGICALOP, govaluate.VARIABLE, govaluate.PREFIX, govaluate.MODIFIER:
+			p := precedenceOf(t)
 			for j := len(operatorStack) - 1; j >= 0; j-- {
 				o := operatorStack[j]
-				// 내 연산자 순위가 스택보다 높으면
+				// 내 연산자 순위가 스택보다 높으면(즉, 숫자가 크면)
 				// 내가 들어간다
 				// 아니면
 				// 내가 스택보다 순위가 높을 때까지 애들을 다 postfixToken에 옮긴다
-				if opPrecedence[o.Value.(string)] > p {
+				op := precedenceOf(o.t)
+				if p > op {
 					break
 				} else {
-					if o.Kind != govaluate.CLAUSE && o.Kind != govaluate.CLAUSE_CLOSE {
-						postfixToken = append(postfixToken, o)
-					}
+					postfixToken = append(postfixToken, *o)
 					operatorStack = operatorStack[:j]
 				}
 			}
-			operatorStack = append(operatorStack, t)
-		} else if t.Kind == govaluate.PREFIX {
-			// 연산자 순위가 스택보다 무조건 높으므로
-			// 내가 들어간다
-			operatorStack = append(operatorStack, t)
-		} else {
+			operatorStack = append(operatorStack, newFunction(t, 0))
+			if t.Kind == govaluate.VARIABLE {
+				realFcnStack = append(realFcnStack, operatorStack[len(operatorStack)-1])
+			}
+		case govaluate.CLAUSE:
+			operatorStack = append(operatorStack, newFunction(t, 0))
+			// 함수의 인자의 갯수를 파악하기 위해
+			// 스택을 사용하여 함수들의 인자를 순서대로 파악한다
+			clauseIdxStack = append(clauseIdxStack, i)
+		case govaluate.CLAUSE_CLOSE:
+			for {
+				o := operatorStack[len(operatorStack)-1]
+				operatorStack = operatorStack[:len(operatorStack)-1]
+				if o.t.Kind == govaluate.CLAUSE {
+					break
+				} else {
+					postfixToken = append(postfixToken, *o)
+				}
+			}
+			lastClauseIdx := clauseIdxStack[len(clauseIdxStack)-1]
+			// 함수의 괄호였으므로, realFcnStack에서 함수포인터를 pop한다
+			// 함수도 operator stack에서 pop하고 postfix stack으로 옮긴다
+			if lastClauseIdx-1 > 0 && tokens[lastClauseIdx-1].Kind == govaluate.VARIABLE {
+				if realFcnStack[len(realFcnStack)-1].argc > 0 {
+					realFcnStack[len(realFcnStack)-1].argc++
+				}
+				realFcnStack = realFcnStack[:len(realFcnStack)-1]
+				o := operatorStack[len(operatorStack)-1]
+				operatorStack = operatorStack[:len(operatorStack)-1]
+				postfixToken = append(postfixToken, *o)
+			}
+			clauseIdxStack = clauseIdxStack[:len(clauseIdxStack)-1]
+		case govaluate.SEPARATOR:
+			if len(realFcnStack) > 0 {
+				realFcnStack[len(realFcnStack)-1].argc++
+			}
+		default:
 			return nil, newError(fmt.Sprintf("Invalid token: %v", t))
 		}
 	}
 	for j := len(operatorStack) - 1; j >= 0; j-- {
-		if operatorStack[j].Kind != govaluate.CLAUSE && operatorStack[j].Kind != govaluate.CLAUSE_CLOSE {
-			postfixToken = append(postfixToken, operatorStack[j])
+		if operatorStack[j].t.Kind != govaluate.CLAUSE && operatorStack[j].t.Kind != govaluate.CLAUSE_CLOSE {
+			postfixToken = append(postfixToken, *operatorStack[j])
 		}
 		operatorStack = operatorStack[:j]
 	}
 	return postfixToken, nil
 }
 
-func (a *Analyser) createEvent(tokens []token, orderSide techan.OrderSide, callback EventCallback) (EventTrigger, error) {
+func precedenceOf(t token) int {
+	if t.Kind == govaluate.VARIABLE {
+		return 8
+	}
+	if t.Kind == govaluate.PREFIX {
+		return 7
+	}
+	return opPrecedence[t.Value.(string)]
+}
+
+func (a *Analyser) createEvent(tokens []function, orderSide techan.OrderSide, callback EventCallback) (EventTrigger, error) {
 	rule, err := a.createRule(tokens)
 	if err != nil {
 		return nil, err
@@ -453,46 +388,84 @@ func (a *Analyser) createEvent(tokens []token, orderSide techan.OrderSide, callb
 	return eventTrigger, nil
 }
 
-func (a *Analyser) createRule(tokens []token) (techan.Rule, error) {
-	indicators := make([]techan.Indicator, 0)
+func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
+	indicators := make([]interface{}, 0)
 	rules := make([]techan.Rule, 0)
-	for len(tokens) > 0 {
-		t := tokens[0]
-		tokens = tokens[1:]
+	for len(fcns) > 0 {
+		f := fcns[0]
+		fcns = fcns[1:]
 
-		if t.Kind == govaluate.FUNCTION {
-			indicators = append(indicators, t.Value.(techan.Indicator))
-		} else if t.Kind == govaluate.NUMERIC {
-			indicators = append(indicators, techan.NewConstantIndicator(t.Value.(float64)))
-		} else if t.Kind == govaluate.PREFIX {
+		switch f.t.Kind {
+		case govaluate.NUMERIC:
+			// indicators = append(indicators, techan.NewConstantIndicator(t.Value.(float64)))
+			indicators = append(indicators, f.t.Value.(float64))
+		case govaluate.VARIABLE:
+			// 함수를 구성한다
+			// 인자를 슬라이스에 담고
+			// indicator를 만든다
+			args := indicators[len(indicators)-f.argc:]
+			indicators = indicators[:len(indicators)-f.argc]
+			gen, ok := a.indicatorMap[f.t.Value.(string)]
+			if !ok {
+				return nil, newError("Not implemented function")
+			}
+			indicator, err := gen(a.timeSeries, args...)
+			if err != nil {
+				return nil, err
+			}
+			indicators = append(indicators, indicator)
+		case govaluate.PREFIX:
 			v := indicators[len(indicators)-1]
 			indicators = indicators[:(len(indicators) - 1)]
-			indicators = append(indicators, newNegateIndicator(v))
-		} else if t.Kind == govaluate.COMPARATOR {
+			indi, ok := v.(techan.Indicator)
+			if ok {
+				indicators = append(indicators, newNegateIndicator(indi))
+			} else {
+				indicators = append(indicators, newNegateIndicatorFromFloat(v.(float64)))
+			}
+		case govaluate.COMPARATOR:
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
-			ruleMaker := a.ruleMap[t.Value.(string)]
-			rule, err := ruleMaker(lhs, rhs)
+			ruleMaker := a.ruleMap[f.t.Value.(string)]
+
+			rhsIndicator, ok := rhs.(techan.Indicator)
+			if !ok {
+				rhsIndicator = techan.NewConstantIndicator(rhs.(float64))
+			}
+			lhsIndicator, ok := lhs.(techan.Indicator)
+			if !ok {
+				lhsIndicator = techan.NewConstantIndicator(lhs.(float64))
+			}
+			rule, err := ruleMaker(lhsIndicator, rhsIndicator)
 			if err != nil {
 				return nil, err
 			}
 			rules = append(rules, rule)
-		} else if t.Kind == govaluate.LOGICALOP {
+		case govaluate.LOGICALOP:
 			rhs := rules[len(rules)-1]
 			lhs := rules[len(rules)-2]
 			rules = rules[:(len(rules) - 2)]
-			ruleMaker := a.ruleMap[t.Value.(string)]
+			ruleMaker := a.ruleMap[f.t.Value.(string)]
 			rule, err := ruleMaker(lhs, rhs)
 			if err != nil {
 				return nil, err
 			}
 			rules = append(rules, rule)
-		} else if t.Kind == govaluate.MODIFIER {
+		case govaluate.MODIFIER:
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
-			operated, err := a.indicatorMap[t.Value.(string)](nil, lhs, rhs)
+
+			rhsIndicator, ok := rhs.(techan.Indicator)
+			if !ok {
+				rhsIndicator = techan.NewConstantIndicator(rhs.(float64))
+			}
+			lhsIndicator, ok := lhs.(techan.Indicator)
+			if !ok {
+				lhsIndicator = techan.NewConstantIndicator(lhs.(float64))
+			}
+			operated, err := a.indicatorMap[f.t.Value.(string)](nil, lhsIndicator, rhsIndicator)
 			if err != nil {
 				return nil, err
 			}

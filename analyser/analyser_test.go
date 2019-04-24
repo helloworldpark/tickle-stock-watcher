@@ -15,19 +15,19 @@ func TestRuleGeneration(t *testing.T) {
 		fmt.Println("------------------")
 	}
 	analyser := newTestAnalyser()
-	tokens, err := analyser.parseTokens("Price() < 0")
+	tokens, err := analyser.parseTokens("MACD(1,2,3) > 0")
 	handleErr(err)
-	tokens, err = analyser.searchAndReplaceToFunctionTokens(tokens, "123456")
+	tokens, err = analyser.tidyTokens(tokens)
 	handleErr(err)
-	tokens, err = analyser.reorderTokenByPostfix(tokens)
+	fcns, err := analyser.reorderTokenByPostfix(tokens)
 	handleErr(err)
-	for _, t := range tokens {
-		fmt.Println(t.Kind, t.Value)
+	for _, f := range fcns {
+		fmt.Println(f.t.Kind, f.t.Value, f.argc)
 	}
-	event, err := analyser.createEvent(tokens, techan.BUY)
+	event, err := analyser.createEvent(fcns, techan.BUY, func(price float64, stockid string, orderSide int) {})
 	handleErr(err)
 
 	for i := 0; i < 100; i++ {
-		fmt.Println(event.HasHappened(i, nil))
+		fmt.Println(event.IsTriggered(i, nil))
 	}
 }
