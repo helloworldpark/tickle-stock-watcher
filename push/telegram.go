@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
@@ -46,6 +47,10 @@ func GetTelegramToken() string {
 	return telegramToken
 }
 
+func GetTelegramTokenForURL() string {
+	return strings.Split(telegramToken, ":")[0]
+}
+
 func InitTelegram(filePath string) {
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -64,7 +69,7 @@ func SetTelegramWebhook() {
 	}
 	url := "https://api.telegram.org/bot" + telegramToken + "/" + "setWebhook"
 	body := map[string]interface{}{
-		"url":             "https://stock.ticklemeta.kr/api/telegram/" + telegramToken,
+		"url":             "https://stock.ticklemeta.kr/api/telegram/" + GetTelegramTokenForURL(),
 		"allowed_updates": []string{"message"},
 	}
 	bodyBytes, err := json.Marshal(body)

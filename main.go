@@ -146,7 +146,7 @@ func main() {
 		c.String(200, "Hello World!")
 	})
 
-	router.POST("/api/telegram/"+push.GetTelegramToken(), func(c *gin.Context) {
+	router.POST("/api/telegram/"+push.GetTelegramTokenForURL(), func(c *gin.Context) {
 		var v interface{}
 		err := c.BindJSON(&v)
 		if err == nil {
