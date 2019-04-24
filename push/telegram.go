@@ -61,6 +61,8 @@ func InitTelegram(filePath string) {
 	if err := json.Unmarshal(raw, &token); err != nil {
 		logger.Panic("%v", err)
 	}
+
+	telegramToken = token.token
 }
 
 func SetTelegramWebhook() {
