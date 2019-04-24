@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -53,7 +52,7 @@ func GetTelegramTokenForURL() string {
 }
 
 func InitTelegram(filePath string) {
-	log.Print("Telegram File Path ", filePath)
+	logger.Info("Telegram File Path : %s", filePath)
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		logger.Panic("%v", err)
@@ -65,7 +64,7 @@ func InitTelegram(filePath string) {
 	}
 
 	telegramToken = token.token
-	log.Print("Telegram Token: ", telegramToken)
+	logger.Info("Telegram Token: %s", telegramToken)
 }
 
 func SetTelegramWebhook() {
