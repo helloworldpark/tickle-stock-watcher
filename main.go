@@ -43,9 +43,7 @@ func NewGeneral(dbClient *database.DBClient) *General {
 }
 
 func (g *General) OnWebhook(id int64, msg, messenger string) error {
-	logger.Info("[Main] %s %d %s", messenger, id, msg)
-	user := structs.User{TokenTelegram: "503652742"}
-	g.pushManager.PushMessage(msg, user)
+
 	return nil
 }
 
