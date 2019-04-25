@@ -38,6 +38,11 @@ func NewGeneral(dbClient *database.DBClient) *General {
 	return &g
 }
 
+func (g *General) OnWebhook(id int64, msg, messenger string) error {
+	logger.Info("[Main] %s %d %s", messenger, id, msg)
+	return nil
+}
+
 func allStrategies(client *database.DBClient) []structs.UserStock {
 	var userStrategyList []structs.UserStock
 	_, err := client.Select(&userStrategyList, "where true")
@@ -146,7 +151,7 @@ func main() {
 		c.String(200, "Hello World!")
 	})
 
-	router.POST(push.URLTelegramUpdate(), push.OnTelegramUpdate)
+	router.POST(push.URLTelegramUpdate(), push.OnTelegramUpdate(general))
 
 	router.Run("127.0.0.1:5003")
 }

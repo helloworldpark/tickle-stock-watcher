@@ -16,6 +16,10 @@ import (
 var telegramToken = ""
 var telegramClient = &http.Client{Timeout: time.Second * 30}
 
+type WebhookHandler interface {
+	OnWebhook(id int64, msg, messenger string) error
+}
+
 type TelegramUser struct {
 	ID           int64  `json:"id"`
 	IsBot        bool   `json:"is_bot"`
@@ -114,13 +118,22 @@ func URLTelegramUpdate() string {
 	return fmt.Sprintf("/api/telegram/%s", GetTelegramTokenForURL())
 }
 
-func OnTelegramUpdate(c *gin.Context) {
-	var v TelegramUpdate
-	err := c.BindJSON(&v)
-	if err == nil {
-		logger.Info("[Main] Telegram Update: %v", v)
-	} else {
-		logger.Error("[Main] Telegram Update Error: %s", err.Error())
+func OnTelegramUpdate(wh WebhookHandler) func(c *gin.Context) {
+	f := func(c *gin.Context) {
+		var u TelegramUpdate
+		err := c.BindJSON(&u)
+		if err != nil {
+			logger.Error("[Main] Telegram Update Error: %s", err.Error())
+			c.String(400, err.Error())
+			return
+		}
+		go func() {
+			err = wh.OnWebhook(u.Message.From.ID, u.Message.Text, "Telegram")
+			if err != nil {
+				// Push message to user
+			}
+		}()
+		c.String(200, "")
 	}
-	c.String(200, "")
+	return f
 }
