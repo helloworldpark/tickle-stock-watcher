@@ -40,6 +40,7 @@ func NewGeneral(dbClient *database.DBClient) *General {
 
 func (g *General) OnWebhook(id int64, msg, messenger string) error {
 	logger.Info("[Main] %s %d %s", messenger, id, msg)
+	push.SendMessageTelegram(id, msg)
 	return nil
 }
 

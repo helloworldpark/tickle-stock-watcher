@@ -49,6 +49,18 @@ type TelegramUpdate struct {
 	Message  TelegramMessage `json:"message"`
 }
 
+type telegramError struct {
+	msg string
+}
+
+func newError(msg string) telegramError {
+	return telegramError{msg: msg}
+}
+
+func (e telegramError) Error() string {
+	return fmt.Sprintf("[Push] Error at Telegram API Client: %s", e.msg)
+}
+
 func GetTelegramToken() string {
 	return telegramToken
 }
@@ -75,23 +87,33 @@ func InitTelegram(filePath string) {
 	telegramToken = token.Token
 }
 
-func SetTelegramWebhook() {
+func telegramAPI(method string) string {
 	if telegramToken == "" {
 		logger.Panic("[Push] Telegram client not initialized")
 	}
-	url := "https://api.telegram.org/bot" + telegramToken + "/" + "setWebhook"
-	body := map[string]interface{}{
-		"url":             "https://stock.ticklemeta.kr/api/telegram/" + GetTelegramTokenForURL(),
-		"allowed_updates": []string{"message"},
-	}
+	baseURL := "https://api.telegram.org/bot%s/%s"
+	return fmt.Sprintf(baseURL, telegramToken, method)
+}
+
+func requestTelegram(method string, body map[string]interface{}, onSuccess func(map[string]interface{}), onFailure func(error)) {
+	url := telegramAPI(method)
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
-		logger.Panic("[Push] Your JSON is wrong: %s", err.Error())
+		if onFailure != nil {
+			onFailure(err)
+		}
+		return
 	}
 	bodyBuffer := bytes.NewBuffer(bodyBytes)
 	resp, err := telegramClient.Post(url, "application/json", bodyBuffer)
 	if err != nil {
-		logger.Error("[Push] Error while sending request to Telegram setWebhook: %s", err.Error())
+		if onFailure != nil {
+			onFailure(err)
+		}
+		return
+	}
+
+	if onSuccess == nil {
 		return
 	}
 
@@ -99,19 +121,57 @@ func SetTelegramWebhook() {
 
 	if resp.StatusCode/100 == 2 {
 		respBody, err := ioutil.ReadAll(resp.Body)
-		if err == nil {
-			var tmp interface{}
-			json.Unmarshal(respBody, &tmp)
-			result := tmp.(map[string]interface{})
-			if result["ok"].(bool) {
-				logger.Info("[Push] Telegram setWebhook Success")
-			} else {
-				logger.Info("[Push] Telegram setWebhook Failed: %s", result["description"].(string))
+		if err != nil {
+			if onFailure != nil {
+				onFailure(err)
+			}
+			return
+		}
+		var tmp interface{}
+		json.Unmarshal(respBody, &tmp)
+		result := tmp.(map[string]interface{})
+		if result["ok"].(bool) {
+			onSuccess(result)
+		} else {
+			if onFailure != nil {
+				onFailure(newError(result["description"].(string)))
 			}
 		}
 	} else {
-		logger.Error("[Push] Telegram setWebhook Status Error: %d", resp.StatusCode)
+		if onFailure != nil {
+			onFailure(newError(fmt.Sprintf("%d", resp.StatusCode)))
+		}
 	}
+}
+
+func SetWebhookTelegram() {
+	body := map[string]interface{}{
+		"url":             "https://stock.ticklemeta.kr/api/telegram/" + GetTelegramTokenForURL(),
+		"allowed_updates": []string{"message"},
+	}
+	onSuccess := func(result map[string]interface{}) {
+		logger.Info("[Push] Telegram setWebhook Success")
+	}
+	onFailure := func(err error) {
+		logger.Error(newError(err.Error()).Error())
+	}
+	requestTelegram("setWebhook", body, onSuccess, onFailure)
+}
+
+func SendMessageTelegram(id int64, msg string) {
+	body := map[string]interface{}{
+		"chat_id": id,
+		"text":    msg,
+	}
+	onSuccess := func(result map[string]interface{}) {
+		user := result["from"].(map[string]interface{})
+		username := user["username"].(string)
+		logger.Info("[Push] Sent message to: %s(%d) \n message: %s", username, id, msg)
+	}
+	onFailure := func(err error) {
+		logger.Error(newError(err.Error()).Error())
+	}
+	requestTelegram("sendMessage", body, onSuccess, onFailure)
 }
 
 func URLTelegramUpdate() string {
