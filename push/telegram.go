@@ -131,7 +131,7 @@ func requestTelegram(method string, body map[string]interface{}, onSuccess func(
 		json.Unmarshal(respBody, &tmp)
 		result := tmp.(map[string]interface{})
 		if result["ok"].(bool) {
-			onSuccess(result)
+			onSuccess(result["result"].(map[string]interface{}))
 		} else {
 			if onFailure != nil {
 				onFailure(newError(result["description"].(string)))
@@ -165,7 +165,7 @@ func SendMessageTelegram(id int64, msg string) {
 	}
 	onSuccess := func(result map[string]interface{}) {
 		logger.Info("%v", result)
-		user := result["from"].(map[string]interface{})
+		user := result["chat"].(map[string]interface{})
 		username := user["username"].(string)
 		logger.Info("[Push] Sent message to: %s(%d) \n message: %s", username, id, msg)
 	}
