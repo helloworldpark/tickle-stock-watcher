@@ -164,7 +164,6 @@ func SendMessageTelegram(id int64, msg string) {
 		"text":    msg,
 	}
 	onSuccess := func(result map[string]interface{}) {
-		logger.Info("%v", result)
 		user := result["chat"].(map[string]interface{})
 		username := user["username"].(string)
 		logger.Info("[Push] Sent message to: %s(%d) \n message: %s", username, id, msg)

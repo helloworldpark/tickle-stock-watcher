@@ -25,6 +25,8 @@ type General struct {
 	dateChecker  *watcher.DateChecker
 	itemChecker  *watcher.StockItemChecker
 	broker       *analyser.Broker
+	users        map[string][]structs.User
+	pushManager  *push.Manager
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
@@ -34,13 +36,16 @@ func NewGeneral(dbClient *database.DBClient) *General {
 		dateChecker:  watcher.NewDateChecker(),
 		itemChecker:  watcher.NewStockItemChecker(dbClient),
 		broker:       analyser.NewBroker(dbClient),
+		users:        make(map[string][]structs.User),
+		pushManager:  push.NewManager(),
 	}
 	return &g
 }
 
 func (g *General) OnWebhook(id int64, msg, messenger string) error {
 	logger.Info("[Main] %s %d %s", messenger, id, msg)
-	push.SendMessageTelegram(id, msg)
+	user := structs.User{TokenTelegram: "503652742"}
+	g.pushManager.PushMessage(msg, user)
 	return nil
 }
 
@@ -51,6 +56,15 @@ func allStrategies(client *database.DBClient) []structs.UserStock {
 		logger.Panic("Error while selecting user strategies: %s", err.Error())
 	}
 	return userStrategyList
+}
+
+func allUsers(client *database.DBClient) []structs.User {
+	var userList []structs.User
+	_, err := client.Select(&userList, "where true")
+	if err != nil {
+		logger.Panic("Error while selecting users: %s", err.Error())
+	}
+	return userList
 }
 
 func main() {
@@ -92,12 +106,21 @@ func main() {
 	// TelegramClient 초기화
 	push.InitTelegram(*telegramPath)
 
-	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker 초기화
+	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker, User 현황 초기화
+	userIndex := make(map[int]structs.User)
+	for _, u := range allUsers(client) {
+		userIndex[u.UserID] = u
+	}
 	for _, v := range allStrategies(client) {
 		stock, ok := general.itemChecker.StockFromID(v.StockID)
 		if !ok {
 			continue
 		}
+		_, ok = general.users[v.StockID]
+		if !ok {
+			general.users[v.StockID] = make([]structs.User, 0)
+		}
+		general.users[v.StockID] = append(general.users[v.StockID], userIndex[v.UserID])
 		general.priceWatcher.Register(stock)
 		// TODO: implement callback
 		// general.broker.AddStrategy(v, callback)
@@ -112,9 +135,14 @@ func main() {
 		if !isMarketOpen {
 			return
 		}
+
+		stocks := make(map[string]bool)
 		for _, v := range allStrategies(client) {
-			provider := general.priceWatcher.StartWatchingStock(v.StockID)
-			general.broker.FeedPrice(v.StockID, provider)
+			stocks[v.StockID] = true
+		}
+		for k := range stocks {
+			provider := general.priceWatcher.StartWatchingStock(k)
+			general.broker.FeedPrice(k, provider)
 		}
 	})
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
