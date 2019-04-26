@@ -20,15 +20,18 @@ require (
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
+	github.com/sajari/regression v1.0.0
 	github.com/sdcoffey/big v0.0.0-20180413224939-438f3d83db4c
 	github.com/sdcoffey/techan v0.0.0-20180416160254-e00a0328927e
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/ugorji/go v1.1.4 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
+	golang.org/x/arch v0.0.0-20190312162104-788fe5ffcd8c // indirect
 	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
 	golang.org/x/sys v0.0.0-20190405154228-4b34438f7a67 // indirect
 	golang.org/x/text v0.3.0
+	gonum.org/v1/gonum v0.0.0-20190424212039-2a1643c79af2 // indirect
 	google.golang.org/api v0.3.2 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107 // indirect

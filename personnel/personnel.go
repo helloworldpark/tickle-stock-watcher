@@ -35,7 +35,6 @@ func Invite(user structs.User, guesttoken, messenger string) (string, structs.In
 		return "", structs.Invitation{}, InvitationError{err.Error()}
 	}
 	sign := string(signature[:])
-	// DB에 기록해둔다
 	invitation := structs.NewInvitation(string(hashed[:]), &privateKey.PublicKey)
 	return sign, invitation, nil
 }

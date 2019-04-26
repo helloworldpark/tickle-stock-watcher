@@ -30,7 +30,6 @@ type General struct {
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
-
 	g := General{
 		priceWatcher: watcher.New(dbClient, time.Millisecond*500),
 		dateChecker:  watcher.NewDateChecker(),
