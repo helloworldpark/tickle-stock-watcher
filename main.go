@@ -85,7 +85,7 @@ func runOrder(orders []string) error {
 	if !ok {
 		return mainError{msg: fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0])}
 	}
-	return action.onAction(orders)
+	return action.onAction(lowerOrders[1:])
 }
 
 func main() {
