@@ -46,24 +46,6 @@ func (g *General) OnWebhook(id int64, msg, messenger string) error {
 	return nil
 }
 
-func allStrategies(client *database.DBClient) []structs.UserStock {
-	var userStrategyList []structs.UserStock
-	_, err := client.Select(&userStrategyList, "where true")
-	if err != nil {
-		logger.Panic("Error while selecting user strategies: %s", err.Error())
-	}
-	return userStrategyList
-}
-
-func allUsers(client *database.DBClient) []structs.User {
-	var userList []structs.User
-	_, err := client.Select(&userList, "where true")
-	if err != nil {
-		logger.Panic("Error while selecting users: %s", err.Error())
-	}
-	return userList
-}
-
 func main() {
 	defer logger.Close()
 
@@ -109,10 +91,10 @@ func main() {
 
 	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker, User 현황 초기화
 	userIndex := make(map[int]structs.User)
-	for _, u := range allUsers(client) {
+	for _, u := range structs.AllUsers(client) {
 		userIndex[u.UserID] = u
 	}
-	for _, v := range allStrategies(client) {
+	for _, v := range structs.AllStrategies(client) {
 		stock, ok := general.itemChecker.StockFromID(v.StockID)
 		if !ok {
 			continue
@@ -139,7 +121,7 @@ func main() {
 		}
 
 		stocks := make(map[string]bool)
-		for _, v := range allStrategies(client) {
+		for _, v := range structs.AllStrategies(client) {
 			stocks[v.StockID] = true
 		}
 		for k := range stocks {
