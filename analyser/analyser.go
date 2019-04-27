@@ -38,6 +38,11 @@ func newError(msg string) Error {
 	return Error{msg: msg}
 }
 
+const (
+	// MaxCandles for analysers: only hold price of last MaxCandles days
+	MaxCandles = 100
+)
+
 // Operator Precedence
 var opPrecedence = map[string]int{
 	"*": 6, "/": 6, "**": 6,
@@ -519,8 +524,8 @@ func (a *Analyser) deleteStrategy(userid int, orderside techan.OrderSide) {
 func (a *Analyser) prepareWatching() {
 	newCandle := techan.NewCandle(techan.NewTimePeriod(commons.Today(), time.Hour*24))
 	a.timeSeries.AddCandle(newCandle)
-	for len(a.timeSeries.Candles) > 100 {
-		a.timeSeries.Candles = a.timeSeries.Candles[1:]
+	if len(a.timeSeries.Candles) > MaxCandles {
+		a.timeSeries.Candles = a.timeSeries.Candles[len(a.timeSeries.Candles)-MaxCandles:]
 	}
 }
 
@@ -549,6 +554,17 @@ func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
 	if lastTimestamp < stockPrice.Timestamp {
 		a.timeSeries.AddCandle(candle)
 	}
+}
+
+func (a *Analyser) needPriceFrom() int64 {
+	var start int64
+	if len(a.timeSeries.Candles) > 0 {
+		start = a.timeSeries.LastCandle().Period.End.Unix()
+	} else {
+		start = commons.Today().Unix()
+	}
+	before := int64((MaxCandles/5)+2) * 7 * 24 * 60 * 60 // 100일/5일 -> 20주 + 2주 -> 대충 22주 전까지 데이터 긁어옴
+	return start - before
 }
 
 func (a *Analyser) calculateStrategies() {

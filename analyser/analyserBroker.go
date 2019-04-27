@@ -3,6 +3,7 @@ package analyser
 import (
 	"fmt"
 
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
@@ -22,8 +23,8 @@ type analyserHolder struct {
 
 // Broker is an Analysis Manager
 type Broker struct {
-	analysers map[string]*analyserHolder
-	users     map[int]map[string]bool
+	analysers map[string]*analyserHolder // Key: Stock ID, Value: Analyser Holder
+	users     map[int]map[string]bool    // Key: User ID, Value: Stock ID set
 	dbClient  *database.DBClient
 }
 
@@ -50,11 +51,11 @@ func newHolder(stockID string) *analyserHolder {
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
 func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bool, error) {
 	// Handle analysers
-	holder, ok := b.analysers[userStrategy.StockID]
+	holder, stockOK := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
 	retainedAnalyser := false
 
-	if ok {
+	if stockOK {
 		if !userOK {
 			// 이 주식은 다른 사람이 전략을 넣은 적이 있는데, 이 유저는 처음
 			holder.analyser.Retain()
@@ -98,10 +99,11 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bo
 
 	// Handle DB
 	ok, err = b.dbClient.Upsert(&userStrategy)
-	if !ok {
-		return ok, err
-	}
 
+	// Update stock price if needed
+	if !stockOK {
+		b.UpdatePastPriceOfStock(userStrategy.StockID)
+	}
 	return ok, err
 }
 
@@ -156,8 +158,8 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	if provider == nil {
 		return
 	}
+	holder.analyser.prepareWatching()
 	go func() {
-		holder.analyser.prepareWatching()
 		for price := range provider {
 			holder.analyser.watchStockPrice(price)
 			select {
@@ -168,10 +170,43 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	}()
 }
 
-// UpdatePastPrice is for updating the past price of the stock.
-func (b *Broker) UpdatePastPrice(stockPrice structs.StockPrice) {
+// AppendPastPrice is for appending the past price of the stock.
+func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
 	holder, ok := b.analysers[stockPrice.StockID]
 	if ok {
 		holder.analyser.appendPastStockPrice(stockPrice)
+	}
+}
+
+// UpdatePastPrice is for updating the past price of the stock.
+func (b *Broker) UpdatePastPrice() {
+	for stockID, holder := range b.analysers {
+		b.updatePastPriceOfStockImpl(stockID, holder)
+	}
+}
+
+//UpdatePastPriceOfStock is for updating the past price of the specific stock.
+func (b *Broker) UpdatePastPriceOfStock(stockID string) {
+	holder, ok := b.analysers[stockID]
+	if !ok {
+		logger.Error("[Analyser] Error while updating past price of %s: no such analyser registered", stockID)
+		return
+	}
+	b.updatePastPriceOfStockImpl(stockID, holder)
+}
+
+func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHolder) {
+	timestampFrom := holder.analyser.needPriceFrom()
+	var prices []structs.StockPrice
+	_, err := b.dbClient.Select(&prices,
+		"where StockID=? and Timestamp>=? order by Timestamp",
+		stockID, timestampFrom)
+	if err != nil {
+		logger.Error("[Analyser] Error while updating past price of %s from %v: %s",
+			stockID, commons.Unix(timestampFrom), err.Error())
+		return
+	}
+	for i := range prices {
+		holder.analyser.appendPastStockPrice(prices[i])
 	}
 }

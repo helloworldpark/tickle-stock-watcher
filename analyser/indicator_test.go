@@ -25,7 +25,7 @@ func TestLocalMinMax(t *testing.T) {
 		series.AddCandle(candle)
 	}
 	closeIndicator := techan.NewClosePriceIndicator(series)
-	localIndicator := newLocalMinMaxIndicator(closeIndicator, 2, 4)
+	localIndicator := newLocalExtremaIndicator(closeIndicator, 2, 4)
 	for i := 0; i < 1000; i++ {
 		price := closeIndicator.Calculate(i).Float()
 		local := int(localIndicator.Calculate(i).Float())

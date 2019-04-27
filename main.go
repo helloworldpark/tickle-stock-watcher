@@ -88,7 +88,11 @@ func main() {
 
 	// DB 테이블 초기화
 	client.RegisterStructFromRegisterables([]database.DBRegisterable{
-		structs.Stock{}, structs.StockPrice{}, structs.User{}, structs.UserStock{}, structs.WatchingStock{},
+		structs.Stock{},
+		structs.StockPrice{},
+		structs.User{},
+		structs.UserStock{},
+		structs.WatchingStock{},
 	})
 
 	// General 생성
@@ -126,6 +130,7 @@ func main() {
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
 	// PriceWatcher는 주중, 장이 열리는 날이면 06시부터 오늘로부터 이전 날까지의 가격 정보 수집
+	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
 	scheduler.ScheduleWeekdays("WatchPrice", watcher.OpeningTime(time.Time{}), func() {
 		// 오늘 장날인지 확인
 		isMarketOpen := general.dateChecker.IsHoliday(commons.Now())
@@ -145,8 +150,11 @@ func main() {
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
 		general.priceWatcher.StopWatching()
 	})
-	scheduler.ScheduleEveryday("CollectPrice", 6, func() {
+	scheduler.ScheduleWeekdays("CollectPrice", 6, func() {
 		general.priceWatcher.Collect()
+	})
+	scheduler.ScheduleWeekdays("UpdatePriceBroker", 8, func() {
+		general.broker.UpdatePastPrice()
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신

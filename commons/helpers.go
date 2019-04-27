@@ -74,3 +74,10 @@ func Today() time.Time {
 	todaySeoul := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, AsiaSeoul)
 	return todaySeoul
 }
+
+// Unix converts timestamp to time in Seoul
+func Unix(timestamp int64) time.Time {
+	t := time.Unix(timestamp, 0)
+	t = t.In(AsiaSeoul)
+	return t
+}
