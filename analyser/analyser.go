@@ -145,7 +145,7 @@ func (a *Analyser) cacheIndicators() {
 	// RSI
 	funcRsi := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 1 {
-			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need more or equal to 1", len(a)))
+			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need 1", len(a)))
 		}
 		timeframe := int(a[0].(float64))
 		return newRSI(series, timeframe), nil
@@ -154,11 +154,37 @@ func (a *Analyser) cacheIndicators() {
 
 	// Close Price
 	funcClose := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 0 {
+			return nil, newError(fmt.Sprintf("Too many parameters: got %d, need 0", len(a)))
+		}
 		return techan.NewClosePriceIndicator(series), nil
 	}
 	a.indicatorMap["close"] = funcClose
 	a.indicatorMap["price"] = funcClose
 	a.indicatorMap["closeprice"] = funcClose
+
+	// Increase
+	funcIncrease := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 2 {
+			return nil, newError(fmt.Sprintf("Number of parameters incorrect: got %d, need 2", len(a)))
+		}
+		indicator := a[0].(techan.Indicator)
+		lag := int(a[1].(float64))
+		return newIncreaseIndicator(indicator, lag), nil
+	}
+	a.indicatorMap["increase"] = funcIncrease
+
+	// Local Extrema
+	funcExtrema := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 3 {
+			return nil, newError(fmt.Sprintf("Number of parameters incorrect: got %d, need 2", len(a)))
+		}
+		indicator := a[0].(techan.Indicator)
+		lag := int(a[1].(float64))
+		samples := int(a[2].(float64))
+		return newLocalExtremaIndicator(indicator, lag, samples), nil
+	}
+	a.indicatorMap["extrema"] = funcExtrema
 }
 
 func (a *Analyser) cacheRules() {

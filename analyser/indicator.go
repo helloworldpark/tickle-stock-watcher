@@ -105,14 +105,14 @@ func (ld lagDifferenceIndicator) Calculate(index int) big.Decimal {
 	return latest.Sub(before)
 }
 
-type localMinMaxIndicator struct {
+type localExtremaIndicator struct {
 	indicator techan.Indicator
 	lag       int
 	samples   int
 }
 
-func newLocalMinMaxIndicator(indicator techan.Indicator, lag, samples int) techan.Indicator {
-	return localMinMaxIndicator{indicator: indicator, lag: lag, samples: samples}
+func newLocalExtremaIndicator(indicator techan.Indicator, lag, samples int) techan.Indicator {
+	return localExtremaIndicator{indicator: indicator, lag: lag, samples: samples}
 }
 
 type vec4 [4]float64
@@ -145,7 +145,7 @@ func newVec4(v0, v1, v2, v3 float64) vec4 {
 //                 /
 //               -
 // 6 : Increasing (but its speed is increasing)
-func (ld localMinMaxIndicator) Calculate(index int) big.Decimal {
+func (ld localExtremaIndicator) Calculate(index int) big.Decimal {
 	r := new(regression.Regression)
 	dataAdded := 0
 	for i := 0; i < ld.samples; i++ {
