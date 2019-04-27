@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
@@ -16,10 +18,6 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
-type RequestHandler interface {
-	HandleCommand(string)
-}
-
 type General struct {
 	priceWatcher *watcher.Watcher
 	dateChecker  *watcher.DateChecker
@@ -27,6 +25,7 @@ type General struct {
 	broker       *analyser.Broker
 	users        map[string][]structs.User
 	pushManager  *push.Manager
+	dbClient     *database.DBClient
 }
 
 func NewGeneral(dbClient *database.DBClient) *General {
@@ -37,13 +36,56 @@ func NewGeneral(dbClient *database.DBClient) *General {
 		broker:       analyser.NewBroker(dbClient),
 		users:        make(map[string][]structs.User),
 		pushManager:  push.NewManager(),
+		dbClient:     dbClient,
 	}
 	return &g
 }
 
-func (g *General) OnWebhook(id int64, msg, messenger string) error {
+type mainError struct {
+	msg string
+}
 
-	return nil
+func (e mainError) Error() string {
+	return fmt.Sprintf("[Main] %s", e.msg)
+}
+
+func (g *General) OnWebhook(token, msg, messenger string) {
+	user, err := structs.UserFromToken(g.dbClient, token, messenger)
+	emptyUser := structs.User{}
+	if user == emptyUser {
+		user.TokenTelegram = token
+	}
+	if messenger != "Telegram" {
+		return
+	}
+	orders := strings.Split(msg, " ")
+	err = runOrder(orders)
+	if err != nil {
+		g.onError(user, err)
+	}
+}
+
+func (g *General) onError(user structs.User, err error) {
+	g.pushManager.PushMessage(err.Error(), user)
+}
+
+var botOrders = map[string]order{
+	"invite": newInviteOrder(),
+}
+
+func runOrder(orders []string) error {
+	if len(orders) == 0 {
+		return mainError{msg: "Invalid order"}
+	}
+	lowerOrders := make([]string, len(orders))
+	for i := range orders {
+		lowerOrders[i] = strings.ToLower(orders[i])
+	}
+	action, ok := botOrders[lowerOrders[0]]
+	if !ok {
+		return mainError{msg: fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0])}
+	}
+	return action.onAction(orders)
 }
 
 func main() {
@@ -108,6 +150,12 @@ func main() {
 		// TODO: implement callback
 		// general.broker.AddStrategy(v, callback)
 	}
+
+	// 명령어들 초기화
+	botOrders["invite"].setAction(func(args []string) error {
+		logger.Info("[Invite] %s", args[0])
+		return nil
+	})
 
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
