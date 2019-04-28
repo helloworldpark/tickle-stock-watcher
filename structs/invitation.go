@@ -29,8 +29,8 @@ func (iv Invitation) GetPublicKey() rsa.PublicKey {
 // GetDBRegisterForm is just an implementation
 func (iv Invitation) GetDBRegisterForm() database.DBRegisterForm {
 	form := database.DBRegisterForm{
-		BaseStruct:    Invitation{},
-		UniqueColumns: []string{"Guestname"},
+		BaseStruct: Invitation{},
+		KeyColumns: []string{"Guestname"},
 	}
 	return form
 }
