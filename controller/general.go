@@ -48,7 +48,6 @@ type General struct {
 	dateChecker  *watcher.DateChecker
 	itemChecker  *watcher.StockItemChecker
 	broker       *analyser.Broker
-	users        map[string][]structs.User // Key: Stock ID, Value: Users who are watching the stock ID
 	pushManager  *push.Manager
 	dbClient     *database.DBClient
 }
@@ -60,7 +59,6 @@ func NewGeneral(dbClient *database.DBClient) *General {
 		dateChecker:  watcher.NewDateChecker(),
 		itemChecker:  watcher.NewStockItemChecker(dbClient),
 		broker:       analyser.NewBroker(dbClient),
-		users:        make(map[string][]structs.User),
 		pushManager:  push.NewManager(),
 		dbClient:     dbClient,
 	}
@@ -82,7 +80,7 @@ func (g *General) OnWebhook(token int64, msg string) {
 }
 
 func (g *General) onError(user structs.User, err error) {
-	g.pushManager.PushMessage(err.Error(), user)
+	g.pushManager.PushMessage(err.Error(), user.UserID)
 }
 
 // Initialize initializes General
@@ -103,23 +101,18 @@ func (g *General) Initialize() {
 		if !ok {
 			continue
 		}
-		_, ok = g.users[v.StockID]
-		if !ok {
-			g.users[v.StockID] = make([]structs.User, 0)
-		}
-		g.users[v.StockID] = append(g.users[v.StockID], userIndex[v.UserID])
 		g.priceWatcher.Register(stock)
 		// TODO: implement callback
-		// general.broker.AddStrategy(v, callback)
+		g.broker.AddStrategy(v, g.onStrategyEvent)
 	}
 
 	// 명령어들 초기화
 	botOrders["join"].SetAction(orders.Join(g, func(user structs.User) {
-		g.pushManager.PushMessage("Congratulations! Press `help` and send to know how to use this bot.", user)
+		g.pushManager.PushMessage("Congratulations! Press `help` and send to know how to use this bot.", user.UserID)
 	}))
 	botOrders["invite"].SetAction(orders.Invite(g, func(user structs.User, signature string) {
 		pushMessage := fmt.Sprintf("[Invite] Send this signature: \n%s", signature)
-		g.pushManager.PushMessage(pushMessage, user)
+		g.pushManager.PushMessage(pushMessage, user.UserID)
 	}))
 
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
@@ -173,6 +166,28 @@ func (g *General) Initialize() {
 	// 2. 유저가 전략을 추가하면, 전략을 수정하거나, 삭제한다
 	// 3. 종목번호에 따른 가격, 종목 정보를 보여준다
 	// 4. 유저의 가입 처리를 한다
+}
+
+//
+func (g *General) onStrategyEvent(price float64, stockid string, orderSide int, userid int64, repeat bool) {
+	// Notify to user
+	msgFormat := "[%s] 주식종목 %s의 가격이 등록하신 조건에 충족되었습니다: 현재가 %d원"
+	buyOrSell := "매수"
+	if orderSide == commons.SELL {
+		buyOrSell = "매도"
+	}
+	stock, _ := g.itemChecker.StockFromID(stockid)
+	msg := fmt.Sprintf(msgFormat, buyOrSell, stock.Name, int(price))
+	g.pushManager.PushMessage(msg, userid)
+
+	// Handle Repeat
+	if repeat {
+		return
+	}
+	// Delete Strategy
+	g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
+	// Withdraw Watcher
+	g.priceWatcher.Withdraw(stock)
 }
 
 // AccessDB interface database.DBAccess

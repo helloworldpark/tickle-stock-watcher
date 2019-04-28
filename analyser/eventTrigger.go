@@ -5,14 +5,14 @@ import (
 )
 
 // EventCallback is a type of callback when the trigger is triggered.
-type EventCallback func(price float64, stockid string, orderSide int)
+type EventCallback func(price float64, stockid string, orderSide int, userid int64, repeat bool)
 
 // EventTrigger is an interface for triggering events.
 type EventTrigger interface {
 	OrderSide() techan.OrderSide
 	IsTriggered(index int, record *techan.TradingRecord) bool
 	SetCallback(callback EventCallback)
-	OnEvent(price float64, stockid string, orderSide int)
+	OnEvent(price float64, stockid string, orderSide int, userid int64, repeat bool)
 }
 
 type eventTrigger struct {
@@ -49,6 +49,6 @@ func (e *eventTrigger) SetCallback(callback EventCallback) {
 	e.callback = callback
 }
 
-func (e *eventTrigger) OnEvent(price float64, stockid string, orderSide int) {
-	e.callback(price, stockid, orderSide)
+func (e *eventTrigger) OnEvent(price float64, stockid string, orderSide int, userid int64, repeat bool) {
+	e.callback(price, stockid, orderSide, userid, repeat)
 }

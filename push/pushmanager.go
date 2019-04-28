@@ -1,9 +1,5 @@
 package push
 
-import (
-	"github.com/helloworldpark/tickle-stock-watcher/structs"
-)
-
 type msgTask = func()
 
 type Manager struct {
@@ -21,8 +17,8 @@ func NewManager() *Manager {
 	return &m
 }
 
-func (m *Manager) PushMessage(msg string, user structs.User) {
+func (m *Manager) PushMessage(msg string, userid int64) {
 	m.tasksTelegram <- func() {
-		SendMessageTelegram(user.UserID, msg)
+		SendMessageTelegram(userid, msg)
 	}
 }

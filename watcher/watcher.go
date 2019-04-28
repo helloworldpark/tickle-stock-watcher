@@ -92,6 +92,7 @@ func (w *Watcher) Withdraw(stock Stock) {
 	if crawler.ref.Count() > 0 {
 		return
 	}
+	close(crawler.sentinel)
 	watchingStock := WatchingStock{
 		StockID:            stock.StockID,
 		IsWatching:         false,

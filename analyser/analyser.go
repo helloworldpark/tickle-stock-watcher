@@ -576,6 +576,6 @@ func (a *Analyser) calculateStrategies() {
 	}
 	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
 	for k, v := range triggered {
-		v.OnEvent(closePrice, a.stockID, int(k.orderside))
+		v.OnEvent(closePrice, a.stockID, int(k.orderside), k.userid, k.repeat)
 	}
 }
