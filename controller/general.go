@@ -48,7 +48,7 @@ type General struct {
 	dateChecker  *watcher.DateChecker
 	itemChecker  *watcher.StockItemChecker
 	broker       *analyser.Broker
-	users        map[string][]structs.User
+	users        map[string][]structs.User // Key: Stock ID, Value: Users who are watching the stock ID
 	pushManager  *push.Manager
 	dbClient     *database.DBClient
 }

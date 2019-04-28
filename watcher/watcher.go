@@ -24,6 +24,7 @@ type workerFunc = func() <-chan StockPrice
 type internalCrawler struct {
 	lastTimestamp int64
 	sentinel      chan struct{}
+	ref           *commons.Ref
 }
 
 // Watcher is a struct for watching the market
@@ -48,8 +49,9 @@ func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 // If registered, it updates the last timestamp of the price.
 // Else, it will collect price data from the beginning.
 func (w *Watcher) Register(stock Stock) {
-	_, ok := w.crawlers[stock.StockID]
+	old, ok := w.crawlers[stock.StockID]
 	if ok {
+		old.ref.Retain()
 		return
 	}
 	var watchingStock []WatchingStock
@@ -67,9 +69,12 @@ func (w *Watcher) Register(stock Stock) {
 		newWatchingStock = watchingStock[0]
 		newWatchingStock.IsWatching = true
 	}
+	ref := &commons.Ref{}
+	ref.Retain()
 	w.crawlers[stock.StockID] = internalCrawler{
 		lastTimestamp: newWatchingStock.LastPriceTimestamp,
 		sentinel:      make(chan struct{}),
+		ref:           ref,
 	}
 	_, err = w.dbClient.Upsert(&newWatchingStock)
 	if err != nil {
@@ -81,6 +86,10 @@ func (w *Watcher) Register(stock Stock) {
 func (w *Watcher) Withdraw(stock Stock) {
 	crawler, ok := w.crawlers[stock.StockID]
 	if !ok {
+		return
+	}
+	crawler.ref.Release()
+	if crawler.ref.Count() > 0 {
 		return
 	}
 	watchingStock := WatchingStock{
