@@ -62,9 +62,7 @@ func encodeByteArray(b []byte) string {
 	format := "%02x"
 	buffer := strings.Builder{}
 	for i := range b {
-		s := fmt.Sprintf(format, int(b[i]))
-		fmt.Println(s)
-		buffer.WriteString(s)
+		buffer.WriteString(fmt.Sprintf(format, b[i]))
 	}
 	return buffer.String()
 }
