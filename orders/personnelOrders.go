@@ -56,7 +56,7 @@ func Invite(db database.DBAccess, onSuccess func(user structs.User, signature st
 			logger.Error("%s", err.Error())
 			return orderError{msg: err.Error()}
 		}
-		_, err = db.AccessDB().Insert(invitation)
+		_, err = db.AccessDB().Insert(&invitation)
 		if err != nil {
 			logger.Error("%s", err.Error())
 			return orderError{msg: err.Error()}
@@ -88,7 +88,7 @@ func Join(db database.DBAccess, onSuccess func(user structs.User)) Action {
 
 		user.Superuser = false
 
-		_, err = db.AccessDB().Insert(user)
+		_, err = db.AccessDB().Insert(&user)
 		if err != nil {
 			return err
 		}

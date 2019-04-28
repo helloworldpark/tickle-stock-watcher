@@ -262,7 +262,7 @@ func (w *Watcher) Collect() {
 		}
 	}
 	for v := range outCollect {
-		*buckets[activeBucket] = append(*buckets[activeBucket], v)
+		*buckets[activeBucket] = append(*buckets[activeBucket], &v)
 		if len(*buckets[activeBucket]) < 2000 {
 			continue
 		}
