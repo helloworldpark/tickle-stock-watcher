@@ -10,14 +10,16 @@ import (
 // Invitation is a struct for describing invitation
 type Invitation struct {
 	Guestname string
-	PublicKey string
+	PublicKey string `db:",size:1000"`
 }
 
+// NewInvitation returns a new Invitation struct
 func NewInvitation(guestname string, publicKey *rsa.PublicKey) Invitation {
 	marshaled, _ := json.Marshal(publicKey)
 	return Invitation{Guestname: guestname, PublicKey: string(marshaled)}
 }
 
+// GetPublicKey provides a convenience to parse jsonified rsa.PublicKey struct
 func (iv Invitation) GetPublicKey() rsa.PublicKey {
 	publicKey := rsa.PublicKey{}
 	json.Unmarshal([]byte(iv.PublicKey), &publicKey)
@@ -25,10 +27,10 @@ func (iv Invitation) GetPublicKey() rsa.PublicKey {
 }
 
 // GetDBRegisterForm is just an implementation
-func (s Invitation) GetDBRegisterForm() database.DBRegisterForm {
+func (iv Invitation) GetDBRegisterForm() database.DBRegisterForm {
 	form := database.DBRegisterForm{
 		BaseStruct:    Invitation{},
-		UniqueColumns: []string{"PublicKey"},
+		UniqueColumns: []string{"Guestname"},
 	}
 	return form
 }

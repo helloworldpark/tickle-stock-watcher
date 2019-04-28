@@ -87,15 +87,12 @@ func Join(db database.DBAccess, onSuccess func(user structs.User)) Action {
 		}
 
 		user.Superuser = false
-
 		_, err = db.AccessDB().Insert(&user)
 		if err != nil {
 			return err
 		}
 
-		db.AccessDB().Delete(structs.Invitation{}, "where Guestname=?", username)
 		onSuccess(user)
-
 		return nil
 	}
 	return f
