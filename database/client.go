@@ -33,6 +33,11 @@ type DBCredential struct {
 	DBName                 string `json:"dbName"`
 }
 
+// DBAccess implement this to show that the struct has access to database
+type DBAccess interface {
+	AccessDB() *DBClient
+}
+
 // LoadCredential load DB credential from json file
 func LoadCredential(filePath string) DBCredential {
 	raw, err := ioutil.ReadFile(filePath)
