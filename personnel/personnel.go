@@ -6,6 +6,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
@@ -18,6 +20,7 @@ func (err invitationError) Error() string {
 	return fmt.Sprintf("[Personnel] %s", err.msg)
 }
 
+// Invite generates an RSA public key and a signature
 func Invite(user structs.User, guestname string) (string, structs.Invitation, error) {
 	// Superuser가 아니면 이 기능은 못 쓰도록 막는다
 	if !user.Superuser {
@@ -34,16 +37,49 @@ func Invite(user structs.User, guestname string) (string, structs.Invitation, er
 	if err != nil {
 		return "", structs.Invitation{}, invitationError{err.Error()}
 	}
-	sign := string(signature[:])
+	sign := encodeByteArray(signature[:])
 	invitation := structs.NewInvitation(guestname, &privateKey.PublicKey)
 	return sign, invitation, nil
 }
 
+// ValidateInvitation validates the signature with a public key saved before
 func ValidateInvitation(invitation structs.Invitation, signature string) error {
 	message := []byte(invitation.Guestname)
 	hashed := sha512.Sum512(message)
-	sign := []byte(signature)
+	sign, err := decodeToByteArray(signature)
+	if err != nil {
+		return err
+	}
 	publicKey := invitation.GetPublicKey()
-	err := rsa.VerifyPKCS1v15(&publicKey, crypto.SHA512, hashed[:], sign)
-	return err
+	err = rsa.VerifyPKCS1v15(&publicKey, crypto.SHA512, hashed[:], sign)
+	if err != nil {
+		return invitationError{err.Error()}
+	}
+	return nil
+}
+
+func encodeByteArray(b []byte) string {
+	format := "%02x"
+	buffer := strings.Builder{}
+	for i := range b {
+		s := fmt.Sprintf(format, int(b[i]))
+		fmt.Println(s)
+		buffer.WriteString(s)
+	}
+	return buffer.String()
+}
+
+func decodeToByteArray(s string) ([]byte, error) {
+	if len(s)%2 == 1 {
+		return nil, invitationError{fmt.Sprintf("Invalid parameter %s: s should have even numbers of characters", s)}
+	}
+	b := make([]byte, len(s)/2)
+	for i := 0; i < len(s)/2; i++ {
+		v, err := strconv.ParseUint(s[2*i:2*i+2], 16, 8)
+		if err != nil {
+			return nil, invitationError{err.Error()}
+		}
+		b[i] = byte(v)
+	}
+	return b, nil
 }
