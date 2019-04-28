@@ -20,7 +20,7 @@ type indicatorGen = func(*techan.TimeSeries, ...interface{}) (techan.Indicator, 
 type ruleGen = func(...interface{}) (techan.Rule, error)
 
 type userSide struct {
-	userid    int
+	userid    int64
 	orderside techan.OrderSide
 	repeat    bool
 }
@@ -516,7 +516,7 @@ func (a *Analyser) appendStrategy(userStrategy structs.UserStock, callback Event
 	return a.parseAndCacheStrategy(userStrategy, callback)
 }
 
-func (a *Analyser) deleteStrategy(userid int, orderside techan.OrderSide) {
+func (a *Analyser) deleteStrategy(userid int64, orderside techan.OrderSide) {
 	key := userSide{userid: userid, orderside: orderside}
 	delete(a.userStrategy, key)
 }

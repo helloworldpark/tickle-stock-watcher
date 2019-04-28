@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/helloworldpark/tickle-stock-watcher/personnel"
 	"strings"
 	"time"
 
@@ -49,17 +50,14 @@ func (e mainError) Error() string {
 	return fmt.Sprintf("[Main] %s", e.msg)
 }
 
-func (g *General) OnWebhook(token, msg, messenger string) {
-	user, err := structs.UserFromToken(g.dbClient, token, messenger)
+func (g *General) OnWebhook(token int64, msg string) {
+	user, err := structs.UserFromID(g.dbClient, token)
 	emptyUser := structs.User{}
 	if user == emptyUser {
-		user.TokenTelegram = token
-	}
-	if messenger != "Telegram" {
-		return
+		user.UserID = token
 	}
 	orders := strings.Split(msg, " ")
-	err = runOrder(orders)
+	err = runOrder(user, orders)
 	if err != nil {
 		g.onError(user, err)
 	}
@@ -71,9 +69,10 @@ func (g *General) onError(user structs.User, err error) {
 
 var botOrders = map[string]order{
 	"invite": newInviteOrder(),
+	"join":   newJoinOrder(),
 }
 
-func runOrder(orders []string) error {
+func runOrder(user structs.User, orders []string) error {
 	if len(orders) == 0 {
 		return mainError{msg: "Invalid order"}
 	}
@@ -85,7 +84,7 @@ func runOrder(orders []string) error {
 	if !ok {
 		return mainError{msg: fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0])}
 	}
-	return action.onAction(lowerOrders[1:])
+	return action.onAction(user, lowerOrders[1:])
 }
 
 func main() {
@@ -117,6 +116,7 @@ func main() {
 		structs.User{},
 		structs.UserStock{},
 		structs.WatchingStock{},
+		structs.Invitation{},
 	})
 
 	// General 생성
@@ -132,7 +132,7 @@ func main() {
 	push.InitTelegram(*telegramPath)
 
 	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker, User 현황 초기화
-	userIndex := make(map[int]structs.User)
+	userIndex := make(map[int64]structs.User)
 	for _, u := range structs.AllUsers(client) {
 		userIndex[u.UserID] = u
 	}
@@ -152,8 +152,49 @@ func main() {
 	}
 
 	// 명령어들 초기화
-	botOrders["invite"].setAction(func(args []string) error {
-		logger.Info("[Invite] %s", args[0])
+	botOrders["invite"].setAction(func(user structs.User, args []string) error {
+		guestname := args[0]
+		signature, invitation, err := personnel.Invite(user, guestname)
+		if err != nil {
+			logger.Error("%s", err.Error())
+			return err
+		}
+		_, err = general.dbClient.Insert(invitation)
+		if err != nil {
+			logger.Error("%s", err.Error())
+			return err
+		}
+		pushMessage := fmt.Sprintf("[Invite] Signature: \n%s", signature)
+		general.pushManager.PushMessage(pushMessage, user)
+		logger.Info("[Invite] Invitation signature created: %s", signature)
+		return nil
+	})
+	botOrders["join"].setAction(func(user structs.User, args []string) error {
+		username := args[0]
+		signature := args[1]
+		var invitation []structs.Invitation
+		_, err := general.dbClient.Select(&invitation, "where Guestname=?", username)
+		if err != nil {
+			return err
+		}
+		if len(invitation) == 0 {
+			return mainError{msg: fmt.Sprintf("No invitation issued for username %s", username)}
+		}
+		err = personnel.ValidateInvitation(invitation[0], signature)
+		if err != nil {
+			return err
+		}
+
+		user.Superuser = false
+
+		_, err = general.dbClient.Insert(user)
+		if err != nil {
+			return err
+		}
+
+		general.dbClient.Delete(structs.Invitation{}, "where Guestname=?", username)
+		general.pushManager.PushMessage("Congratulations! Press `help` and send to know how to use this bot.", user)
+
 		return nil
 	})
 

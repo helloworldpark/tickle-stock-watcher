@@ -5,7 +5,7 @@ import "github.com/helloworldpark/tickle-stock-watcher/logger"
 
 // UserStock is a struct describing the users' stock strategy
 type UserStock struct {
-	UserID    int
+	UserID    int64
 	StockID   string
 	Strategy  string
 	OrderSide int
@@ -21,6 +21,7 @@ func (s UserStock) GetDBRegisterForm() database.DBRegisterForm {
 	return form
 }
 
+// AllStrategies returns all strategies
 func AllStrategies(client *database.DBClient) []UserStock {
 	var userStrategyList []UserStock
 	_, err := client.Select(&userStrategyList, "where true")

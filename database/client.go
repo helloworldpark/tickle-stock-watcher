@@ -160,10 +160,10 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	client.mutex.Lock()
 	for _, form := range forms {
 		table := client.dbmap.AddTableWithName(form.BaseStruct, form.Name)
-		if form.KeyColumns != nil && len(form.KeyColumns) > 0 {
+		if len(form.KeyColumns) > 0 {
 			table.SetKeys(form.AutoIncrement, form.KeyColumns...)
 		}
-		if form.UniqueColumns != nil && len(form.UniqueColumns) > 1 {
+		if len(form.UniqueColumns) > 1 {
 			table.SetUniqueTogether(form.UniqueColumns...)
 		}
 	}

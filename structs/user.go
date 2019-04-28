@@ -5,14 +5,8 @@ import "github.com/helloworldpark/tickle-stock-watcher/logger"
 
 // User is a struct for describing users
 type User struct {
-	UserID        int
-	NameLine      string
-	NameTelegram  string
-	NameKakao     string
-	TokenLine     string
-	TokenTelegram string
-	TokenKakao    string
-	Superuser     bool
+	UserID    int64 // same as telegram id
+	Superuser bool
 }
 
 // GetDBRegisterForm is just an implementation
@@ -20,26 +14,15 @@ func (s User) GetDBRegisterForm() database.DBRegisterForm {
 	form := database.DBRegisterForm{
 		BaseStruct:    User{},
 		KeyColumns:    []string{"UserID"},
-		AutoIncrement: true,
+		AutoIncrement: false,
 	}
 	return form
 }
 
-// UserFromToken finds user by token
-func UserFromToken(client *database.DBClient, token, messenger string) (User, error) {
+// UserFromID finds user by user ID
+func UserFromID(client *database.DBClient, token int64) (User, error) {
 	var user []User
-	var query string
-	switch messenger {
-	case "Telegram":
-		query = "where TokenTelegram=?"
-	case "Line":
-		query = "where TokenLine=?"
-	case "Kakao":
-		query = "where TokenKakao=?"
-	default:
-		logger.Panic("[Structs] Should implement this case in User: %s", messenger)
-	}
-	_, err := client.Select(&user, query, token)
+	_, err := client.Select(&user, "where UserID=?", token)
 	if err != nil {
 		logger.Error("[Structs] Error while selecting users: %s", err.Error())
 		return User{}, err

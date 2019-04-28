@@ -24,7 +24,7 @@ type analyserHolder struct {
 // Broker is an Analysis Manager
 type Broker struct {
 	analysers map[string]*analyserHolder // Key: Stock ID, Value: Analyser Holder
-	users     map[int]map[string]bool    // Key: User ID, Value: Stock ID set
+	users     map[int64]map[string]bool  // Key: User ID, Value: Stock ID set
 	dbClient  *database.DBClient
 }
 
@@ -33,7 +33,7 @@ func NewBroker(dbClient *database.DBClient) *Broker {
 	newBroker := Broker{}
 	newBroker.analysers = make(map[string]*analyserHolder)
 	newBroker.dbClient = dbClient
-	newBroker.users = make(map[int]map[string]bool)
+	newBroker.users = make(map[int64]map[string]bool)
 
 	return &newBroker
 }

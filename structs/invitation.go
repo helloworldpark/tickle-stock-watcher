@@ -9,13 +9,13 @@ import (
 
 // Invitation is a struct for describing invitation
 type Invitation struct {
-	Hashed    string
+	Guestname string
 	PublicKey string
 }
 
-func NewInvitation(hashed string, publicKey *rsa.PublicKey) Invitation {
+func NewInvitation(guestname string, publicKey *rsa.PublicKey) Invitation {
 	marshaled, _ := json.Marshal(publicKey)
-	return Invitation{Hashed: hashed, PublicKey: string(marshaled)}
+	return Invitation{Guestname: guestname, PublicKey: string(marshaled)}
 }
 
 func (iv Invitation) GetPublicKey() rsa.PublicKey {

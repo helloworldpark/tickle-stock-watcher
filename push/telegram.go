@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ var telegramToken = ""
 var telegramClient = &http.Client{Timeout: time.Second * 30}
 
 type WebhookHandler interface {
-	OnWebhook(token, msg, messenger string)
+	OnWebhook(token int64, msg string)
 }
 
 type TelegramUser struct {
@@ -189,7 +188,7 @@ func OnTelegramUpdate(wh WebhookHandler) func(c *gin.Context) {
 			return
 		}
 		go func() {
-			wh.OnWebhook(strconv.FormatInt(u.Message.From.ID, 10), u.Message.Text, "Telegram")
+			wh.OnWebhook(u.Message.From.ID, u.Message.Text)
 		}()
 		c.String(200, "")
 	}
