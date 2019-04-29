@@ -37,6 +37,10 @@ func (o *personnelOrder) OnAction(user structs.User, args []string) error {
 	return o.action(user, args)
 }
 
+func (o *personnelOrder) IsAsync() bool {
+	return false
+}
+
 // NewInviteOrder returns a invite order
 func NewInviteOrder() Order {
 	return &personnelOrder{name: "invite", argc: 1}

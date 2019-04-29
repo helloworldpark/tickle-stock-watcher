@@ -38,6 +38,10 @@ func (o *tradeOrders) OnAction(user structs.User, args []string) error {
 	return o.action(user, args)
 }
 
+func (o *tradeOrders) IsAsync() bool {
+	return true
+}
+
 // NewBuyOrder order for 'buy'
 func NewBuyOrder() Order {
 	return &tradeOrders{name: "buy", orderSide: commons.BUY}

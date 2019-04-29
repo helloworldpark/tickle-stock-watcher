@@ -20,4 +20,5 @@ type Order interface {
 	IsValid([]string) error
 	SetAction(Action)
 	OnAction(structs.User, []string) error
+	IsAsync() bool
 }

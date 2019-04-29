@@ -36,6 +36,10 @@ func (o *stockOrders) OnAction(user structs.User, args []string) error {
 	return o.action(user, args)
 }
 
+func (o *stockOrders) IsAsync() bool {
+	return false
+}
+
 // NewStrategyOrder order 'strategy'
 func NewStrategyOrder() Order {
 	return &stockOrders{name: "strategy", minArgc: 0}

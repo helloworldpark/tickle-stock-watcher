@@ -33,7 +33,7 @@ var botOrders = map[string]orders.Order{
 	"delete":   orders.NewDeleteOrder(),
 }
 
-func runOrder(user structs.User, orders []string) error {
+func runOrder(user structs.User, orders []string, preAsync func(), onAsync func(err error)) error {
 	if len(orders) == 0 {
 		return conError{msg: "Invalid order"}
 	}
@@ -44,6 +44,13 @@ func runOrder(user structs.User, orders []string) error {
 	action, ok := botOrders[lowerOrders[0]]
 	if !ok {
 		return conError{msg: fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0])}
+	}
+	if action.IsAsync() {
+		preAsync()
+		go func() {
+			onAsync(action.OnAction(user, lowerOrders[1:]))
+		}()
+		return nil
 	}
 	return action.OnAction(user, lowerOrders[1:])
 }
@@ -78,8 +85,16 @@ func (g *General) OnWebhook(token int64, msg string) {
 	if user == emptyUser {
 		user.UserID = token
 	}
-	orders := strings.Split(msg, " ")
-	err = runOrder(user, orders)
+	args := strings.Split(msg, " ")
+	preAsync := func() {
+		g.pushManager.PushMessage("Request accepted. Please wait for a while!", token)
+	}
+	onAsync := func(e error) {
+		if e != nil {
+			g.onError(user, e)
+		}
+	}
+	err = runOrder(user, args, preAsync, onAsync)
 	if err != nil {
 		g.onError(user, err)
 	}

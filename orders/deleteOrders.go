@@ -53,6 +53,11 @@ func (o *deleteOrder) OnAction(user structs.User, args []string) error {
 	return o.action(user, args)
 }
 
+func (o *deleteOrder) IsAsync() bool {
+	return true
+}
+
+// NewDeleteOrder order 'delete'
 func NewDeleteOrder() Order {
 	return &deleteOrder{}
 }
