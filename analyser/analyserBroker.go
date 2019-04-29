@@ -114,7 +114,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bo
 
 // DeleteStrategy deletes a strategy from the managing list.
 // Analyser will be destroyed only if there are no need to manage it.
-func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) (bool, error) {
+func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error {
 	// Handle analysers
 	holder, ok := b.analysers[stockID]
 	if ok {
@@ -128,12 +128,12 @@ func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) (bool,
 			holder.analyser.deleteStrategy(user.UserID, techan.OrderSide(orderSide))
 		}
 	} else {
-		return false, newError(fmt.Sprintf("Trying to delete an analyser which was not registered for stock ID %s", stockID))
+		return newError(fmt.Sprintf("Trying to delete an analyser which was not registered for stock ID %s", stockID))
 	}
 
 	// Delete from DB
-	ok, err := b.dbClient.Delete(UserStock{}, "where UserID=? and StockID=? and OrderSide=?", user.UserID, stockID, orderSide)
-	return ok, err
+	_, err := b.dbClient.Delete(UserStock{}, "where UserID=? and StockID=? and OrderSide=?", user.UserID, stockID, orderSide)
+	return err
 }
 
 // GetStrategy gets strategy of a specific user.

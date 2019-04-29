@@ -38,10 +38,12 @@ func (o *tradeOrders) OnAction(user structs.User, args []string) error {
 	return o.action(user, args)
 }
 
+// NewBuyOrder order for 'buy'
 func NewBuyOrder() Order {
 	return &tradeOrders{name: "buy", orderSide: commons.BUY}
 }
 
+// NewSellOrder order for 'sell'
 func NewSellOrder() Order {
 	return &tradeOrders{name: "sell", orderSide: commons.SELL}
 }

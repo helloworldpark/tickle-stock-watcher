@@ -14,21 +14,24 @@ import (
 
 // StockItemChecker is a simple struct holding stock info and a DB client.
 type StockItemChecker struct {
-	stocks   map[string]structs.Stock
-	dbClient *database.DBClient
+	stocks    map[string]structs.Stock // Key: Stock ID, Value: Stock
+	invStocks map[string]structs.Stock // Key: Stock Name, Value: Stock
+	dbClient  *database.DBClient
 }
 
 // StockAccess Accessor for stock info
 type StockAccess interface {
 	AccessStockItem(stockid string) (structs.Stock, bool)
+	AccessStockItemByName(stockname string) (structs.Stock, bool)
 }
 
 // NewStockItemChecker returns a new StockItemChecker with stocks unfilled.
 // User must update the stocks.
 func NewStockItemChecker(dbClient *database.DBClient) *StockItemChecker {
 	checker := StockItemChecker{
-		stocks:   make(map[string]structs.Stock),
-		dbClient: dbClient,
+		stocks:    make(map[string]structs.Stock),
+		invStocks: make(map[string]structs.Stock),
+		dbClient:  dbClient,
 	}
 	return &checker
 }
@@ -46,18 +49,27 @@ func (checker *StockItemChecker) StockFromID(stockid string) (structs.Stock, boo
 	return stock, ok
 }
 
+// StockFromName finds structs.Stock from stock id
+// returns false if not found
+func (checker *StockItemChecker) StockFromName(stockname string) (structs.Stock, bool) {
+	stock, ok := checker.stocks[stockname]
+	return stock, ok
+}
+
 // UpdateStocks updates stock info from the KRX server.
 func (checker *StockItemChecker) UpdateStocks() {
 	stocksDB := make([]interface{}, 0)
 	kospi := downloadStockSymbols(structs.KOSPI)
 	for _, v := range kospi {
 		checker.stocks[v.StockID] = v
+		checker.invStocks[v.Name] = v
 		stocksDB = append(stocksDB, v)
 	}
 	kospi = nil
 	kosdaq := downloadStockSymbols(structs.KOSDAQ)
 	for _, v := range kosdaq {
 		checker.stocks[v.StockID] = v
+		checker.invStocks[v.Name] = v
 		stocksDB = append(stocksDB, v)
 	}
 	kosdaq = nil

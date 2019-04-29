@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
@@ -23,10 +24,13 @@ func (e conError) Error() string {
 }
 
 var botOrders = map[string]orders.Order{
-	"invite": orders.NewInviteOrder(),
-	"join":   orders.NewJoinOrder(),
-	"buy":    orders.NewBuyOrder(),
-	"sell":   orders.NewSellOrder(),
+	"invite":   orders.NewInviteOrder(),
+	"join":     orders.NewJoinOrder(),
+	"buy":      orders.NewBuyOrder(),
+	"sell":     orders.NewSellOrder(),
+	"strategy": orders.NewStrategyOrder(),
+	"stock":    orders.NewStockOrder(),
+	"delete":   orders.NewDeleteOrder(),
 }
 
 func runOrder(user structs.User, orders []string) error {
@@ -126,6 +130,40 @@ func (g *General) Initialize() {
 	}
 	botOrders["buy"].SetAction(orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess))
 	botOrders["sell"].SetAction(orders.Trade(commons.SELL, g, g, g, g.onStrategyEvent, tradeOnSuccess))
+	botOrders["strategy"].SetAction(orders.Strategy(g, func(user structs.User, strategies []structs.UserStock) {
+		orderSide := []string{"BUY", "SELL"}
+		buffer := bytes.Buffer{}
+		buffer.WriteString("Strategies: \n")
+		for i := range strategies {
+			buffer.WriteString("[")
+			buffer.WriteString(orderSide[strategies[i].OrderSide])
+			buffer.WriteString("]")
+			buffer.WriteString(strategies[i].StockID)
+			if strategies[i].Repeat {
+				buffer.WriteString("(REPEAT)")
+			}
+			buffer.WriteString(": ")
+			buffer.WriteString(strategies[i].Strategy)
+			buffer.WriteString("\n")
+		}
+		g.pushManager.PushMessage(buffer.String(), user.UserID)
+	}))
+	botOrders["stock"].SetAction(orders.QueryStockByName(g, func(user structs.User, stock structs.Stock) {
+		buffer := bytes.Buffer{}
+		buffer.WriteString("Name: ")
+		buffer.WriteString(stock.Name)
+		buffer.WriteString("\n")
+		buffer.WriteString("ID: ")
+		buffer.WriteString(stock.StockID)
+		buffer.WriteString("\n")
+		buffer.WriteString("Market: ")
+		buffer.WriteString(string(stock.MarketType))
+		g.pushManager.PushMessage(buffer.String(), user.UserID)
+	}))
+	botOrders["delete"].SetAction(orders.DeleteOrder(g, g, g, func(user structs.User, stockname, stockid string) {
+		msg := fmt.Sprintf("Deleted strategies of %s(%s)", stockname, stockid)
+		g.pushManager.PushMessage(msg, user.UserID)
+	}))
 
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
@@ -210,6 +248,11 @@ func (g *General) AccessDB() *database.DBClient {
 // AccessStockItem interface watcher.StockAccess
 func (g *General) AccessStockItem(stockid string) (structs.Stock, bool) {
 	return g.itemChecker.StockFromID(stockid)
+}
+
+// AccessStockItemByName interface watcher.StockAccess
+func (g *General) AccessStockItemByName(stockname string) (structs.Stock, bool) {
+	return g.itemChecker.StockFromName(stockname)
 }
 
 // AccessBroker interface analyser.BrokerAccess
