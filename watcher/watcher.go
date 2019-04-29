@@ -27,6 +27,11 @@ type internalCrawler struct {
 	ref           *commons.Ref
 }
 
+// WatcherAccess provides access to Watcher
+type WatcherAccess interface {
+	AccessWatcher() *Watcher
+}
+
 // Watcher is a struct for watching the market
 type Watcher struct {
 	crawlers  map[string]internalCrawler // key: Stock ID, value: last timestamp of the price info and sentinel
@@ -48,17 +53,17 @@ func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 // Internally, it investigates if the stock had been registered before
 // If registered, it updates the last timestamp of the price.
 // Else, it will collect price data from the beginning.
-func (w *Watcher) Register(stock Stock) {
+func (w *Watcher) Register(stock Stock) bool {
 	old, ok := w.crawlers[stock.StockID]
 	if ok {
 		old.ref.Retain()
-		return
+		return true
 	}
 	var watchingStock []WatchingStock
 	_, err := w.dbClient.Select(watchingStock, "where StockID=?", stock.StockID)
 	if err != nil {
 		logger.Error("[Watcher] Error while querying WatcherStock from DB: %s", err.Error())
-		return
+		return false
 	}
 	var newWatchingStock WatchingStock
 	if len(watchingStock) == 0 {
@@ -79,20 +84,21 @@ func (w *Watcher) Register(stock Stock) {
 	_, err = w.dbClient.Upsert(&newWatchingStock)
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
+		return false
 	}
+	return true
 }
 
 // Withdraw withdraws a stock which was of interest.
-func (w *Watcher) Withdraw(stock Stock) {
+func (w *Watcher) Withdraw(stock Stock) bool {
 	crawler, ok := w.crawlers[stock.StockID]
 	if !ok {
-		return
+		return true
 	}
 	crawler.ref.Release()
 	if crawler.ref.Count() > 0 {
-		return
+		return true
 	}
-	close(crawler.sentinel)
 	watchingStock := WatchingStock{
 		StockID:            stock.StockID,
 		IsWatching:         false,
@@ -101,8 +107,11 @@ func (w *Watcher) Withdraw(stock Stock) {
 	_, err := w.dbClient.Update(&watchingStock)
 	if err != nil {
 		logger.Error("[Watcher] Error while deleting WatchingStock: %s", err.Error())
+		return false
 	}
+	close(crawler.sentinel)
 	delete(w.crawlers, stock.StockID)
+	return true
 }
 
 // StartWatchingStock use it to start watching the market.

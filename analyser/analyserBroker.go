@@ -21,6 +21,11 @@ type analyserHolder struct {
 	sentinel chan bool
 }
 
+// BrokerAccess give access to broker
+type BrokerAccess interface {
+	AccessBroker() *Broker
+}
+
 // Broker is an Analysis Manager
 type Broker struct {
 	analysers map[string]*analyserHolder // Key: Stock ID, Value: Analyser Holder
@@ -154,17 +159,22 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	if !ok {
 		return
 	}
+	if holder.analyser.isWatchingPrice() {
+		return
+	}
 	// will be reconnected later
 	if provider == nil {
 		return
 	}
 	holder.analyser.prepareWatching()
 	go func() {
+		defer holder.analyser.stopWatchingPrice()
+
 		for price := range provider {
 			holder.analyser.watchStockPrice(price)
 			select {
 			case <-holder.sentinel:
-				return
+				break
 			}
 		}
 	}()

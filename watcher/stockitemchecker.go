@@ -18,6 +18,11 @@ type StockItemChecker struct {
 	dbClient *database.DBClient
 }
 
+// StockAccess Accessor for stock info
+type StockAccess interface {
+	AccessStockItem(stockid string) (structs.Stock, bool)
+}
+
 // NewStockItemChecker returns a new StockItemChecker with stocks unfilled.
 // User must update the stocks.
 func NewStockItemChecker(dbClient *database.DBClient) *StockItemChecker {

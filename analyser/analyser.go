@@ -60,6 +60,7 @@ type Analyser struct {
 	timeSeries   *techan.TimeSeries
 	counter      *commons.Ref
 	stockID      string
+	isWatching   bool
 }
 
 // newAnalyser creates and returns a pointer of a new prepared Analyser struct
@@ -71,6 +72,7 @@ func newAnalyser(stockID string) *Analyser {
 	newAnalyser.ruleMap = make(map[string]ruleGen)
 	newAnalyser.counter = &commons.Ref{}
 	newAnalyser.stockID = stockID
+	newAnalyser.isWatching = false
 	newAnalyser.cacheFunctions()
 	return &newAnalyser
 }
@@ -529,9 +531,18 @@ func (a *Analyser) prepareWatching() {
 	}
 }
 
+func (a *Analyser) isWatchingPrice() bool {
+	return a.isWatching
+}
+
 func (a *Analyser) watchStockPrice(stockPrice structs.StockPrice) {
+	a.isWatching = true
 	lastCandle := a.timeSeries.LastCandle()
 	lastCandle.ClosePrice = big.NewDecimal(float64(stockPrice.Close))
+}
+
+func (a *Analyser) stopWatchingPrice() {
+	a.isWatching = false
 }
 
 func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {

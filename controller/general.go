@@ -25,6 +25,8 @@ func (e conError) Error() string {
 var botOrders = map[string]orders.Order{
 	"invite": orders.NewInviteOrder(),
 	"join":   orders.NewJoinOrder(),
+	"buy":    orders.NewBuyOrder(),
+	"sell":   orders.NewSellOrder(),
 }
 
 func runOrder(user structs.User, orders []string) error {
@@ -102,7 +104,6 @@ func (g *General) Initialize() {
 			continue
 		}
 		g.priceWatcher.Register(stock)
-		// TODO: implement callback
 		g.broker.AddStrategy(v, g.onStrategyEvent)
 	}
 
@@ -114,6 +115,17 @@ func (g *General) Initialize() {
 		pushMessage := fmt.Sprintf("[Invite] Send this signature: \n%s", signature)
 		g.pushManager.PushMessage(pushMessage, user.UserID)
 	}))
+	tradeOnSuccess := func(user structs.User, orderside int, stockname, stockid, strategy string) {
+		side := "BUY"
+		if orderside == commons.SELL {
+			side = "SELL"
+		}
+		msgFormat := "[%s] Strategy for %s(%s) registered: %s"
+		msg := fmt.Sprintf(msgFormat, side, stockname, stockid, strategy)
+		g.pushManager.PushMessage(msg, user.UserID)
+	}
+	botOrders["buy"].SetAction(orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess))
+	botOrders["sell"].SetAction(orders.Trade(commons.SELL, g, g, g, g.onStrategyEvent, tradeOnSuccess))
 
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
@@ -193,4 +205,19 @@ func (g *General) onStrategyEvent(price float64, stockid string, orderSide int, 
 // AccessDB interface database.DBAccess
 func (g *General) AccessDB() *database.DBClient {
 	return g.dbClient
+}
+
+// AccessStockItem interface watcher.StockAccess
+func (g *General) AccessStockItem(stockid string) (structs.Stock, bool) {
+	return g.itemChecker.StockFromID(stockid)
+}
+
+// AccessBroker interface analyser.BrokerAccess
+func (g *General) AccessBroker() *analyser.Broker {
+	return g.broker
+}
+
+// AccessWatcher interface analyser.WatcherAccess
+func (g *General) AccessWatcher() *watcher.Watcher {
+	return g.priceWatcher
 }
