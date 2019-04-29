@@ -56,6 +56,11 @@ func runOrder(user structs.User, orders []string, preAsync func(), onAsync func(
 }
 
 // General is the main controller of this whole project
+// General은 다음와 같은 일들을 수행
+// 1. 파싱된 유저의 메세지를 처리
+// 2. 유저가 전략을 추가하면, 전략을 수정하거나, 삭제한다
+// 3. 종목번호에 따른 가격, 종목 정보를 보여준다
+// 4. 유저의 가입 처리를 한다
 type General struct {
 	priceWatcher *watcher.Watcher
 	dateChecker  *watcher.DateChecker
@@ -180,10 +185,17 @@ func (g *General) Initialize() {
 		g.pushManager.PushMessage(msg, user.UserID)
 	}))
 
+	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
+	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
 	// PriceWatcher는 주중, 18시가 되면 감시 중단
-	// PriceWatcher는 주중, 장이 열리는 날이면 06시부터 오늘로부터 이전 날까지의 가격 정보 수집
-	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
+	// PriceWatcher는 주중, 장이 열리는 날이면 22시부터 오늘로부터 이전의 가격 정보 수집
+	scheduler.ScheduleEveryday("StockItemUpdate", 5, func() {
+		g.itemChecker.UpdateStocks()
+	})
+	scheduler.ScheduleWeekdays("UpdatePriceBroker", 8, func() {
+		g.broker.UpdatePastPrice()
+	})
 	scheduler.ScheduleWeekdays("WatchPrice", watcher.OpeningTime(time.Time{}), func() {
 		// 오늘 장날인지 확인
 		isMarketOpen := g.dateChecker.IsHoliday(commons.Now())
@@ -203,11 +215,8 @@ func (g *General) Initialize() {
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
 		g.priceWatcher.StopWatching()
 	})
-	scheduler.ScheduleWeekdays("CollectPrice", 6, func() {
+	scheduler.ScheduleWeekdays("CollectPrice", 22, func() {
 		g.priceWatcher.Collect()
-	})
-	scheduler.ScheduleWeekdays("UpdatePriceBroker", 8, func() {
-		g.broker.UpdatePastPrice()
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
@@ -219,18 +228,7 @@ func (g *General) Initialize() {
 		g.dateChecker.UpdateHolidays(year)
 	})
 
-	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
-	scheduler.ScheduleEveryday("StockItemUpdate", 5, func() {
-		g.itemChecker.UpdateStocks()
-	})
-
 	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
-
-	// General은 다음와 같은 일들을 수행
-	// 1. 파싱된 유저의 메세지를 처리
-	// 2. 유저가 전략을 추가하면, 전략을 수정하거나, 삭제한다
-	// 3. 종목번호에 따른 가격, 종목 정보를 보여준다
-	// 4. 유저의 가입 처리를 한다
 }
 
 //
