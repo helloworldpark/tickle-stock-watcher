@@ -139,7 +139,7 @@ func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error 
 // GetStrategy gets strategy of a specific user.
 func (b *Broker) GetStrategy(user User) []UserStock {
 	var result []UserStock
-	_, err := b.dbClient.Select(result, "where UserID=?", user.UserID)
+	_, err := b.dbClient.Select(&result, "where UserID=?", user.UserID)
 	if err != nil {
 		logger.Error("[Analyser] Error while selecting strategy from database: %s", err.Error())
 	}
