@@ -232,10 +232,10 @@ func (a *Analyser) cacheRules() {
 		}
 		a.ruleMap[op] = f
 	}
-	appendIndicatorComparer(">=", techan.NewCrossUpIndicatorRule)
-	appendIndicatorComparer(">", techan.NewCrossUpIndicatorRule)
-	appendIndicatorComparer("<=", techan.NewCrossDownIndicatorRule)
-	appendIndicatorComparer("<", techan.NewCrossDownIndicatorRule)
+	appendIndicatorComparer("<=", NewCrossLTEIndicatorRule)
+	appendIndicatorComparer("<", NewCrossLTIndicatorRule)
+	appendIndicatorComparer(">=", NewCrossGTEIndicatorRule)
+	appendIndicatorComparer(">", NewCrossGTIndicatorRule)
 	appendIndicatorComparer("==", NewCrossEqualIndicatorRule)
 }
 
