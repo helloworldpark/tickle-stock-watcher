@@ -60,7 +60,7 @@ func (w *Watcher) Register(stock Stock) bool {
 		return true
 	}
 	var watchingStock []WatchingStock
-	_, err := w.dbClient.Select(watchingStock, "where StockID=?", stock.StockID)
+	_, err := w.dbClient.Select(&watchingStock, "where StockID=?", stock.StockID)
 	if err != nil {
 		logger.Error("[Watcher] Error while querying WatcherStock from DB: %s", err.Error())
 		return false
@@ -161,7 +161,7 @@ func (w *Watcher) StopWatchingStock(stockID string) {
 func (w *Watcher) Collect() {
 	// 수집하기 전에 마지막으로 수집한 데가 어딘지 업데이트해둔다
 	var watching []WatchingStock
-	_, errWatching := w.dbClient.Select(watching, "where IsWatching=?", true)
+	_, errWatching := w.dbClient.Select(&watching, "where IsWatching=?", true)
 	if errWatching != nil {
 		logger.Error("[Watcher] Error while querying WatchingStock: %s", errWatching.Error())
 		return
@@ -174,7 +174,7 @@ func (w *Watcher) Collect() {
 		}
 	}
 
-	timestampTwoYears := getCollectionStartingDate(2017).Unix()
+	timestampTwoYears := getCollectionStartingDate(2019).Unix()
 
 	// Construct function
 	workerFuncGenerator := func(stockID string) workerFunc {
@@ -208,6 +208,13 @@ func (w *Watcher) Collect() {
 					// 그리고 잠시 쉰다
 					collected := CrawlPast(stockID, page)
 					shouldGo, k := shouldCollectMore(collected)
+					if (k + 1) < len(collected) {
+						k++
+					} else {
+						if shouldGo == false {
+							shouldGo = true
+						}
+					}
 					for i := 0; i < k; i++ {
 						outResult <- collected[i]
 					}
@@ -267,7 +274,7 @@ func (w *Watcher) Collect() {
 	wg2.Add(1)
 
 	// Write to DB by bucket
-	bucketSize := 2000
+	bucketSize := 20
 	buckets := make([]*[]interface{}, 2)
 	bucket1 := make([]interface{}, bucketSize)
 	buckets[0] = &bucket1
@@ -280,15 +287,22 @@ func (w *Watcher) Collect() {
 			logger.Error("[Watcher] %s", err.Error())
 		}
 	}
+	counter := 0
 	for v := range outCollect {
-		*buckets[activeBucket] = append(*buckets[activeBucket], &v)
-		if len(*buckets[activeBucket]) < 2000 {
+		price := v
+		(*buckets[activeBucket])[counter] = &price
+		counter++
+		if counter < bucketSize {
 			continue
 		}
 		go insertToDb(buckets[activeBucket])
 		activeBucket = (activeBucket + 1) % 2
+		counter = 0
 	}
-	insertToDb(buckets[activeBucket])
+	if counter > 0 {
+		*buckets[activeBucket] = (*buckets[activeBucket])[:counter]
+		insertToDb(buckets[activeBucket])
+	}
 	wg2.Wait()
 }
 

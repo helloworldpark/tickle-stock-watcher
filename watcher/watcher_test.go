@@ -61,8 +61,11 @@ func TestCrawlPast(t *testing.T) {
 	w.Register(structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI})
 	w.Register(structs.Stock{Name: "Hanwha Chemicals", StockID: "009830", MarketType: structs.KOSPI})
 
+	now := time.Now().Unix()
 	w.Collect()
-	logger.Info("Finished!!")
+
+	elapsed := time.Now().Unix() - now
+	logger.Info("Finished!! %d mins", elapsed/60)
 }
 
 func TestReflect(t *testing.T) {
