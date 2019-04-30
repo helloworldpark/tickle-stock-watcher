@@ -84,6 +84,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bo
 		}
 		// Create analyser
 		b.analysers[userStrategy.StockID] = newHolder(userStrategy.StockID)
+		holder = b.analysers[userStrategy.StockID]
 		retainedAnalyser = true
 	}
 
