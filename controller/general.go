@@ -242,7 +242,7 @@ func (g *General) Initialize() {
 	logger.Info("[Controller] Initialized controller")
 
 	var superuser []structs.User
-	g.dbClient.Select(&superuser, "where Superuser=", true)
+	g.dbClient.Select(&superuser, "where Superuser=?", true)
 	if len(superuser) == 1 {
 		g.pushManager.PushMessage("Started ticklestock", superuser[0].UserID)
 	}
