@@ -15,4 +15,5 @@ func TestTime(t *testing.T) {
 	tt = time.Now().In(tz)
 	fmt.Println("Timezone: ", tz)
 	fmt.Println("commons utc Hour: ", tt.Hour())
+	fmt.Println("Today: ", Today())
 }
