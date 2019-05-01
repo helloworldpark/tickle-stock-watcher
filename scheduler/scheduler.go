@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
+	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
 type stoppable interface {
@@ -159,6 +160,7 @@ func appendSingleTask(tag string, after time.Duration, todo func(), reuseTag boo
 	Cancel(tag)
 	taskMap.SetValue(tag, &task)
 	go func() {
+		logger.Info("[Scheduler] Appended task %s: after %f minutes", tag, float64(after)/float64(time.Second))
 		<-task.timer.C
 		(&task).do()
 		if !reuseTag {
