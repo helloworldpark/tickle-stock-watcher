@@ -1,10 +1,11 @@
 package analyser
 
 import (
+	"math"
+
 	"github.com/sajari/regression"
 	"github.com/sdcoffey/big"
 	"github.com/sdcoffey/techan"
-	"math"
 )
 
 type dualOperatorIndicator struct {
@@ -126,6 +127,7 @@ func newVec4(v0, v1, v2, v3 float64) vec4 {
 }
 
 // Calculate returns integer values indicating state
+// -1: Invalid state
 // 0 : Increasing (but its speed is decreasing)
 //      /
 //     /
@@ -159,7 +161,7 @@ func (ld localExtremaIndicator) Calculate(index int) big.Decimal {
 		dataAdded++
 	}
 	if dataAdded < ld.samples {
-		return big.NewDecimal(3)
+		return big.NewDecimal(-1)
 	}
 	r.Run()
 

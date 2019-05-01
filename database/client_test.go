@@ -301,7 +301,7 @@ func TestBulkInsert(t *testing.T) {
 	}
 
 	timeBulk := countTime(func() {
-		_, err := client.BulkInsert(testdata...)
+		_, err := client.BulkInsert(false, testdata...)
 		if err != nil {
 			fmt.Println(err.Error())
 		}

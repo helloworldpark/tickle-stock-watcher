@@ -258,12 +258,12 @@ func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 
 // BulkInsert inserts data by bulk, i.e. in a one query.
 // It may fail if any one of the data has a problem, i.e. all or none.
-func (client *DBClient) BulkInsert(o ...interface{}) (bool, error) {
+func (client *DBClient) BulkInsert(allowDuplicate bool, o ...interface{}) (bool, error) {
 	if !client.IsOpen() {
 		return onDBClosed()
 	}
 
-	query, args, err := client.queryInsert(o, false)
+	query, args, err := client.queryInsert(o, allowDuplicate)
 	if err != nil {
 		return handleError(err)
 	}

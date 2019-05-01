@@ -300,7 +300,7 @@ func (w *Watcher) Collect() {
 	wg2.Add(1)
 
 	// Write to DB by bucket
-	bucketSize := 20
+	bucketSize := 200
 	buckets := make([]*[]interface{}, 2)
 	bucket1 := make([]interface{}, bucketSize)
 	buckets[0] = &bucket1
@@ -308,7 +308,7 @@ func (w *Watcher) Collect() {
 	buckets[1] = &bucket2
 	activeBucket := 0
 	insertToDb := func(b *[]interface{}) {
-		_, err := w.dbClient.BulkInsert((*b)...)
+		_, err := w.dbClient.BulkInsert(true, (*b)...)
 		if err != nil {
 			logger.Error("[Watcher] Error while Collect: %s", err.Error())
 		}
