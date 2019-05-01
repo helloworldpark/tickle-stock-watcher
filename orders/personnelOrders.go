@@ -13,6 +13,7 @@ type personnelOrder struct {
 	action Action
 	name   string
 	argc   int
+	public bool
 }
 
 func (o *personnelOrder) Name() string {
@@ -42,14 +43,18 @@ func (o *personnelOrder) IsAsync() bool {
 	return false
 }
 
+func (o *personnelOrder) IsPublic() bool {
+	return o.public
+}
+
 // NewInviteOrder returns a invite order
 func NewInviteOrder() Order {
-	return &personnelOrder{name: "invite", argc: 1}
+	return &personnelOrder{name: "invite", argc: 1, public: false}
 }
 
 // NewJoinOrder returns a join order
 func NewJoinOrder() Order {
-	return &personnelOrder{name: "join", argc: 2}
+	return &personnelOrder{name: "join", argc: 2, public: true}
 }
 
 // Invite returns a invite functionality

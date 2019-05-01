@@ -17,6 +17,7 @@ type Order interface {
 	SetAction(Action)
 	OnAction(structs.User, []string) error
 	IsAsync() bool
+	IsPublic() bool
 }
 
 type simpleOrder struct {
@@ -42,6 +43,10 @@ func (o *simpleOrder) OnAction(user structs.User, s []string) error {
 
 func (o *simpleOrder) IsAsync() bool {
 	return false
+}
+
+func (o *simpleOrder) IsPublic() bool {
+	return true
 }
 
 // NewHelpOrder order help

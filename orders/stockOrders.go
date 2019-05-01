@@ -41,6 +41,10 @@ func (o *stockOrders) IsAsync() bool {
 	return false
 }
 
+func (o *stockOrders) IsPublic() bool {
+	return false
+}
+
 // NewStrategyOrder order 'strategy'
 func NewStrategyOrder() Order {
 	return &stockOrders{name: "strategy", minArgc: 0}

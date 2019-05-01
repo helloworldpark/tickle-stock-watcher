@@ -43,6 +43,10 @@ func (o *tradeOrders) IsAsync() bool {
 	return true
 }
 
+func (o *tradeOrders) IsPublic() bool {
+	return false
+}
+
 // NewBuyOrder order for 'buy'
 func NewBuyOrder() Order {
 	return &tradeOrders{name: "buy", orderSide: commons.BUY}

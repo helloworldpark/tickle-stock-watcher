@@ -29,28 +29,6 @@ var botOrders = map[string]orders.Order{
 }
 var newError = commons.NewTaggedError("Controller")
 
-func runOrder(user structs.User, orders []string, preAsync func(), onAsync func(err error)) error {
-	if len(orders) == 0 {
-		return newError("Empty order")
-	}
-	lowerOrders := make([]string, len(orders))
-	for i := range orders {
-		lowerOrders[i] = strings.ToLower(orders[i])
-	}
-	action, ok := botOrders[lowerOrders[0]]
-	if !ok {
-		return newError(fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0]))
-	}
-	if action.IsAsync() {
-		preAsync()
-		go func() {
-			onAsync(action.OnAction(user, lowerOrders[1:]))
-		}()
-		return nil
-	}
-	return action.OnAction(user, lowerOrders[1:])
-}
-
 // General is the main controller of this whole project
 // General은 다음와 같은 일들을 수행
 // 1. 파싱된 유저의 메세지를 처리
@@ -84,8 +62,10 @@ func (g *General) OnWebhook(token int64, msg string) {
 	logger.Info("[Controller] User: %d Message: %s", token, msg)
 	user, err := structs.UserFromID(g.dbClient, token)
 	emptyUser := structs.User{}
+	isGuest := false
 	if user == emptyUser {
 		user.UserID = token
+		isGuest = true
 	}
 	args := strings.Split(msg, " ")
 	preAsync := func() {
@@ -96,10 +76,35 @@ func (g *General) OnWebhook(token int64, msg string) {
 			g.onError(user, e)
 		}
 	}
-	err = runOrder(user, args, preAsync, onAsync)
+	err = g.runOrder(user, isGuest, args, preAsync, onAsync)
 	if err != nil {
 		g.onError(user, err)
 	}
+}
+
+func (g *General) runOrder(user structs.User, isGuest bool, orders []string, preAsync func(), onAsync func(err error)) error {
+	if len(orders) == 0 {
+		return newError("Empty order")
+	}
+	lowerOrders := make([]string, len(orders))
+	for i := range orders {
+		lowerOrders[i] = strings.ToLower(orders[i])
+	}
+	action, ok := botOrders[lowerOrders[0]]
+	if !ok {
+		return newError(fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0]))
+	}
+	if !action.IsPublic() && isGuest {
+		return newError("You have no right to order to me")
+	}
+	if action.IsAsync() {
+		preAsync()
+		go func() {
+			onAsync(action.OnAction(user, lowerOrders[1:]))
+		}()
+		return nil
+	}
+	return action.OnAction(user, lowerOrders[1:])
 }
 
 func (g *General) onError(user structs.User, err error) {

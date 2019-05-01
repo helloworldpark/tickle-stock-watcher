@@ -58,6 +58,10 @@ func (o *deleteOrder) IsAsync() bool {
 	return true
 }
 
+func (o *deleteOrder) IsPublic() bool {
+	return false
+}
+
 // NewDeleteOrder order 'delete'
 func NewDeleteOrder() Order {
 	return &deleteOrder{}
