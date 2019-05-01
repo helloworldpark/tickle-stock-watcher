@@ -18,11 +18,11 @@ type token = govaluate.ExpressionToken
 type expression = govaluate.EvaluableExpression
 type indicatorGen = func(*techan.TimeSeries, ...interface{}) (techan.Indicator, error)
 type ruleGen = func(...interface{}) (techan.Rule, error)
+type uid = int64
 
-type userSide struct {
-	userid    int64
-	orderside techan.OrderSide
-	repeat    bool
+type eventWrapper struct {
+	repeat bool
+	event  EventTrigger
 }
 
 // Error is an error struct
@@ -56,7 +56,7 @@ var opPrecedence = map[string]int{
 type Analyser struct {
 	indicatorMap map[string]indicatorGen // Function Name: Indicator Generator Function
 	ruleMap      map[string]ruleGen      // Function Name: Rule Generator Function
-	userStrategy map[userSide]EventTrigger
+	userStrategy map[uid]map[techan.OrderSide]eventWrapper
 	timeSeries   *techan.TimeSeries
 	counter      *commons.Ref
 	stockID      string
@@ -67,7 +67,7 @@ type Analyser struct {
 func newAnalyser(stockID string) *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
-	newAnalyser.userStrategy = make(map[userSide]EventTrigger)
+	newAnalyser.userStrategy = make(map[uid]map[techan.OrderSide]eventWrapper)
 	newAnalyser.timeSeries = techan.NewTimeSeries()
 	newAnalyser.ruleMap = make(map[string]ruleGen)
 	newAnalyser.counter = &commons.Ref{}
@@ -264,12 +264,14 @@ func (a *Analyser) parseAndCacheStrategy(strategy structs.UserStock, callback Ev
 	}
 
 	// Cache into map
-	userKey := userSide{
-		userid:    strategy.UserID,
-		orderside: orderSide,
-		repeat:    strategy.Repeat,
+	userStrategy := eventWrapper{repeat: strategy.Repeat, event: event}
+	strategies, ok := a.userStrategy[strategy.UserID]
+	if !ok {
+		a.userStrategy[strategy.UserID] = make(map[techan.OrderSide]eventWrapper)
+		strategies = a.userStrategy[strategy.UserID]
 	}
-	a.userStrategy[userKey] = event
+	strategies[techan.OrderSide(strategy.OrderSide)] = userStrategy
+	a.userStrategy[strategy.UserID] = strategies
 	return true, nil
 }
 
@@ -519,8 +521,10 @@ func (a *Analyser) appendStrategy(userStrategy structs.UserStock, callback Event
 }
 
 func (a *Analyser) deleteStrategy(userid int64, orderside techan.OrderSide) {
-	key := userSide{userid: userid, orderside: orderside}
-	delete(a.userStrategy, key)
+	delete(a.userStrategy[userid], orderside)
+	if len(a.userStrategy[userid]) == 0 {
+		delete(a.userStrategy, userid)
+	}
 }
 
 func (a *Analyser) prepareWatching() {
@@ -584,9 +588,20 @@ func (a *Analyser) needPriceFrom() int64 {
 func (a *Analyser) calculateStrategies() {
 	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
 	currentTime := a.timeSeries.LastCandle().Period.End
-	for k, v := range a.userStrategy {
-		if v.IsTriggered(a.timeSeries.LastIndex(), nil) {
-			v.OnEvent(currentTime, closePrice, a.stockID, int(k.orderside), k.userid, k.repeat)
+	for userid, events := range a.userStrategy {
+		for orderside, event := range events {
+			if event.event.IsTriggered(a.timeSeries.LastIndex(), nil) {
+				event.event.OnEvent(currentTime, closePrice, a.stockID, int(orderside), userid, event.repeat)
+			}
 		}
 	}
+}
+
+func (a *Analyser) hasStrategyOfOrderSide(userid uid, orderside int) bool {
+	events, ok := a.userStrategy[userid]
+	if !ok {
+		return false
+	}
+	_, ok = events[techan.OrderSide(orderside)]
+	return ok
 }

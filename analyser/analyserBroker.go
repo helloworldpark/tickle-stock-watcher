@@ -54,14 +54,21 @@ func newHolder(stockID string) *analyserHolder {
 }
 
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
-func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bool, error) {
+func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, updateDB bool) (bool, error) {
 	// Handle analysers
 	holder, stockOK := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
 	retainedAnalyser := false
 
 	if stockOK {
-		if !userOK {
+		if userOK {
+			// 이 주식은 다른 사람이 전략을 넣은 적이 있고, 이 유저도 넣는 경우이다
+			// 만일 이전에 넣은 적이 없는 Order Side라면, Retain한다
+			if !holder.analyser.hasStrategyOfOrderSide(userStrategy.UserID, userStrategy.OrderSide) {
+				holder.analyser.Retain()
+				retainedAnalyser = true
+			}
+		} else {
 			// 이 주식은 다른 사람이 전략을 넣은 적이 있는데, 이 유저는 처음
 			holder.analyser.Retain()
 
@@ -103,8 +110,10 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback) (bo
 		return false, err
 	}
 
-	// Handle DB
-	ok, err = b.dbClient.Upsert(&userStrategy)
+	// Handle DB if needed
+	if updateDB {
+		ok, err = b.dbClient.Upsert(&userStrategy)
+	}
 
 	// Update stock price if needed
 	if !stockOK {

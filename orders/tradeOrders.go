@@ -87,7 +87,7 @@ func Trade(
 			Repeat:    false,
 		}
 		// Add to analyser
-		ok, err := broker.AccessBroker().AddStrategy(userStrategy, callback)
+		ok, err := broker.AccessBroker().AddStrategy(userStrategy, callback, true)
 		if !ok {
 			if err != nil {
 				return orderError{msg: err.Error()}

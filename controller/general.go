@@ -128,7 +128,7 @@ func (g *General) Initialize() {
 			continue
 		}
 		g.priceWatcher.Register(stock)
-		g.broker.AddStrategy(v, g.onStrategyEvent)
+		g.broker.AddStrategy(v, g.onStrategyEvent, false)
 	}
 
 	// 명령어들 초기화
