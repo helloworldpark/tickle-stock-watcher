@@ -332,7 +332,6 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 	operatorStack := make([]*function, 0)
 	realFcnStack := make([]*function, 0)
 	clauseIdxStack := make([]int, 0)
-	fmt.Println("TOKENS: ", tokens)
 	for i := range tokens {
 		t := tokens[i]
 		switch t.Kind {
@@ -443,7 +442,6 @@ func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
 			if !ok {
 				return nil, newError("Not implemented function")
 			}
-			fmt.Println("AAA: ", args)
 			indicator, err := gen(a.timeSeries, args...)
 			if err != nil {
 				return nil, err

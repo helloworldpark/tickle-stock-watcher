@@ -8,6 +8,7 @@ import (
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
 
 func TestCreate(t *testing.T) {
@@ -253,18 +254,10 @@ func TestUpsert(t *testing.T) {
 
 	defer client.Close()
 
-	register := make([]database.DBRegisterForm, 1)
-	keyCols := make([]string, 1)
-	keyCols[0] = "Time"
-	register[0] = database.DBRegisterForm{
-		BaseStruct: TestStruct{},
-		Name:       "",
-		KeyColumns: keyCols,
-	}
-	client.RegisterStruct(register)
+	client.RegisterStructFromRegisterables([]database.DBRegisterable{structs.UserStock{}})
 
-	t1 := TestStruct{Time: time.Now().UnixNano(), Name: "Meme", DidOpen: false}
-	t2 := TestStruct{Time: time.Now().UnixNano(), Name: "Nemp", DidOpen: true}
+	t1 := structs.UserStock{UserID: 1111, StockID: "000000", OrderSide: 1, Repeat: false}
+	t2 := structs.UserStock{UserID: 1111, StockID: "000000", OrderSide: 1, Repeat: true}
 
 	_, err := client.Upsert(&t1)
 	_, err = client.Upsert(&t2)

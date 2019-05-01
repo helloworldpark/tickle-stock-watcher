@@ -9,7 +9,7 @@ type UserStock struct {
 	StockID   string
 	Strategy  string
 	OrderSide int
-	Repeat    bool
+	Repeat    bool `db:"RepeatStrategy"`
 }
 
 // GetDBRegisterForm is just an implementation
