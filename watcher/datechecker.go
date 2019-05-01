@@ -50,7 +50,7 @@ func (c *DateChecker) IsHoliday(day time.Time) bool {
 	}
 	// 공휴일 체크
 	y, m, d := day.Date()
-	zeroDay := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).In(commons.AsiaSeoul)
+	zeroDay := time.Date(y, m, d, 0, 0, 0, 0, commons.AsiaSeoul)
 	_, ok := c.holidays[zeroDay.Unix()]
 	return ok
 }

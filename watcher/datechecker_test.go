@@ -16,13 +16,15 @@ func TestDateChecker(t *testing.T) {
 	checker := NewDateChecker()
 	checker.UpdateHolidays(2019)
 
-	loc, _ := time.LoadLocation("Asia/Seoul")
 	today := commons.Now()
 	fmt.Printf("Is %v Holiday: %v\n", today, checker.IsHoliday(today))
 
-	holiday := time.Date(2019, 4, 5, 0, 0, 0, 0, loc)
+	holiday := time.Date(2019, 4, 5, 0, 0, 0, 0, commons.AsiaSeoul)
 	fmt.Printf("Is %v Holiday: %v\n", holiday, checker.IsHoliday(holiday))
 
-	holiday = time.Date(2019, 9, 13, 0, 0, 0, 0, loc)
+	holiday = time.Date(2019, 9, 13, 0, 0, 0, 0, commons.AsiaSeoul)
+	fmt.Printf("Is %v Holiday: %v\n", holiday, checker.IsHoliday(holiday))
+
+	holiday = time.Date(2019, 5, 1, 0, 0, 0, 0, commons.AsiaSeoul)
 	fmt.Printf("Is %v Holiday: %v\n", holiday, checker.IsHoliday(holiday))
 }

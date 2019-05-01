@@ -337,14 +337,13 @@ func (w *Watcher) Collect() {
 }
 
 func getCollectionStartingDate(year int) time.Time {
-	start := time.Date(year, 1, 2, 0, 0, 0, 0, time.UTC)
-	start = start.In(commons.AsiaSeoul)
+	start := time.Date(year, 1, 2, 0, 0, 0, 0, commons.AsiaSeoul)
 
 	y, m, _ := start.Date()
 	if start.Weekday() == time.Sunday {
-		start = time.Date(y, m, 3, 0, 0, 0, 0, time.UTC).In(commons.AsiaSeoul)
+		start = time.Date(y, m, 3, 0, 0, 0, 0, commons.AsiaSeoul)
 	} else if start.Weekday() == time.Saturday {
-		start = time.Date(y, m, 4, 0, 0, 0, 0, time.UTC).In(commons.AsiaSeoul)
+		start = time.Date(y, m, 4, 0, 0, 0, 0, commons.AsiaSeoul)
 	}
 	return start
 }

@@ -66,8 +66,7 @@ func Now() time.Time {
 func Today() time.Time {
 	now := Now()
 	y, m, d := now.Date()
-	today := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-	return today.In(AsiaSeoul)
+	return time.Date(y, m, d, 0, 0, 0, 0, AsiaSeoul)
 }
 
 // Unix converts timestamp to time in Seoul

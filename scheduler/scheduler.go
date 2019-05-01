@@ -146,8 +146,7 @@ func startingDate(startHour int) (time.Time, int64) {
 		tmrw := now.Add(time.Hour * 24)
 		y, m, d = tmrw.Date()
 	}
-	refDate = time.Date(y, m, d, startHour, 0, 0, 0, time.UTC)
-	refDate = refDate.In(commons.AsiaSeoul)
+	refDate = time.Date(y, m, d, startHour, 0, 0, 0, commons.AsiaSeoul)
 	return refDate, refDate.Unix() - now.Unix()
 }
 
