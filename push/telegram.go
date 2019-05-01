@@ -16,7 +16,7 @@ import (
 
 var telegramToken = ""
 var telegramClient = &http.Client{Timeout: time.Second * 30}
-var newError = commons.NewTaggedError("Telegram")
+var newError = commons.NewTaggedError("Push")
 
 // WebhookHandler handler for webhook
 type WebhookHandler interface {
@@ -74,15 +74,16 @@ type tokenStruct struct {
 func InitTelegram(filePath string) {
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		logger.Panic("%v", err)
+		logger.Panic("[Push] %v", err)
 	}
 
 	var token tokenStruct
 	if err := json.Unmarshal(raw, &token); err != nil {
-		logger.Panic("%v", err)
+		logger.Panic("[Push] %v", err)
 	}
 
 	telegramToken = token.Token
+	logger.Info("[Push] Initialized Telegram")
 }
 
 func telegramAPI(method string) string {
@@ -170,7 +171,7 @@ func OnTelegramUpdate(wh WebhookHandler) func(c *gin.Context) {
 		var u TelegramUpdate
 		err := c.BindJSON(&u)
 		if err != nil {
-			logger.Error("[Main] Telegram Update Error: %s", err.Error())
+			logger.Error("[Push] Telegram Update: %s", err.Error())
 			c.String(400, err.Error())
 			return
 		}

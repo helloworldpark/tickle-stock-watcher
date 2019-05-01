@@ -9,6 +9,7 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
+	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/orders"
 	"github.com/helloworldpark/tickle-stock-watcher/push"
 	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
@@ -80,6 +81,7 @@ func NewGeneral(dbClient *database.DBClient) *General {
 
 // OnWebhook interface push.WebhookHandler
 func (g *General) OnWebhook(token int64, msg string) {
+	logger.Info("[Controller] User: %d Message: %s", token, msg)
 	user, err := structs.UserFromID(g.dbClient, token)
 	emptyUser := structs.User{}
 	if user == emptyUser {
@@ -101,6 +103,7 @@ func (g *General) OnWebhook(token int64, msg string) {
 }
 
 func (g *General) onError(user structs.User, err error) {
+	logger.Error(err.Error())
 	g.pushManager.PushMessage(err.Error(), user.UserID)
 }
 
@@ -123,7 +126,12 @@ func (g *General) Initialize() {
 			continue
 		}
 		g.priceWatcher.Register(stock)
-		g.broker.AddStrategy(v, g.onStrategyEvent, false)
+		ok, err := g.broker.AddStrategy(v, g.onStrategyEvent, false)
+		if ok {
+			logger.Info("[Controller] Added strategy for stock %s", v.StockID)
+		} else {
+			logger.Error(err.Error())
+		}
 	}
 
 	// 명령어들 초기화
@@ -203,7 +211,7 @@ func (g *General) Initialize() {
 			return
 		}
 
-		// 중복될 수 있어서 이렇게 처리
+		// 중복될 수 있어서 주식들의 집합을 구한 후에 감시하도록 처리
 		stocks := make(map[string]bool)
 		for _, v := range structs.AllStrategies(g.dbClient) {
 			stocks[v.StockID] = true
@@ -252,7 +260,10 @@ func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid 
 		return
 	}
 	// Delete Strategy
-	g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
+	err := g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
+	if err != nil {
+		logger.Error("[Controller] %s", err.Error())
+	}
 	// Withdraw Watcher
 	g.priceWatcher.Withdraw(stock)
 }

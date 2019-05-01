@@ -89,21 +89,24 @@ func (w *Watcher) Register(stock Stock) bool {
 	ref.Retain()
 	w.crawlers[stock.StockID] = newInternalCrawler(newWatchingStock.LastPriceTimestamp)
 	_, err = w.dbClient.Upsert(&newWatchingStock)
-	if err != nil {
+	if err == nil {
+		logger.Info("[Watcher] Registered to watch %s(%s)", stock.Name, stock.StockID)
+	} else {
 		logger.Error("[Watcher] %s", err.Error())
-		return false
 	}
-	return true
+	return err == nil
 }
 
 // Withdraw withdraws a stock which was of interest.
 func (w *Watcher) Withdraw(stock Stock) bool {
 	crawler, ok := w.crawlers[stock.StockID]
 	if !ok {
+		logger.Warn("[Watcher] Attempt to withdraw nonexisting stock ID: %s", stock.StockID)
 		return true
 	}
 	crawler.ref.Release()
 	if crawler.ref.Count() > 0 {
+		logger.Info("[Watcher] Withdrawal success: currently %d needs", crawler.ref.Count())
 		return true
 	}
 	watchingStock := WatchingStock{
@@ -118,6 +121,7 @@ func (w *Watcher) Withdraw(stock Stock) bool {
 	}
 	close(crawler.sentinel)
 	delete(w.crawlers, stock.StockID)
+	logger.Info("[Watcher] Withdrawal success: no more need to watch or collect %s(%s)", stock.Name, stock.StockID)
 	return true
 }
 
@@ -128,6 +132,7 @@ func (w *Watcher) Withdraw(stock Stock) bool {
 func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 	old := w.crawlers[stockID]
 	if old.lastTimestamp < 0 {
+		logger.Warn("[Watcher] Negative last timestamp: %d of stock ID: %s", old.lastTimestamp, stockID)
 		return nil
 	}
 	// Prepare new sentinel
@@ -145,6 +150,7 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 			}
 		}
 	}()
+	logger.Info("[Watcher] StartWatchingStock: %s", stockID)
 	return out
 }
 
@@ -154,6 +160,7 @@ func (w *Watcher) StopWatching() {
 	for k := range w.crawlers {
 		w.StopWatchingStock(k)
 	}
+	logger.Info("[Watcher] Stop watching %d stocks", len(w.crawlers))
 }
 
 // StopWatchingStock call it when to stop watching the specific stock.
@@ -162,6 +169,7 @@ func (w *Watcher) StopWatchingStock(stockID string) {
 	if c, ok := w.crawlers[stockID]; ok {
 		close(c.sentinel)
 	}
+	logger.Info("[Watcher] Stop watching stock ID: %s", stockID)
 }
 
 // Collect collects the past price data of the market.
@@ -170,9 +178,11 @@ func (w *Watcher) Collect() {
 	var watching []WatchingStock
 	_, errWatching := w.dbClient.Select(&watching, "where IsWatching=?", true)
 	if errWatching != nil {
-		logger.Error("[Watcher] Error while querying WatchingStock: %s", errWatching.Error())
+		logger.Error("[Watcher] Error while querying WatchingStock for Collect: %s", errWatching.Error())
 		return
 	}
+
+	logger.Info("[Watcher] Start Collect")
 	for _, v := range watching {
 		sentinel := w.crawlers[v.StockID].sentinel
 		newCrawler := newInternalCrawler(v.LastPriceTimestamp)
@@ -273,7 +283,7 @@ func (w *Watcher) Collect() {
 		for v := range outWatchingStock {
 			_, err := w.dbClient.Upsert(&v)
 			if err != nil {
-				logger.Error("[Watcher] %s", err.Error())
+				logger.Error("[Watcher] Error while Collect: %s", err.Error())
 			}
 		}
 	}()
@@ -290,10 +300,11 @@ func (w *Watcher) Collect() {
 	insertToDb := func(b *[]interface{}) {
 		_, err := w.dbClient.BulkInsert((*b)...)
 		if err != nil {
-			logger.Error("[Watcher] %s", err.Error())
+			logger.Error("[Watcher] Error while Collect: %s", err.Error())
 		}
 	}
 	counter := 0
+	total := 0
 	for v := range outCollect {
 		price := v
 		(*buckets[activeBucket])[counter] = &price
@@ -303,13 +314,16 @@ func (w *Watcher) Collect() {
 		}
 		go insertToDb(buckets[activeBucket])
 		activeBucket = (activeBucket + 1) % 2
+		total += counter
 		counter = 0
 	}
 	if counter > 0 {
 		*buckets[activeBucket] = (*buckets[activeBucket])[:counter]
 		insertToDb(buckets[activeBucket])
+		total += counter
 	}
 	wg2.Wait()
+	logger.Info("[Watcher] Finished Collect: %d stocks, %d items", len(w.crawlers), total)
 }
 
 func getCollectionStartingDate(year int) time.Time {

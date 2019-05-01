@@ -160,13 +160,16 @@ func (b *Broker) GetStrategy(user User) []UserStock {
 func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	holder, ok := b.analysers[stockID]
 	if !ok {
+		logger.Warn("[Analyser] Attempt to feed price of nonexisting stock ID: %s", stockID)
 		return
 	}
 	if holder.analyser.isWatchingPrice() {
+		logger.Warn("[Analyser] Attempt to feed price which is already eating: %s", stockID)
 		return
 	}
 	// will be reconnected later
 	if provider == nil {
+		logger.Warn("[Analyser] Provider is nil: %s", stockID)
 		return
 	}
 	holder.analyser.prepareWatching()
@@ -190,6 +193,8 @@ func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
 	holder, ok := b.analysers[stockPrice.StockID]
 	if ok {
 		holder.analyser.appendPastStockPrice(stockPrice)
+	} else {
+		logger.Error("[Analyser] Attempt to append past price of nonexisting stock ID: %s", stockPrice.StockID)
 	}
 }
 
@@ -198,6 +203,7 @@ func (b *Broker) UpdatePastPrice() {
 	for stockID, holder := range b.analysers {
 		b.updatePastPriceOfStockImpl(stockID, holder)
 	}
+	logger.Info("[Analyser] UpdatePastPrice: %d analysers", len(b.analysers))
 }
 
 //UpdatePastPriceOfStock is for updating the past price of the specific stock.
@@ -208,6 +214,7 @@ func (b *Broker) UpdatePastPriceOfStock(stockID string) {
 		return
 	}
 	b.updatePastPriceOfStockImpl(stockID, holder)
+	logger.Info("[Analyser] UpdatePastPriceOfStock %s", stockID)
 }
 
 func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHolder) {
@@ -217,11 +224,12 @@ func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHold
 		"where StockID=? and Timestamp>=? order by Timestamp",
 		stockID, timestampFrom)
 	if err != nil {
-		logger.Error("[Analyser] Error while updating past price of %s from %v: %s",
-			stockID, commons.Unix(timestampFrom), err.Error())
+		logger.Error("[Analyser] Error while updating past price of %s since %s: %s",
+			stockID, commons.Unix(timestampFrom).String(), err.Error())
 		return
 	}
 	for i := range prices {
 		holder.analyser.appendPastStockPrice(prices[i])
 	}
+	logger.Info("[Analyser] Updated past price info of %s: %d cases", stockID, len(prices))
 }

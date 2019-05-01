@@ -51,12 +51,9 @@ func main() {
 	general.Initialize()
 
 	router := gin.Default()
-
 	router.GET("/", func(c *gin.Context) {
 		c.String(200, "Hello World!")
 	})
-
 	router.POST(push.URLTelegramUpdate(), push.OnTelegramUpdate(general))
-
 	router.Run("127.0.0.1:5003")
 }

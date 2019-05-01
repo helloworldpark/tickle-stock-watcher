@@ -62,6 +62,7 @@ func (c *DateChecker) UpdateHolidays(year int) {
 	for _, v := range holidays {
 		c.holidays[v] = true
 	}
+	logger.Info("[Watcher] Updated holidays")
 }
 
 func downloadHolidays(year int) []int64 {

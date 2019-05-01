@@ -75,7 +75,9 @@ func (checker *StockItemChecker) UpdateStocks() {
 	}
 	kosdaq = nil
 	_, err := checker.dbClient.Upsert(stocksDB...)
-	if err != nil {
+	if err == nil {
+		logger.Info("[Watcher] Updated stock info: total %d stock items available", len(stocksDB))
+	} else {
 		logger.Error("[Watcher] Error while writing stock item info to database: %s", err.Error())
 	}
 }
