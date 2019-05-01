@@ -26,5 +26,9 @@ func TestUpdate(t *testing.T) {
 	client.RegisterStructFromRegisterables([]database.DBRegisterable{structs.Stock{}})
 
 	checker := NewStockItemChecker(client)
-	checker.UpdateStocks()
+
+	stock, ok := checker.StockFromName("삼성전자")
+	fmt.Println(ok, stock)
+	stock, ok = checker.StockFromID("005930")
+	fmt.Println(ok, stock)
 }

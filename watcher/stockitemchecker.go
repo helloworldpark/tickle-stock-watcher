@@ -26,13 +26,14 @@ type StockAccess interface {
 }
 
 // NewStockItemChecker returns a new StockItemChecker with stocks unfilled.
-// User must update the stocks.
+// Stock info will be updated.
 func NewStockItemChecker(dbClient *database.DBClient) *StockItemChecker {
 	checker := StockItemChecker{
 		stocks:    make(map[string]structs.Stock),
 		invStocks: make(map[string]structs.Stock),
 		dbClient:  dbClient,
 	}
+	checker.UpdateStocks()
 	return &checker
 }
 
@@ -52,7 +53,7 @@ func (checker *StockItemChecker) StockFromID(stockid string) (structs.Stock, boo
 // StockFromName finds structs.Stock from stock id
 // returns false if not found
 func (checker *StockItemChecker) StockFromName(stockname string) (structs.Stock, bool) {
-	stock, ok := checker.stocks[stockname]
+	stock, ok := checker.invStocks[stockname]
 	return stock, ok
 }
 
