@@ -85,7 +85,7 @@ func CrawlNow(stockID string, page int) structs.StockPrice {
 	price := commons.GetInt(nowSise.Text())
 	timestamp := commons.Now().Unix()
 
-	stockPrice := structs.StockPrice{Close: price, Timestamp: timestamp}
+	stockPrice := structs.StockPrice{Close: price, Timestamp: timestamp, StockID: stockID}
 	return stockPrice
 }
 

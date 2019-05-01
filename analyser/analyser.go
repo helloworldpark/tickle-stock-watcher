@@ -543,6 +543,7 @@ func (a *Analyser) watchStockPrice(stockPrice structs.StockPrice) {
 	a.isWatching = true
 	lastCandle := a.timeSeries.LastCandle()
 	lastCandle.ClosePrice = big.NewDecimal(float64(stockPrice.Close))
+	lastCandle.Period.End = commons.Unix(stockPrice.Timestamp)
 }
 
 func (a *Analyser) stopWatchingPrice() {

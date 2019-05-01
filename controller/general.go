@@ -3,6 +3,9 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
@@ -11,8 +14,6 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
-	"strings"
-	"time"
 )
 
 type conError struct {
@@ -203,6 +204,7 @@ func (g *General) Initialize() {
 			return
 		}
 
+		// 중복될 수 있어서 이렇게 처리
 		stocks := make(map[string]bool)
 		for _, v := range structs.AllStrategies(g.dbClient) {
 			stocks[v.StockID] = true

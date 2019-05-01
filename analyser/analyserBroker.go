@@ -173,10 +173,11 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	go func() {
 		defer holder.analyser.stopWatchingPrice()
 
-		for price := range provider {
-			holder.analyser.watchStockPrice(price)
-			holder.analyser.calculateStrategies()
+		for {
 			select {
+			case price := <-provider:
+				holder.analyser.watchStockPrice(price)
+				holder.analyser.calculateStrategies()
 			case <-holder.sentinel:
 				break
 			}

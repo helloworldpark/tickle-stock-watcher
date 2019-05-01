@@ -3,6 +3,7 @@ package analyser
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/sdcoffey/techan"
 )
@@ -24,8 +25,8 @@ func TestRuleGeneration(t *testing.T) {
 	for _, f := range fcns {
 		fmt.Println(f.t.Kind, f.t.Value, f.argc)
 	}
-	event, err := analyser.createEvent(fcns, techan.BUY, func(price float64, stockid string, orderSide int, userid int64, repeat bool) {
-		fmt.Println("Event Callback: ", price, stockid, orderSide, userid, repeat)
+	event, err := analyser.createEvent(fcns, techan.BUY, func(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
+		fmt.Println("Event Callback: ", currentTime, price, stockid, orderSide, userid, repeat)
 	})
 	handleErr(err)
 
