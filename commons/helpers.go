@@ -12,11 +12,7 @@ import (
 var AsiaSeoul *time.Location
 
 func init() {
-	seoul, err := time.LoadLocation("Asia/Seoul")
-	if err != nil {
-		logger.Panic(err.Error())
-	}
-	AsiaSeoul = seoul
+	AsiaSeoul = time.FixedZone("Asia/Seoul", 9*60*60)
 }
 
 // GetInt parses string into int
