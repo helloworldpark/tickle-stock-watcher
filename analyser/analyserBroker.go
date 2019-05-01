@@ -149,6 +149,7 @@ func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error 
 		if holder.analyser.Count() <= 0 {
 			// Deactivate analyser
 			close(holder.sentinel)
+			logger.Info("[Analyser] Closed Sentinel %s", stockID)
 			// Delete analyser from list
 			delete(b.analysers, stockID)
 		} else {
