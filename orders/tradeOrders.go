@@ -92,17 +92,16 @@ func Trade(
 			Repeat:    false,
 		}
 		// Add to analyser
-		ok, err := broker.AccessBroker().AddStrategy(userStrategy, callback, true)
-		if !ok {
-			if err != nil {
-				return newError(err.Error())
-			}
-			return newError("Failed to add strategy for unknown reason")
+		shouldRetainWatcher, err := broker.AccessBroker().AddStrategy(userStrategy, callback, true)
+		if err != nil {
+			return newError(err.Error())
 		}
 		// Add to watcher
-		ok = price.AccessWatcher().Register(stock)
-		if !ok {
-			return newError(fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID))
+		if shouldRetainWatcher {
+			ok = price.AccessWatcher().Register(stock)
+			if !ok {
+				return newError(fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID))
+			}
 		}
 		now := commons.Now()
 		if watcher.OpeningTime(now) <= now.Hour() && now.Hour() < watcher.ClosingTime(now) {

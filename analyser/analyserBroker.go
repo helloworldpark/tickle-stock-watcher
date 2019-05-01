@@ -57,6 +57,9 @@ func newHolder(stockID string) *analyserHolder {
 }
 
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
+// Returns
+//     shouldRetainWatcher bool
+//     error               error
 func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, updateDB bool) (bool, error) {
 	b.mutex.Lock()
 	// Handle analysers
@@ -123,7 +126,8 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 			}
 			b.mutex.Unlock()
 		}
-		return false, err
+		retainedAnalyser = false
+		return retainedAnalyser, err
 	}
 
 	// Handle DB if needed
@@ -135,7 +139,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 	if !stockOK {
 		b.UpdatePastPriceOfStock(userStrategy.StockID)
 	}
-	return ok, err
+	return retainedAnalyser, err
 }
 
 // DeleteStrategy deletes a strategy from the managing list.

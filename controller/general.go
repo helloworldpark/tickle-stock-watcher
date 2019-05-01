@@ -124,10 +124,12 @@ func (g *General) Initialize() {
 		if !ok {
 			continue
 		}
-		g.priceWatcher.Register(stock)
-		ok, err := g.broker.AddStrategy(v, g.onStrategyEvent, false)
-		if ok {
+		shouldRetainWatcher, err := g.broker.AddStrategy(v, g.onStrategyEvent, false)
+		if err == nil {
 			logger.Info("[Controller] Added strategy for stock %s", v.StockID)
+			if shouldRetainWatcher {
+				g.priceWatcher.Register(stock)
+			}
 		} else {
 			logger.Error(err.Error())
 		}
