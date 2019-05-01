@@ -26,7 +26,7 @@ func AllStrategies(client *database.DBClient) []UserStock {
 	var userStrategyList []UserStock
 	_, err := client.Select(&userStrategyList, "where true")
 	if err != nil {
-		logger.Panic("Error while selecting user strategies: %s", err.Error())
+		logger.Error("[Structs] Error while selecting user strategies: %s", err.Error())
 	}
 	return userStrategyList
 }

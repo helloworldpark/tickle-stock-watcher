@@ -38,6 +38,8 @@ type DBAccess interface {
 	AccessDB() *DBClient
 }
 
+var newError = commons.NewTaggedError("DB")
+
 // LoadCredential load DB credential from json file
 func LoadCredential(filePath string) DBCredential {
 	raw, err := ioutil.ReadFile(filePath)
@@ -106,7 +108,7 @@ func (client *DBClient) Open() {
 
 		dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"}}
 		if dbmap == nil {
-			logger.Panic("DBMap is nil")
+			logger.Panic("[DB] DBMap is nil")
 		}
 		client.dbmap = dbmap
 	}
@@ -174,9 +176,9 @@ func (client *DBClient) RegisterStruct(forms []DBRegisterForm) {
 	}
 	err := client.dbmap.CreateTablesIfNotExists()
 	if err != nil {
-		logger.Error("Creating table failed: %s", err.Error())
+		logger.Error("[DB] Creating table failed: %s", err.Error())
 	} else {
-		logger.Info("Created table")
+		logger.Info("[DB] Created table")
 	}
 	client.mutex.Unlock()
 }
@@ -186,6 +188,7 @@ func (client *DBClient) RegisterStructFromRegisterables(registerables []DBRegist
 	if !client.IsOpen() {
 		return
 	}
+	defer client.mutex.Unlock()
 
 	client.mutex.Lock()
 	for _, r := range registerables {
@@ -200,11 +203,10 @@ func (client *DBClient) RegisterStructFromRegisterables(registerables []DBRegist
 	}
 	err := client.dbmap.CreateTablesIfNotExists()
 	if err != nil {
-		logger.Error("Creating table failed: %s", err.Error())
+		logger.Error("[DB] Creating table failed: %s", err.Error())
 	} else {
-		logger.Info("Created table")
+		logger.Info("[DB] Created table")
 	}
-	client.mutex.Unlock()
 }
 
 // DropTable drops table of struct if exists
@@ -217,27 +219,33 @@ func (client *DBClient) DropTable(forms []DBRegisterForm) {
 	for _, form := range forms {
 		err = client.dbmap.DropTableIfExists(form.BaseStruct)
 		if err != nil {
-			logger.Error("Dropping table failed: %s", err.Error())
+			logger.Error("[DB] Dropping table failed: %s", err.Error())
 		} else {
-			logger.Info("Dropped table %s", reflect.TypeOf(form.BaseStruct).Name())
+			logger.Info("[DB] Dropped table %s", reflect.TypeOf(form.BaseStruct).Name())
 		}
 	}
 	client.mutex.Unlock()
 }
 
-type dbError struct {
-	msg string
+func onDBClosed() (bool, error) {
+	return false, newError("Database is not open yet")
 }
 
-func (err *dbError) Error() string {
-	return "[DB] " + err.msg
+func handleError(err error) (bool, error) {
+	if err == nil {
+		return true, nil
+	}
+	if reflect.TypeOf(err).Name() == "errorWrapper" {
+		return false, err
+	}
+	return false, newError(err.Error())
 }
 
 // Insert inserts struct to database
 // Returns (false, nonnil error) if something wrong has happened
 func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	var err error
@@ -245,63 +253,65 @@ func (client *DBClient) Insert(o ...interface{}) (bool, error) {
 	err = client.dbmap.Insert(o...)
 	client.mutex.Unlock()
 
-	return err == nil, err
+	return handleError(err)
 }
 
 // BulkInsert inserts data by bulk, i.e. in a one query.
 // It may fail if any one of the data has a problem, i.e. all or none.
 func (client *DBClient) BulkInsert(o ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	query, args, err := client.queryInsert(o, false)
 	if err != nil {
-		return false, err
+		return handleError(err)
 	}
 
 	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)
 	client.mutex.Unlock()
 
-	return err == nil, err
+	return handleError(err)
 }
 
 // Update updates value to the database
 func (client *DBClient) Update(o ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	client.mutex.Lock()
 	_, err := client.dbmap.Update(o...)
 	client.mutex.Unlock()
-	return err == nil, err
+
+	return handleError(err)
 }
 
 // Upsert performs update if the data is already inserted.
 func (client *DBClient) Upsert(o ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	query, args, err := client.queryInsert(o, true)
 	if err != nil {
-		return false, err
+		return handleError(err)
 	}
 
 	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)
 	client.mutex.Unlock()
-	return err == nil, err
+
+	return handleError(err)
 }
 
 func (client *DBClient) queryInsert(o []interface{}, handleDuplicate bool) (string, []interface{}, error) {
 	if len(o) == 0 {
-		return "", nil, &dbError{msg: "Argument 'o' is empty"}
+		return "", nil, newError("Argument 'o' is empty")
 	}
 	if !isAllSameType(o) {
-		return "", nil, &dbError{msg: "Every element of slice must be of same type"}
+		return "", nil, newError("Every element of slice must be of same type")
 	}
 	targetType, err := extractStructType(o)
 	if err != nil {
@@ -420,14 +430,14 @@ func extractStructTypeImpl(targetType reflect.Type, targetValue reflect.Value) (
 	} else if targetKind == reflect.Interface {
 		if targetValue.Kind() == reflect.Slice || targetValue.Kind() == reflect.Array {
 			if targetValue.Len() == 0 {
-				return nil, &dbError{msg: "Can't handle Interface"}
+				return nil, newError("Can't handle Interface")
 			}
 			v := targetValue.Index(0).Elem()
 			return extractStructTypeImpl(v.Type(), v)
 		}
-		return nil, &dbError{msg: "Can't handle Interface"}
+		return nil, newError("Can't handle Interface")
 	} else if nonStructElement[targetKind] {
-		return nil, &dbError{msg: fmt.Sprintf("Element but not struct: %s", targetType.Kind())}
+		return nil, newError(fmt.Sprintf("Element but not struct: %s", targetType.Kind().String()))
 	}
 	return extractStructTypeImpl(targetType.Elem(), targetValue)
 }
@@ -449,53 +459,55 @@ func isAllSameType(o []interface{}) bool {
 // Only slice is allowed to the argument `bucket`
 func (client *DBClient) Select(bucket interface{}, query string, args ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	query = strings.TrimSpace(query)
 	if !strings.HasPrefix(query, "where") {
-		return false, &dbError{msg: "Query string must start with 'where'"}
+		return false, newError("Query string must start with 'where'")
 	}
 
 	t := reflect.TypeOf(bucket)
 	if t.Kind() != reflect.Ptr {
-		return false, &dbError{msg: "Argument 'bucket' must be a pointer to slice"}
+		return false, newError("Argument 'bucket' must be a pointer to slice")
 	}
 	if t.Elem().Kind() != reflect.Slice {
-		return false, &dbError{msg: "Argument 'bucket' must be a slice"}
+		return false, newError("Argument 'bucket' must be a slice")
 	}
 
 	tableMap, err := client.dbmap.TableFor(t.Elem().Elem(), false)
 	if err != nil {
-		return false, err
+		return handleError(err)
 	}
 
 	query = "select * from " + tableMap.TableName + " " + query
 	client.mutex.Lock()
 	_, err = client.dbmap.Select(bucket, query, args...)
 	client.mutex.Unlock()
-	return err == nil, err
+
+	return handleError(err)
 }
 
 // Delete deletes by appending a query starting with 'where'
 func (client *DBClient) Delete(typeIndicator interface{}, query string, args ...interface{}) (bool, error) {
 	if !client.IsOpen() {
-		return false, &dbError{msg: "Database is not open yet"}
+		return onDBClosed()
 	}
 
 	query = strings.TrimSpace(query)
 	if !strings.HasPrefix(query, "where") {
-		return false, &dbError{msg: "Query string must start with 'where'"}
+		return false, newError("Query string must start with 'where'")
 	}
 
 	tableMap, err := client.dbmap.TableFor(reflect.TypeOf(typeIndicator), false)
 	if err != nil {
-		return false, err
+		return handleError(err)
 	}
 
 	query = "delete from " + tableMap.TableName + " " + query
 	client.mutex.Lock()
 	_, err = client.dbmap.Exec(query, args...)
 	client.mutex.Unlock()
-	return err == nil, err
+
+	return handleError(err)
 }

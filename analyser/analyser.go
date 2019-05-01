@@ -25,19 +25,6 @@ type eventWrapper struct {
 	event  EventTrigger
 }
 
-// Error is an error struct
-type Error struct {
-	msg string
-}
-
-func (err Error) Error() string {
-	return "[Analyser] " + err.msg
-}
-
-func newError(msg string) Error {
-	return Error{msg: msg}
-}
-
 const (
 	// MaxCandles for analysers: only hold price of last MaxCandles days
 	MaxCandles = 100
@@ -51,6 +38,7 @@ var opPrecedence = map[string]int{
 	"(": 3, ")": 3,
 	"&&": 2, "||": 2,
 }
+var newError = commons.NewTaggedError("Analyser")
 
 // Analyser is a struct for signalling to users by condition they have set.
 type Analyser struct {

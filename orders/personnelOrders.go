@@ -2,6 +2,7 @@ package orders
 
 import (
 	"fmt"
+
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/personnel"
@@ -20,7 +21,7 @@ func (o *personnelOrder) Name() string {
 
 func (o *personnelOrder) IsValid(args []string) error {
 	if len(args) != o.argc {
-		return orderError{msg: fmt.Sprintf("Invalid number of arguments: need %d, got %d", o.argc, len(args))}
+		return newError(fmt.Sprintf("Invalid number of arguments: need %d, got %d", o.argc, len(args)))
 	}
 	return nil
 }
@@ -58,12 +59,12 @@ func Invite(db database.DBAccess, onSuccess func(user structs.User, signature st
 		signature, invitation, err := personnel.Invite(user, guestname)
 		if err != nil {
 			logger.Error("%s", err.Error())
-			return orderError{msg: err.Error()}
+			return newError(err.Error())
 		}
 		_, err = db.AccessDB().Insert(&invitation)
 		if err != nil {
 			logger.Error("%s", err.Error())
-			return orderError{msg: err.Error()}
+			return newError(err.Error())
 		}
 		logger.Info("[Invite] Invitation signature created: %s", signature)
 		onSuccess(user, signature)
@@ -83,7 +84,7 @@ func Join(db database.DBAccess, onSuccess func(user structs.User)) Action {
 			return err
 		}
 		if len(invitation) == 0 {
-			return orderError{msg: fmt.Sprintf("No invitation issued for username %s", username)}
+			return newError(fmt.Sprintf("No invitation issued for username %s", username))
 		}
 		err = personnel.ValidateInvitation(invitation[0], signature)
 		if err != nil {

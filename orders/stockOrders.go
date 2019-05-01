@@ -2,6 +2,7 @@ package orders
 
 import (
 	"fmt"
+
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
@@ -19,7 +20,7 @@ func (o *stockOrders) Name() string {
 
 func (o *stockOrders) IsValid(args []string) error {
 	if len(args) < o.minArgc {
-		return orderError{msg: fmt.Sprintf("Invalid number of arguments: need more than %d, got %d", o.minArgc, len(args))}
+		return newError(fmt.Sprintf("Invalid number of arguments: need more than %d, got %d", o.minArgc, len(args)))
 	}
 	return nil
 }
@@ -55,7 +56,7 @@ func Strategy(broker analyser.BrokerAccess, onSuccess func(user structs.User, st
 	f := func(user structs.User, args []string) error {
 		strategies := broker.AccessBroker().GetStrategy(user)
 		if strategies == nil {
-			return orderError{msg: "Failed to query your strategies."}
+			return newError("Failed to query your strategies.")
 		}
 		onSuccess(user, strategies)
 		return nil
@@ -69,7 +70,7 @@ func QueryStockByName(stockinfo watcher.StockAccess, onSuccess func(user structs
 		stockname := concat(args)
 		stock, ok := stockinfo.AccessStockItemByName(stockname)
 		if !ok {
-			return orderError{fmt.Sprintf("Failed to find stock info by name %s", stockname)}
+			return newError(fmt.Sprintf("Failed to find stock info by name %s", stockname))
 		}
 		onSuccess(user, stock)
 		return nil

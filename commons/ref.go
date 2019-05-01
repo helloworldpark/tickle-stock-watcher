@@ -1,5 +1,7 @@
 package commons
 
+import "github.com/helloworldpark/tickle-stock-watcher/logger"
+
 // ReferenceCounting is an interface for reference counting structs
 type ReferenceCounting interface {
 	Retain()
@@ -23,7 +25,7 @@ func (r *Ref) Retain() {
 // It panics if the struct is overreleased.
 func (r *Ref) Release() {
 	if r.ref <= 0 {
-		panic("Trying to overrelease a struct")
+		logger.Panic("Trying to overrelease a struct")
 	}
 	r.ref--
 }

@@ -16,14 +16,6 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
-type conError struct {
-	msg string
-}
-
-func (e conError) Error() string {
-	return fmt.Sprintf("[General] %s", e.msg)
-}
-
 var botOrders = map[string]orders.Order{
 	"help":     orders.NewHelpOrder(),
 	"invite":   orders.NewInviteOrder(),
@@ -34,10 +26,11 @@ var botOrders = map[string]orders.Order{
 	"stock":    orders.NewStockOrder(),
 	"delete":   orders.NewDeleteOrder(),
 }
+var newError = commons.NewTaggedError("Controller")
 
 func runOrder(user structs.User, orders []string, preAsync func(), onAsync func(err error)) error {
 	if len(orders) == 0 {
-		return conError{msg: "Invalid order"}
+		return newError("Empty order")
 	}
 	lowerOrders := make([]string, len(orders))
 	for i := range orders {
@@ -45,7 +38,7 @@ func runOrder(user structs.User, orders []string, preAsync func(), onAsync func(
 	}
 	action, ok := botOrders[lowerOrders[0]]
 	if !ok {
-		return conError{msg: fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0])}
+		return newError(fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0]))
 	}
 	if action.IsAsync() {
 		preAsync()
@@ -160,7 +153,7 @@ func (g *General) Initialize() {
 	botOrders["strategy"].SetAction(orders.Strategy(g, func(user structs.User, strategies []structs.UserStock) {
 		orderSide := []string{"BUY", "SELL"}
 		buffer := bytes.Buffer{}
-		buffer.WriteString("Strategies: \n")
+		buffer.WriteString("Strategy: \n")
 		for i := range strategies {
 			buffer.WriteString("[")
 			buffer.WriteString(orderSide[strategies[i].OrderSide])

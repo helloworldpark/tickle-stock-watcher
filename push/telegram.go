@@ -10,16 +10,20 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 )
 
 var telegramToken = ""
 var telegramClient = &http.Client{Timeout: time.Second * 30}
+var newError = commons.NewTaggedError("Telegram")
 
+// WebhookHandler handler for webhook
 type WebhookHandler interface {
 	OnWebhook(token int64, msg string)
 }
 
+// TelegramUser TelegramUser
 type TelegramUser struct {
 	ID           int64  `json:"id"`
 	IsBot        bool   `json:"is_bot"`
@@ -29,6 +33,7 @@ type TelegramUser struct {
 	LanguageCode string `json:"language_code"`
 }
 
+// TelegramChat TelegramChat
 type TelegramChat struct {
 	ID       int64  `json:"id"`
 	ChatType string `json:"type"`
@@ -36,6 +41,7 @@ type TelegramChat struct {
 	Username string `json:"username"`
 }
 
+// TelegramMessage TelegramMessage
 type TelegramMessage struct {
 	MessageID int64        `json:"message_id"`
 	From      TelegramUser `json:"from"`
@@ -44,27 +50,18 @@ type TelegramMessage struct {
 	Text      string       `json:"text"`
 }
 
+// TelegramUpdate TelegramUpdate
 type TelegramUpdate struct {
 	UpdateID int64           `json:"update_id"`
 	Message  TelegramMessage `json:"message"`
 }
 
-type telegramError struct {
-	msg string
-}
-
-func newError(msg string) telegramError {
-	return telegramError{msg: msg}
-}
-
-func (e telegramError) Error() string {
-	return fmt.Sprintf("[Push] Error at Telegram API Client: %s", e.msg)
-}
-
+// GetTelegramToken get Telegram Bot token
 func GetTelegramToken() string {
 	return telegramToken
 }
 
+// GetTelegramTokenForURL get telegram bot's id
 func GetTelegramTokenForURL() string {
 	return strings.Split(telegramToken, ":")[0]
 }
@@ -73,6 +70,7 @@ type tokenStruct struct {
 	Token string `json:"token"`
 }
 
+// InitTelegram initialize telegram's bot token
 func InitTelegram(filePath string) {
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -144,20 +142,7 @@ func requestTelegram(method string, body map[string]interface{}, onSuccess func(
 	}
 }
 
-func SetWebhookTelegram() {
-	body := map[string]interface{}{
-		"url":             "https://stock.ticklemeta.kr/api/telegram/" + GetTelegramTokenForURL(),
-		"allowed_updates": []string{"message"},
-	}
-	onSuccess := func(result map[string]interface{}) {
-		logger.Info("[Push] Telegram setWebhook Success")
-	}
-	onFailure := func(err error) {
-		logger.Error(newError(err.Error()).Error())
-	}
-	requestTelegram("setWebhook", body, onSuccess, onFailure)
-}
-
+// SendMessageTelegram send message to telegram
 func SendMessageTelegram(id int64, msg string) {
 	body := map[string]interface{}{
 		"chat_id": id,
@@ -174,10 +159,12 @@ func SendMessageTelegram(id int64, msg string) {
 	requestTelegram("sendMessage", body, onSuccess, onFailure)
 }
 
+// URLTelegramUpdate uri where telegram webhook comes
 func URLTelegramUpdate() string {
 	return fmt.Sprintf("/api/telegram/%s", GetTelegramTokenForURL())
 }
 
+// OnTelegramUpdate handler for webhook
 func OnTelegramUpdate(wh WebhookHandler) func(c *gin.Context) {
 	f := func(c *gin.Context) {
 		var u TelegramUpdate

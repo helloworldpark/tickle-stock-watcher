@@ -3,6 +3,7 @@ package orders
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
@@ -21,7 +22,7 @@ func (o *tradeOrders) Name() string {
 
 func (o *tradeOrders) IsValid(args []string) error {
 	if len(args) < 2 {
-		return orderError{msg: fmt.Sprintf("Invalid number of arguments: need more than %d, got %d", 1, len(args))}
+		return newError(fmt.Sprintf("Invalid number of arguments: need more than %d, got %d", 1, len(args)))
 	}
 	return nil
 }
@@ -75,7 +76,7 @@ func Trade(
 		stockid := args[0]
 		stock, ok := stockinfo.AccessStockItem(stockid)
 		if !ok {
-			return orderError{fmt.Sprintf("Invalid stock id: %s", stockid)}
+			return newError(fmt.Sprintf("Invalid stock id: %s", stockid))
 		}
 		strategy := concat(args[1:])
 
@@ -90,14 +91,14 @@ func Trade(
 		ok, err := broker.AccessBroker().AddStrategy(userStrategy, callback, true)
 		if !ok {
 			if err != nil {
-				return orderError{msg: err.Error()}
+				return newError(err.Error())
 			}
-			return orderError{msg: "Failed to add strategy for unknown reason"}
+			return newError("Failed to add strategy for unknown reason")
 		}
 		// Add to watcher
 		ok = price.AccessWatcher().Register(stock)
 		if !ok {
-			return orderError{fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID)}
+			return newError(fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID))
 		}
 		now := commons.Now()
 		if watcher.OpeningTime(now) <= now.Hour() && now.Hour() < watcher.ClosingTime(now) {

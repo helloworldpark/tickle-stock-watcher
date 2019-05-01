@@ -236,7 +236,7 @@ func TestSelectNull(t *testing.T) {
 	fmt.Println(bucket)
 	fmt.Println(len(bucket))
 	fmt.Println(bucket == nil)
-	ok, err := client.Select(&bucket, "select * from TestStruct where Time=(select max(Time) from TestStruct where Name=?)", "Pepe")
+	ok, err := client.Select(&bucket, "where Time=(select max(Time) from TestStruct where Name=?)", "Pepe")
 	if !ok {
 		logger.Error("Select failed: %s", err.Error())
 		t.Fail()

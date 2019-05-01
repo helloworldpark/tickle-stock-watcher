@@ -2,6 +2,7 @@ package orders
 
 import (
 	"fmt"
+
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
@@ -18,11 +19,11 @@ func (o *deleteOrder) Name() string {
 
 func (o *deleteOrder) IsValid(args []string) error {
 	if len(args) == 0 {
-		return orderError{msg: fmt.Sprintf("Invalid number of arguments: need more than 1, got %d", len(args))}
+		return newError(fmt.Sprintf("Invalid number of arguments: need more than 1, got %d", len(args)))
 	}
 	if len(args) == 2 {
 		if args[1] != "buy" && args[1] != "sell" {
-			return orderError{msg: "Invalid optional arguments: last argument must be either 'buy' or 'sell'"}
+			return newError("Invalid optional arguments: last argument must be either 'buy' or 'sell'")
 		}
 	}
 	if len(args) == 3 {
@@ -32,11 +33,11 @@ func (o *deleteOrder) IsValid(args []string) error {
 			arg1, arg2 = arg2, arg1
 		}
 		if arg1 != "buy" || arg2 != "sell" {
-			return orderError{msg: "Invalid optional arguments: last 2 arguments must be both 'buy' and 'sell'"}
+			return newError("Invalid optional arguments: last 2 arguments must be both 'buy' and 'sell'")
 		}
 	}
 	if len(args) > 3 {
-		return orderError{msg: fmt.Sprintf("Invalid number of arguments: too much, got %d", len(args))}
+		return newError(fmt.Sprintf("Invalid number of arguments: too much, got %d", len(args)))
 	}
 	return nil
 }
@@ -72,7 +73,7 @@ func DeleteOrder(
 		stockid := args[0]
 		stock, ok := stockinfo.AccessStockItem(stockid)
 		if !ok {
-			return orderError{fmt.Sprintf("Invalid stock id: %s", stockid)}
+			return newError(fmt.Sprintf("Invalid stock id: %s", stockid))
 		}
 		deleteStrategies := func(orderside int) error {
 			err := broker.AccessBroker().DeleteStrategy(user, stockid, orderside)
@@ -81,7 +82,7 @@ func DeleteOrder(
 			}
 			ok := price.AccessWatcher().Withdraw(stock)
 			if !ok {
-				return orderError{fmt.Sprintf("Failed to stop watching stock %s(%s)", stock.Name, stock.StockID)}
+				return newError(fmt.Sprintf("Failed to stop watching stock %s(%s)", stock.Name, stock.StockID))
 			}
 			return nil
 		}
