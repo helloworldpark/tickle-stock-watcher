@@ -15,7 +15,7 @@ func TestRuleGeneration(t *testing.T) {
 		fmt.Println("------------------")
 	}
 	analyser := newTestAnalyser()
-	tokens, err := analyser.parseTokens("Price() < 0")
+	tokens, err := analyser.parseTokens("extrema(Price(), 1, 2) < 0")
 	handleErr(err)
 	tokens, err = analyser.tidyTokens(tokens)
 	handleErr(err)
