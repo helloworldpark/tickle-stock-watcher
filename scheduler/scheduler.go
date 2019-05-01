@@ -160,7 +160,7 @@ func appendSingleTask(tag string, after time.Duration, todo func(), reuseTag boo
 	Cancel(tag)
 	taskMap.SetValue(tag, &task)
 	go func() {
-		logger.Info("[Scheduler] Appended task %s: after %f minutes", tag, float64(after)/float64(time.Second))
+		logger.Info("[Scheduler] Appended task %s: after %f minutes", tag, float64(after)/float64(time.Minute))
 		<-task.timer.C
 		(&task).do()
 		if !reuseTag {
