@@ -548,7 +548,10 @@ func (a *Analyser) stopWatchingPrice() {
 }
 
 func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
-	lastTimestamp := a.timeSeries.LastCandle().Period.Start.Unix()
+	var lastTimestamp int64
+	if len(a.timeSeries.Candles) > 0 {
+		lastTimestamp = a.timeSeries.LastCandle().Period.Start.Unix()
+	}
 	if lastTimestamp > stockPrice.Timestamp {
 		return
 	}
