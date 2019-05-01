@@ -25,6 +25,7 @@ func (e conError) Error() string {
 }
 
 var botOrders = map[string]orders.Order{
+	"help":     orders.NewHelpOrder(),
 	"invite":   orders.NewInviteOrder(),
 	"join":     orders.NewJoinOrder(),
 	"buy":      orders.NewBuyOrder(),
@@ -133,6 +134,11 @@ func (g *General) Initialize() {
 	}
 
 	// 명령어들 초기화
+	botOrders["help"].SetAction(func(user structs.User, s []string) error {
+		msg := "Refer to here:\nhttps://github.com/helloworldpark/tickle-stock-watcher/wiki/BotOrders"
+		g.pushManager.PushMessage(msg, user.UserID)
+		return nil
+	})
 	botOrders["join"].SetAction(orders.Join(g, func(user structs.User) {
 		g.pushManager.PushMessage("Congratulations! Press `help` and send to know how to use this bot.", user.UserID)
 	}))

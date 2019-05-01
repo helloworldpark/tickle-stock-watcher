@@ -22,3 +22,33 @@ type Order interface {
 	OnAction(structs.User, []string) error
 	IsAsync() bool
 }
+
+type simpleOrder struct {
+	name   string
+	action Action
+}
+
+func (o *simpleOrder) Name() string {
+	return o.name
+}
+
+func (o *simpleOrder) IsValid(s []string) error {
+	return nil
+}
+
+func (o *simpleOrder) SetAction(a Action) {
+	o.action = a
+}
+
+func (o *simpleOrder) OnAction(user structs.User, s []string) error {
+	return o.action(user, s)
+}
+
+func (o *simpleOrder) IsAsync() bool {
+	return false
+}
+
+// NewHelpOrder order help
+func NewHelpOrder() Order {
+	return &simpleOrder{name: "help"}
+}
