@@ -147,13 +147,6 @@ func (b *Broker) GetStrategy(user User) []UserStock {
 	return result
 }
 
-// UpdateStrategyTriggers calculates all triggers and check if any push messages need to be sent.
-func (b *Broker) UpdateStrategyTriggers() {
-	for _, v := range b.analysers {
-		v.analyser.calculateStrategies()
-	}
-}
-
 // FeedPrice is a function for updating the latest stock price.
 func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	holder, ok := b.analysers[stockID]
@@ -173,6 +166,7 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 
 		for price := range provider {
 			holder.analyser.watchStockPrice(price)
+			holder.analyser.calculateStrategies()
 			select {
 			case <-holder.sentinel:
 				break

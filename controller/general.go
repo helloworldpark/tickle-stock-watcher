@@ -232,15 +232,18 @@ func (g *General) Initialize() {
 }
 
 //
-func (g *General) onStrategyEvent(price float64, stockid string, orderSide int, userid int64, repeat bool) {
+func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
 	// Notify to user
-	msgFormat := "[%s] 주식종목 %s의 가격이 등록하신 조건에 충족되었습니다: 현재가 %d원"
+	msgFormat := "[%s] %4d년 %d월 %d일 %02d시 %02d분 %02d초\n%s의 가격이 등록하신 조건에 충족되었습니다: 현재가 %d원"
 	buyOrSell := "매수"
 	if orderSide == commons.SELL {
 		buyOrSell = "매도"
 	}
 	stock, _ := g.itemChecker.StockFromID(stockid)
-	msg := fmt.Sprintf(msgFormat, buyOrSell, stock.Name, int(price))
+	msg := fmt.Sprintf(msgFormat,
+		buyOrSell,
+		currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second(),
+		stock.Name, int(price))
 	g.pushManager.PushMessage(msg, userid)
 
 	// Handle Repeat

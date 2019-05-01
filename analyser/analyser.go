@@ -584,14 +584,11 @@ func (a *Analyser) needPriceFrom() int64 {
 }
 
 func (a *Analyser) calculateStrategies() {
-	triggered := make(map[userSide]EventTrigger)
+	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
+	currentTime := a.timeSeries.LastCandle().Period.End
 	for k, v := range a.userStrategy {
 		if v.IsTriggered(a.timeSeries.LastIndex(), nil) {
-			triggered[k] = v
+			v.OnEvent(currentTime, closePrice, a.stockID, int(k.orderside), k.userid, k.repeat)
 		}
-	}
-	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
-	for k, v := range triggered {
-		v.OnEvent(closePrice, a.stockID, int(k.orderside), k.userid, k.repeat)
 	}
 }
