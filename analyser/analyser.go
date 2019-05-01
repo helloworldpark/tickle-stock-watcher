@@ -8,7 +8,6 @@ import (
 
 	"github.com/helloworldpark/govaluate"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
-	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/sdcoffey/big"
 	"github.com/sdcoffey/techan"
@@ -498,7 +497,7 @@ func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
 
 	if len(rules) != 1 {
 		// Something wrong
-		logger.Panic("[Analyser] Something is wrong: rule must be generated unique.")
+		return nil, newError(fmt.Sprintf("Rule must exist and be unique: %d rules generated", len(rules)))
 	}
 
 	return rules[0], nil
