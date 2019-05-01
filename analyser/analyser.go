@@ -446,6 +446,9 @@ func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
 				indicators = append(indicators, newNegateIndicatorFromFloat(v.(float64)))
 			}
 		case govaluate.COMPARATOR:
+			if len(indicators) < 2 {
+				return nil, newError(fmt.Sprintf("Cannot compose a comparing rule with %d indicators", len(indicators)))
+			}
 			rhs := indicators[len(indicators)-1]
 			lhs := indicators[len(indicators)-2]
 			indicators = indicators[:(len(indicators) - 2)]
