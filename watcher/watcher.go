@@ -38,6 +38,7 @@ type Watcher struct {
 	crawlers  map[string]internalCrawler // key: Stock ID, value: last timestamp of the price info and sentinel
 	dbClient  *database.DBClient
 	sleepTime time.Duration
+	mutex     *sync.Mutex
 }
 
 // New creates a new Watcher struct
@@ -46,6 +47,7 @@ func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 		crawlers:  make(map[string]internalCrawler),
 		dbClient:  dbClient,
 		sleepTime: sleepingTime,
+		mutex:     &sync.Mutex{},
 	}
 	return &watcher
 }
@@ -65,9 +67,13 @@ func newInternalCrawler(lastTimestamp int64) internalCrawler {
 // If registered, it updates the last timestamp of the price.
 // Else, it will collect price data from the beginning.
 func (w *Watcher) Register(stock Stock) bool {
-	old, ok := w.crawlers[stock.StockID]
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	_, ok := w.crawlers[stock.StockID]
 	if ok {
-		old.ref.Retain()
+		w.crawlers[stock.StockID].ref.Retain()
+		logger.Info("[Watcher] Registered to watch %s(%s): Referred %d times", stock.Name, stock.StockID, w.crawlers[stock.StockID].ref.Count())
 		return true
 	}
 	var watchingStock []WatchingStock
@@ -85,8 +91,6 @@ func (w *Watcher) Register(stock Stock) bool {
 		newWatchingStock = watchingStock[0]
 		newWatchingStock.IsWatching = true
 	}
-	ref := &commons.Ref{}
-	ref.Retain()
 	w.crawlers[stock.StockID] = newInternalCrawler(newWatchingStock.LastPriceTimestamp)
 	_, err = w.dbClient.Upsert(&newWatchingStock)
 	if err == nil {
@@ -99,14 +103,17 @@ func (w *Watcher) Register(stock Stock) bool {
 
 // Withdraw withdraws a stock which was of interest.
 func (w *Watcher) Withdraw(stock Stock) bool {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	crawler, ok := w.crawlers[stock.StockID]
 	if !ok {
 		logger.Warn("[Watcher] Attempt to withdraw nonexisting stock ID: %s", stock.StockID)
 		return true
 	}
-	crawler.ref.Release()
-	if crawler.ref.Count() > 0 {
-		logger.Info("[Watcher] Withdrawal success: currently %d needs", crawler.ref.Count())
+	w.crawlers[stock.StockID].ref.Release()
+	if w.crawlers[stock.StockID].ref.Count() > 0 {
+		logger.Info("[Watcher] Withdrawal success: currently %d needs", w.crawlers[stock.StockID].ref.Count())
 		return true
 	}
 	watchingStock := WatchingStock{
@@ -130,6 +137,9 @@ func (w *Watcher) Withdraw(stock Stock) bool {
 // The channel is valid only for one day, since the channel will be closed after the market closing time.
 // returns : <-chan StockPrice, which will give stock price until StopWatching is called.
 func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	old := w.crawlers[stockID]
 	if old.lastTimestamp < 0 {
 		logger.Warn("[Watcher] Negative last timestamp: %d of stock ID: %s", old.lastTimestamp, stockID)
