@@ -2,6 +2,7 @@ package analyser
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
@@ -31,6 +32,7 @@ type Broker struct {
 	analysers map[string]*analyserHolder // Key: Stock ID, Value: Analyser Holder
 	users     map[int64]map[string]bool  // Key: User ID, Value: Stock ID set
 	dbClient  *database.DBClient
+	mutex     *sync.Mutex
 }
 
 // NewBroker creates a new initialized pointer of Broker
@@ -39,6 +41,7 @@ func NewBroker(dbClient *database.DBClient) *Broker {
 	newBroker.analysers = make(map[string]*analyserHolder)
 	newBroker.dbClient = dbClient
 	newBroker.users = make(map[int64]map[string]bool)
+	newBroker.mutex = &sync.Mutex{}
 
 	return &newBroker
 }
@@ -55,6 +58,8 @@ func newHolder(stockID string) *analyserHolder {
 
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
 func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, updateDB bool) (bool, error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	// Handle analysers
 	holder, stockOK := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
@@ -125,6 +130,8 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 // DeleteStrategy deletes a strategy from the managing list.
 // Analyser will be destroyed only if there are no need to manage it.
 func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	// Handle analysers
 	holder, ok := b.analysers[stockID]
 	if ok {
@@ -190,6 +197,8 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 
 // AppendPastPrice is for appending the past price of the stock.
 func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	holder, ok := b.analysers[stockPrice.StockID]
 	if ok {
 		holder.analyser.appendPastStockPrice(stockPrice)
@@ -200,6 +209,8 @@ func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
 
 // UpdatePastPrice is for updating the past price of the stock.
 func (b *Broker) UpdatePastPrice() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	for stockID, holder := range b.analysers {
 		b.updatePastPriceOfStockImpl(stockID, holder)
 	}
@@ -208,6 +219,8 @@ func (b *Broker) UpdatePastPrice() {
 
 //UpdatePastPriceOfStock is for updating the past price of the specific stock.
 func (b *Broker) UpdatePastPriceOfStock(stockID string) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	holder, ok := b.analysers[stockID]
 	if !ok {
 		logger.Error("[Analyser] Error while updating past price of %s: no such analyser registered", stockID)

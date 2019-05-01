@@ -266,7 +266,9 @@ func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid 
 	}
 	// Delete Strategy
 	err := g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
-	if err != nil {
+	if err == nil {
+		logger.Info("[Controller] Deleted strategy: %d, %s, %d", userid, stock, orderSide)
+	} else {
 		logger.Error("[Controller] %s", err.Error())
 	}
 	// Withdraw Watcher
