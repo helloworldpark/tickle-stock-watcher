@@ -50,6 +50,7 @@ func main() {
 	general := controller.NewGeneral(client)
 	general.Initialize()
 
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.GET("/", func(c *gin.Context) {
 		c.String(200, "Hello World!")
