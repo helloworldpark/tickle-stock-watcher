@@ -18,11 +18,12 @@ type DateChecker struct {
 }
 
 // NewDateChecker returns a new DateChecker with holidays unfilled.
-// User must update the holidays.
+// Holidays are updated
 func NewDateChecker() *DateChecker {
 	checker := DateChecker{
 		holidays: make(map[int64]bool),
 	}
+	checker.UpdateHolidays(commons.Now().Year())
 	return &checker
 }
 

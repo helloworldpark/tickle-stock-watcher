@@ -207,7 +207,7 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 				holder.analyser.calculateStrategies()
 			case <-holder.sentinel:
 				logger.Info("[Analyser] Holder Sentinel Called: %s", stockID)
-				break
+				return
 			}
 		}
 	}()

@@ -114,12 +114,6 @@ func (g *General) onError(user structs.User, err error) {
 
 // Initialize initializes General
 func (g *General) Initialize() {
-	// DateChecker 초기화
-	g.dateChecker.UpdateHolidays(commons.Now().Year())
-
-	// ItemChecker 초기화
-	g.itemChecker.UpdateStocks()
-
 	// 유저 정보와 등록된 전략들을 바탕으로 PriceWatcher, Broker, User 현황 초기화
 	userIndex := make(map[int64]structs.User)
 	for _, u := range structs.AllUsers(g.dbClient) {
