@@ -237,6 +237,8 @@ func (g *General) Initialize() {
 	})
 
 	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
+
+	logger.Info("[Controller] Initialized controller")
 }
 
 //
