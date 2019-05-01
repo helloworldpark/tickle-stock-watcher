@@ -7,7 +7,7 @@ import (
 )
 
 func TestTime(t *testing.T) {
-	tt := time.Now()
+	tt := Now()
 	fmt.Println("Hour: ", tt.Hour())
 	tt = tt.In(time.UTC)
 	fmt.Println("Hour: ", tt.Hour())
