@@ -105,7 +105,6 @@ func Trade(
 			return newError(fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID))
 		}
 		now := commons.Now()
-		fmt.Printf("Trade NOW: %v %s Timezone: %s", now, now.String(), now.Location().String())
 		if watcher.OpeningTime(now) <= now.Hour() && now.Hour() < watcher.ClosingTime(now) {
 			broker.AccessBroker().FeedPrice(stockid, price.AccessWatcher().StartWatchingStock(stock.StockID))
 		}
