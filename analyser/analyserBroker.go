@@ -59,23 +59,27 @@ func newHolder(stockID string) *analyserHolder {
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
 func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, updateDB bool) (bool, error) {
 	b.mutex.Lock()
-	defer b.mutex.Unlock()
 	// Handle analysers
 	holder, stockOK := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
 	retainedAnalyser := false
+	b.mutex.Unlock()
 
 	if stockOK {
 		if userOK {
 			// 이 주식은 다른 사람이 전략을 넣은 적이 있고, 이 유저도 넣는 경우이다
 			// 만일 이전에 넣은 적이 없는 Order Side라면, Retain한다
 			if !holder.analyser.hasStrategyOfOrderSide(userStrategy.UserID, userStrategy.OrderSide) {
+				b.mutex.Lock()
 				holder.analyser.Retain()
+				b.mutex.Unlock()
 				retainedAnalyser = true
 			}
 		} else {
 			// 이 주식은 다른 사람이 전략을 넣은 적이 있는데, 이 유저는 처음
+			b.mutex.Lock()
 			holder.analyser.Retain()
+			b.mutex.Unlock()
 
 			userStockList = make(map[string]bool)
 			userStockList[userStrategy.StockID] = true
@@ -95,15 +99,21 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 			b.users[userStrategy.UserID] = userStockList
 		}
 		// Create analyser
+		b.mutex.Lock()
 		b.analysers[userStrategy.StockID] = newHolder(userStrategy.StockID)
+		b.mutex.Unlock()
+
 		holder = b.analysers[userStrategy.StockID]
 		retainedAnalyser = true
 	}
 
 	// Add or update strategy of the analyser
+	b.mutex.Lock()
 	ok, err := b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
+	b.mutex.Unlock()
 	if !ok {
 		if retainedAnalyser {
+			b.mutex.Lock()
 			holder.analyser.Release()
 			if holder.analyser.Count() <= 0 {
 				// Deactivate analyser
@@ -111,6 +121,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 				// Delete analyser from list
 				delete(b.analysers, userStrategy.StockID)
 			}
+			b.mutex.Unlock()
 		}
 		return false, err
 	}
@@ -122,7 +133,9 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 
 	// Update stock price if needed
 	if !stockOK {
+		b.mutex.Lock()
 		b.UpdatePastPriceOfStock(userStrategy.StockID)
+		b.mutex.Unlock()
 	}
 	return ok, err
 }
@@ -130,11 +143,10 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 // DeleteStrategy deletes a strategy from the managing list.
 // Analyser will be destroyed only if there are no need to manage it.
 func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
 	// Handle analysers
 	holder, ok := b.analysers[stockID]
 	if ok {
+		b.mutex.Lock()
 		holder.analyser.Release()
 		if holder.analyser.Count() <= 0 {
 			// Deactivate analyser
@@ -144,6 +156,7 @@ func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error 
 		} else {
 			holder.analyser.deleteStrategy(user.UserID, techan.OrderSide(orderSide))
 		}
+		defer b.mutex.Unlock()
 	} else {
 		return newError(fmt.Sprintf("Trying to delete an analyser which was not registered for stock ID %s", stockID))
 	}
