@@ -30,10 +30,10 @@ func TestAnalyserBroker(t *testing.T) {
 		structs.Invitation{},
 	})
 
-	g := mockGeneral{}
-
-	priceWatcher := watcher.New(client, time.Millisecond*500)
-	broker := analyser.NewBroker(client)
+	g := mockGeneral{
+		priceWatcher: watcher.New(client, time.Millisecond*500),
+		broker:       analyser.NewBroker(client),
+	}
 
 	userIndex := make(map[int64]structs.User)
 	for _, u := range structs.AllUsers(client) {
@@ -42,24 +42,27 @@ func TestAnalyserBroker(t *testing.T) {
 	stocks := make(map[string]bool)
 	for _, v := range structs.AllStrategies(client) {
 		stock := structs.Stock{StockID: v.StockID}
-		priceWatcher.Register(stock)
-		broker.AddStrategy(v, g.onStrategyEvent, false)
+		g.priceWatcher.Register(stock)
+		g.broker.AddStrategy(v, g.onStrategyEvent, false)
 
 		stocks[v.StockID] = true
 	}
 
 	for k := range stocks {
-		provider := priceWatcher.StartWatchingStock(k)
-		broker.FeedPrice(k, provider)
+		provider := g.priceWatcher.StartWatchingStock(k)
+		g.broker.FeedPrice(k, provider)
 	}
 
 	timer := time.NewTimer(20 * time.Second)
 	<-timer.C
-	priceWatcher.StopWatching()
+	g.priceWatcher.StopWatching()
 	fmt.Println("Test Finished")
 }
 
-type mockGeneral struct{}
+type mockGeneral struct {
+	priceWatcher *watcher.Watcher
+	broker       *analyser.Broker
+}
 
 func (g *mockGeneral) onStrategyEvent(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
 	// Notify to user
@@ -74,4 +77,9 @@ func (g *mockGeneral) onStrategyEvent(currentTime time.Time, price float64, stoc
 		stockid, int(price))
 
 	fmt.Println(msg)
+
+	// Delete Strategy
+	g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
+	// Withdraw Watcher
+	g.priceWatcher.Withdraw(structs.Stock{StockID: stockid})
 }

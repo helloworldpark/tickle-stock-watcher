@@ -21,15 +21,16 @@ type Stock = structs.Stock
 // WatchingStock is just a simple type alias
 type WatchingStock = structs.WatchingStock
 type workerFunc = func() <-chan StockPrice
-type internalCrawler struct {
-	lastTimestamp int64
-	sentinel      chan struct{}
-	ref           *commons.Ref
-}
 
 // WatcherAccess provides access to Watcher
 type WatcherAccess interface {
 	AccessWatcher() *Watcher
+}
+
+type internalCrawler struct {
+	lastTimestamp int64
+	sentinel      chan struct{}
+	ref           *commons.Ref
 }
 
 // Watcher is a struct for watching the market
@@ -47,6 +48,16 @@ func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 		sleepTime: sleepingTime,
 	}
 	return &watcher
+}
+
+func newInternalCrawler(lastTimestamp int64) internalCrawler {
+	ref := &commons.Ref{}
+	ref.Retain()
+	return internalCrawler{
+		lastTimestamp: lastTimestamp,
+		sentinel:      make(chan struct{}),
+		ref:           ref,
+	}
 }
 
 // Register use it to register a new stock of interest.
@@ -76,11 +87,7 @@ func (w *Watcher) Register(stock Stock) bool {
 	}
 	ref := &commons.Ref{}
 	ref.Retain()
-	w.crawlers[stock.StockID] = internalCrawler{
-		lastTimestamp: newWatchingStock.LastPriceTimestamp,
-		sentinel:      make(chan struct{}),
-		ref:           ref,
-	}
+	w.crawlers[stock.StockID] = newInternalCrawler(newWatchingStock.LastPriceTimestamp)
 	_, err = w.dbClient.Upsert(&newWatchingStock)
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
@@ -124,7 +131,7 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 		return nil
 	}
 	// Prepare new sentinel
-	w.crawlers[stockID] = internalCrawler{lastTimestamp: old.lastTimestamp, sentinel: make(chan struct{})}
+	w.crawlers[stockID] = newInternalCrawler(old.lastTimestamp)
 	// Construct function
 	out := make(chan StockPrice)
 	go func() {
@@ -168,10 +175,9 @@ func (w *Watcher) Collect() {
 	}
 	for _, v := range watching {
 		sentinel := w.crawlers[v.StockID].sentinel
-		w.crawlers[v.StockID] = internalCrawler{
-			lastTimestamp: v.LastPriceTimestamp,
-			sentinel:      sentinel,
-		}
+		newCrawler := newInternalCrawler(v.LastPriceTimestamp)
+		newCrawler.sentinel = sentinel
+		w.crawlers[v.StockID] = newCrawler
 	}
 
 	timestampTwoYears := getCollectionStartingDate(2019).Unix()
