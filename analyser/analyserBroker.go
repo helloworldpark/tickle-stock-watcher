@@ -133,9 +133,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 
 	// Update stock price if needed
 	if !stockOK {
-		b.mutex.Lock()
 		b.UpdatePastPriceOfStock(userStrategy.StockID)
-		b.mutex.Unlock()
 	}
 	return ok, err
 }
@@ -183,7 +181,10 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 		logger.Warn("[Analyser] Attempt to feed price of nonexisting stock ID: %s", stockID)
 		return
 	}
-	if holder.analyser.isWatchingPrice() {
+	b.mutex.Lock()
+	isWatching := holder.analyser.isWatchingPrice()
+	b.mutex.Unlock()
+	if isWatching {
 		logger.Warn("[Analyser] Attempt to feed price which is already eating: %s", stockID)
 		return
 	}
@@ -192,7 +193,9 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 		logger.Warn("[Analyser] Provider is nil: %s", stockID)
 		return
 	}
+	b.mutex.Lock()
 	holder.analyser.prepareWatching()
+	b.mutex.Unlock()
 	go func() {
 		defer holder.analyser.stopWatchingPrice()
 
