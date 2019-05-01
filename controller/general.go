@@ -223,13 +223,14 @@ func (g *General) Initialize() {
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
 		g.priceWatcher.StopWatching()
 	})
-	scheduler.ScheduleWeekdays("CollectPrice", 22, func() {
+	scheduler.ScheduleWeekdays("CollectPrice", 23, func() {
 		g.priceWatcher.Collect()
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
 	now := commons.Now()
-	dec29 := time.Date(now.Year(), time.December, 29, 7, 0, 0, 0, commons.AsiaSeoul)
+	dec29 := time.Date(now.Year(), time.December, 29, 7, 0, 0, 0, time.UTC)
+	dec29 = dec29.In(commons.AsiaSeoul)
 	ttl := dec29.Sub(now)
 	scheduler.SchedulePeriodic("HolidayCheck", time.Hour*24*365, ttl, func() {
 		year := commons.Now().Year()
@@ -239,6 +240,12 @@ func (g *General) Initialize() {
 	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
 
 	logger.Info("[Controller] Initialized controller")
+
+	var superuser []structs.User
+	g.dbClient.Select(&superuser, "where Superuser=", true)
+	if len(superuser) == 1 {
+		g.pushManager.PushMessage("Started ticklestock", superuser[0].UserID)
+	}
 }
 
 //
@@ -250,9 +257,11 @@ func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid 
 		buyOrSell = "매도"
 	}
 	stock, _ := g.itemChecker.StockFromID(stockid)
+	y, m, d := currentTime.Date()
+	h, i, s := currentTime.Clock()
 	msg := fmt.Sprintf(msgFormat,
 		buyOrSell,
-		currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second(),
+		y, m, d, h, i, s,
 		stock.Name, int(price))
 	g.pushManager.PushMessage(msg, userid)
 

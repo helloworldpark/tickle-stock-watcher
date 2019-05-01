@@ -141,12 +141,13 @@ func ScheduleWeekdays(tag string, startHour int, todo func()) {
 func startingDate(startHour int) (time.Time, int64) {
 	now := commons.Now()
 	var refDate time.Time
-	if now.Hour() < startHour {
-		refDate = time.Date(now.Year(), now.Month(), now.Day(), startHour, 0, 0, 0, now.Location())
-	} else {
+	y, m, d := now.Date()
+	if now.Hour() >= startHour {
 		tmrw := now.Add(time.Hour * 24)
-		refDate = time.Date(tmrw.Year(), tmrw.Month(), tmrw.Day(), startHour, 0, 0, 0, tmrw.Location())
+		y, m, d = tmrw.Date()
 	}
+	refDate = time.Date(y, m, d, startHour, 0, 0, 0, time.UTC)
+	refDate = refDate.In(commons.AsiaSeoul)
 	return refDate, refDate.Unix() - now.Unix()
 }
 
