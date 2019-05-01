@@ -59,16 +59,15 @@ func GetTimestamp(layout, value string) int64 {
 
 // Now returns time.Now() of Asia/Seoul
 func Now() time.Time {
-	now := time.Now()
-	nowSeoul := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), AsiaSeoul)
-	return nowSeoul
+	return time.Now().In(AsiaSeoul)
 }
 
 // Today returns today's time.Time of Asia/Seoul
 func Today() time.Time {
-	now := time.Now()
-	todaySeoul := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, AsiaSeoul)
-	return todaySeoul
+	now := Now()
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, nil)
+	return today.In(AsiaSeoul)
 }
 
 // Unix converts timestamp to time in Seoul
