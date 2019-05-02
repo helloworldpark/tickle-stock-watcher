@@ -179,18 +179,25 @@ func (b *Broker) GetStrategy(user User) []UserStock {
 	return result
 }
 
-// FeedPrice is a function for updating the latest stock price.
-func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
+func (b *Broker) CanFeedPrice(stockID string) bool {
+	b.mutex.Lock()
 	holder, ok := b.analysers[stockID]
+	b.mutex.Unlock()
 	if !ok {
 		logger.Warn("[Analyser] Attempt to feed price of nonexisting stock ID: %s", stockID)
-		return
-	}
+		return false
+	}	
 	b.mutex.Lock()
 	isWatching := holder.analyser.isWatchingPrice()
 	b.mutex.Unlock()
-	if isWatching {
-		logger.Warn("[Analyser] Attempt to feed price which is already eating: %s", stockID)
+	return !isWatching
+}
+
+// FeedPrice is a function for updating the latest stock price.
+func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
+	canFeed := b.CanFeedPrice(stockID)
+	if !canFeed {
+		logger.Warn("[Analyser] Cannot feed stock ID: %s", stockID)
 		return
 	}
 	// will be reconnected later
