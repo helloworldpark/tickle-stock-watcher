@@ -206,11 +206,11 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 		return
 	}
 	b.mutex.Lock()
+	holder := b.analysers[stockID]
 	holder.analyser.prepareWatching()
 	b.mutex.Unlock()
 	go func() {
 		defer holder.analyser.stopWatchingPrice()
-
 		for {
 			select {
 			case price := <-provider:
