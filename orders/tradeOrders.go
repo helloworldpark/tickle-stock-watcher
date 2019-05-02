@@ -77,23 +77,23 @@ func Trade(
 	callback analyser.EventCallback,
 	onSuccess func(user structs.User, orderside int, stockname, stockid, strategy string)) Action {
 	f := func(user structs.User, args []string) error {
-		stockid := args[0]
-		stock, ok := stockinfo.AccessStockItem(stockid)
+		stockvar := args[0]
+		stock, ok := stockinfo.AccessStockItem(stockvar)
 		if !ok {
-			stock, ok = stockinfo.AccessStockItemByName(stockid)
+			stock, ok = stockinfo.AccessStockItemByName(stockvar)
 			if !ok {
-				firstCharDiff := stockid[0] - "0"[0]
+				firstCharDiff := stockvar[0] - "0"[0]
 				if 0 <= firstCharDiff && firstCharDiff <= 9 {
-					return newError(fmt.Sprintf("Invalid stock ID: %s", stockid))
+					return newError(fmt.Sprintf("Invalid stock ID: %s", stockvar))
 				}
-				return newError(fmt.Sprintf("Invalid stock name: %s", stockid))
+				return newError(fmt.Sprintf("Invalid stock name: %s", stockvar))
 			}
 		}
 		strategy := concat(args[1:])
 
 		userStrategy := structs.UserStock{
 			UserID:    user.UserID,
-			StockID:   stockid,
+			StockID:   stock.StockID,
 			Strategy:  strategy,
 			OrderSide: orderSide,
 			Repeat:    false,
@@ -112,11 +112,11 @@ func Trade(
 		}
 		nowHour := commons.Now().Hour()
 		if 9 <= nowHour && float64(nowHour) < 15.5 {
-			if broker.AccessBroker().CanFeedPrice(stockid) {
-				broker.AccessBroker().FeedPrice(stockid, price.AccessWatcher().StartWatchingStock(stock.StockID))
+			if broker.AccessBroker().CanFeedPrice(stock.StockID) {
+				broker.AccessBroker().FeedPrice(stock.StockID, price.AccessWatcher().StartWatchingStock(stock.StockID))
 			}
 		}
-		onSuccess(user, orderSide, stock.Name, stockid, strategy)
+		onSuccess(user, orderSide, stock.Name, stock.StockID, strategy)
 		return nil
 	}
 	return f

@@ -74,13 +74,20 @@ func DeleteOrder(
 	price watcher.WatcherAccess,
 	onSuccess func(user structs.User, stockname, stockid string)) Action {
 	f := func(user structs.User, args []string) error {
-		stockid := args[0]
-		stock, ok := stockinfo.AccessStockItem(stockid)
+		stockvar := args[0]
+		stock, ok := stockinfo.AccessStockItem(stockvar)
 		if !ok {
-			return newError(fmt.Sprintf("Invalid stock id: %s", stockid))
+			stock, ok = stockinfo.AccessStockItemByName(stockvar)
+			if !ok {
+				firstCharDiff := stockvar[0] - "0"[0]
+				if 0 <= firstCharDiff && firstCharDiff <= 9 {
+					return newError(fmt.Sprintf("Invalid stock ID: %s", stockvar))
+				}
+				return newError(fmt.Sprintf("Invalid stock name: %s", stockvar))
+			}
 		}
 		deleteStrategies := func(orderside int) error {
-			err := broker.AccessBroker().DeleteStrategy(user, stockid, orderside)
+			err := broker.AccessBroker().DeleteStrategy(user, stockvar, orderside)
 			if err != nil {
 				return err
 			}
