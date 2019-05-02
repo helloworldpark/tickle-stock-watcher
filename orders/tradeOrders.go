@@ -3,6 +3,7 @@ package orders
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/helloworldpark/tickle-stock-watcher/analyser"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
@@ -89,14 +90,20 @@ func Trade(
 				return newError(fmt.Sprintf("Invalid stock name: %s", stockvar))
 			}
 		}
-		strategy := concat(args[1:])
+		repeat := strings.ToLower(args[1]) == "repeat"
+		var strategy string
+		if repeat {
+			strategy = concat(args[2:])
+		} else {
+			strategy = concat(args[1:])
+		}
 
 		userStrategy := structs.UserStock{
 			UserID:    user.UserID,
 			StockID:   stock.StockID,
 			Strategy:  strategy,
 			OrderSide: orderSide,
-			Repeat:    false,
+			Repeat:    repeat,
 		}
 		// Add to analyser
 		shouldRetainWatcher, err := broker.AccessBroker().AddStrategy(userStrategy, callback, true)
