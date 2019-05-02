@@ -207,8 +207,8 @@ func (g *General) Initialize() {
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
-	// PriceWatcher는 주중, 18시가 되면 감시 중단
-	// PriceWatcher는 주중, 장이 열리는 날이면 22시부터 오늘로부터 이전의 가격 정보 수집
+	// PriceWatcher는 주중, 15시 30분이 되면 감시 중단
+	// PriceWatcher는 주중, 장이 열리는 날이면 18시 30분부터 오늘로부터 이전의 가격 정보 수집
 	scheduler.ScheduleEveryday("StockItemUpdate", 5, func() {
 		g.itemChecker.UpdateStocks()
 	})
@@ -236,11 +236,11 @@ func (g *General) Initialize() {
 		}
 	}
 	nowHour := commons.Now().Hour()
-	if watcher.OpeningTime(time.Time{}) < nowHour && nowHour < watcher.ClosingTime(time.Time{}) {
+	if 9 < nowHour && float64(nowHour) < 15.5 {
 		go watchPrice()
 	}
-	scheduler.ScheduleWeekdays("WatchPrice", float64(watcher.OpeningTime(time.Time{})), watchPrice)
-	scheduler.ScheduleWeekdays("StopWatchPrice", float64(watcher.ClosingTime(time.Time{})), func() {
+	scheduler.ScheduleWeekdays("WatchPrice", 9, watchPrice)
+	scheduler.ScheduleWeekdays("StopWatchPrice", 15.5, func() {
 		g.priceWatcher.StopWatching()
 	})
 	scheduler.ScheduleWeekdays("CollectPrice", 18.5, func() {
@@ -257,7 +257,7 @@ func (g *General) Initialize() {
 
 	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
 
-	logger.Info("[Controller] Initialized controller")
+	logger.Info("[Controller] Initialized Controller")
 
 	var superuser []structs.User
 	g.dbClient.Select(&superuser, "where Superuser=?", true)
@@ -266,7 +266,7 @@ func (g *General) Initialize() {
 	}
 }
 
-//
+// onStrategyEvent callback to be called when the users' strategies are fulfilled
 func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
 	// Notify to user
 	msgFormat := "[%s] %4d년 %d월 %d일 %02d시 %02d분 %02d초\n%s의 가격, 전략에 부합: 현재가 %d원"

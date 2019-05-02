@@ -27,16 +27,6 @@ func NewDateChecker() *DateChecker {
 	return &checker
 }
 
-// OpeningTime tells when the market opens on the given day.
-func OpeningTime(t time.Time) int {
-	return 9
-}
-
-// ClosingTime tells when the market closes on the given day.
-func ClosingTime(t time.Time) int {
-	return 18
-}
-
 // Year returns the current year.
 func (c *DateChecker) Year() int {
 	return commons.Now().Year()
