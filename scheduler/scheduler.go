@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
@@ -82,6 +83,7 @@ func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 		}
 		taskMap.SetValue(tag, &task)
 		go func() {
+			(&task).do()
 			for range task.ticker.C {
 				(&task).do()
 			}
@@ -108,6 +110,7 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 		}
 		taskMap.SetValue(tag, &task)
 		go func() {
+			(&task).do()
 			for range task.ticker.C {
 				(&task).do()
 			}
@@ -122,33 +125,37 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 }
 
 // ScheduleEveryday runs a task everyday at a given hour.
-func ScheduleEveryday(tag string, startHour int, todo func()) {
+func ScheduleEveryday(tag string, startHour float64, todo func()) {
 	_, timeLeft := startingDate(startHour)
-	SchedulePeriodic(tag, 24*time.Hour, time.Duration(timeLeft)*time.Second, todo)
+	SchedulePeriodic(tag, 24*time.Hour, time.Duration(timeLeft), todo)
 }
 
 // ScheduleWeekdays runs a task everyday at a given hour but only on weekdays.
-func ScheduleWeekdays(tag string, startHour int, todo func()) {
+func ScheduleWeekdays(tag string, startHour float64, todo func()) {
 	_, timeLeft := startingDate(startHour)
-	SchedulePeriodic(tag, 24*time.Hour, time.Duration(timeLeft)*time.Second, func() {
-		now := commons.Now()
-		if now.Weekday() == time.Saturday || now.Weekday() == time.Sunday {
+	SchedulePeriodic(tag, 24*time.Hour, time.Duration(timeLeft), func() {
+		weekday := commons.Now().Weekday()
+		if weekday == time.Saturday || weekday == time.Sunday {
 			return
 		}
 		todo()
 	})
 }
 
-func startingDate(startHour int) (time.Time, int64) {
+func startingDate(startHour float64) (time.Time, int64) {
 	now := commons.Now()
 	var refDate time.Time
 	y, m, d := now.Date()
-	if now.Hour() >= startHour {
+	if float64(now.Hour()) >= startHour {
 		tmrw := now.Add(time.Hour * 24)
 		y, m, d = tmrw.Date()
 	}
-	refDate = time.Date(y, m, d, startHour, 0, 0, 0, commons.AsiaSeoul)
-	return refDate, refDate.Unix() - now.Unix()
+	h := int(startHour)
+	remainder := startHour - float64(h)
+	i := int(60.0 * remainder)
+	s := int(3600.0 * remainder - 60.0 * float64(i))
+	refDate = time.Date(y, m, d, h, i, s, 0, commons.AsiaSeoul)
+	return refDate, refDate.UnixNano() - now.UnixNano()
 }
 
 func appendSingleTask(tag string, after time.Duration, todo func(), reuseTag bool) {

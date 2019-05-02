@@ -29,14 +29,22 @@ func TestScheduler(t *testing.T) {
 	Schedule("task4", 0, func() {
 		fmt.Println("Task Forever finish cancel")
 	})
+	ScheduleWeekdays("task5", 11.0666666666666666666667, func() {
+		fmt.Println("Hello! Task5")
+	})
 
-	timer30 := time.NewTimer(20 * time.Second)
+	timer30 := time.NewTimer(25 * time.Second)
 	<-timer30.C
 	fmt.Println("Test finished")
 }
 
 func TestWeekdays(t *testing.T) {
-	ScheduleWeekdays("test", 14, func() {
+	now := time.Now()
+	ttime := 11 + float64(now.Minute()+1)/60.0
+	ScheduleWeekdays("test", ttime, func() {
 		fmt.Println("HAHA")
 	})
+	timer30 := time.NewTimer(60 * time.Second)
+	<-timer30.C
+	fmt.Println("TestWeekdays")
 }

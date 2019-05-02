@@ -203,7 +203,6 @@ func (g *General) Initialize() {
 		g.itemChecker.UpdateStocks()
 	})
 	scheduler.ScheduleWeekdays("UpdatePriceBroker", 8, func() {
-		g.priceWatcher.Collect()
 		g.broker.UpdatePastPrice()
 	})
 	scheduler.ScheduleWeekdays("WatchPrice", watcher.OpeningTime(time.Time{}), func() {
@@ -226,9 +225,9 @@ func (g *General) Initialize() {
 	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
 		g.priceWatcher.StopWatching()
 	})
-	// scheduler.ScheduleWeekdays("CollectPrice", 23, func() {
-	// 	g.priceWatcher.Collect()
-	// })
+	scheduler.ScheduleWeekdays("CollectPrice", 22, func() {
+	 	g.priceWatcher.Collect()
+	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
 	now := commons.Now()
