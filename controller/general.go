@@ -221,7 +221,7 @@ func (g *General) Initialize() {
 		for k := range stocks {
 			if g.broker.CanFeedPrice(k) {
 				provider := g.priceWatcher.StartWatchingStock(k)
-				g.broker.FeedPrice(k, provider)	
+				g.broker.FeedPrice(k, provider)
 			}
 		}
 	}
@@ -234,7 +234,7 @@ func (g *General) Initialize() {
 	scheduler.ScheduleWeekdays("StopWatchPrice", float64(watcher.ClosingTime(time.Time{})), func() {
 		g.priceWatcher.StopWatching()
 	})
-	scheduler.ScheduleWeekdays("CollectPrice", 22, func() {
+	scheduler.ScheduleWeekdays("CollectPrice", 18.5, func() {
 		g.priceWatcher.Collect()
 	})
 
