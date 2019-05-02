@@ -69,7 +69,7 @@ func (g *General) OnWebhook(token int64, msg string) {
 	}
 	args := strings.Split(msg, " ")
 	preAsync := func() {
-		g.pushManager.PushMessage("Request accepted. Please wait for a while!", token)
+		g.pushManager.PushMessage("명령 접수. 대기하라.", token)
 	}
 	onAsync := func(e error) {
 		if e != nil {
@@ -84,7 +84,7 @@ func (g *General) OnWebhook(token int64, msg string) {
 
 func (g *General) runOrder(user structs.User, isGuest bool, orders []string, preAsync func(), onAsync func(err error)) error {
 	if len(orders) == 0 {
-		return newError("Empty order")
+		return newError("공허한 명령")
 	}
 	lowerOrders := make([]string, len(orders))
 	for i := range orders {
@@ -92,10 +92,10 @@ func (g *General) runOrder(user structs.User, isGuest bool, orders []string, pre
 	}
 	action, ok := botOrders[lowerOrders[0]]
 	if !ok {
-		return newError(fmt.Sprintf("Cannot perform %s: don't know how to do", orders[0]))
+		return newError(fmt.Sprintf("수행 불가 %s: 모른다 어떻게 하는지", orders[0]))
 	}
 	if !action.IsPublic() && isGuest {
-		return newError("You have no right to order to me")
+		return newError("누구냐 너는 거부한다 너의 명령")
 	}
 	if action.IsAsync() {
 		preAsync()
@@ -137,60 +137,69 @@ func (g *General) Initialize() {
 
 	// 명령어들 초기화
 	botOrders["help"].SetAction(func(user structs.User, s []string) error {
-		msg := "Refer to here:\nhttps://github.com/helloworldpark/tickle-stock-watcher/wiki/BotOrders"
+		msg := "참고해라 닝겐:\nhttps://github.com/helloworldpark/tickle-stock-watcher/wiki/BotOrders"
 		g.pushManager.PushMessage(msg, user.UserID)
 		return nil
 	})
+	botOrders["/start"] = botOrders["help"]
 	botOrders["join"].SetAction(orders.Join(g, func(user structs.User) {
-		g.pushManager.PushMessage("Congratulations! Press `help` and send to know how to use this bot.", user.UserID)
+		g.pushManager.PushMessage("축하! 도움 `help` 치고 깨우쳐라 이 봇 사용법.", user.UserID)
 	}))
 	botOrders["invite"].SetAction(orders.Invite(g, func(user structs.User, signature string) {
-		pushMessage := fmt.Sprintf("[Invite] Send this signature: \n%s", signature)
+		pushMessage := fmt.Sprintf("[초대] 보내라 이 서명: \n%s", signature)
 		g.pushManager.PushMessage(pushMessage, user.UserID)
 	}))
 	tradeOnSuccess := func(user structs.User, orderside int, stockname, stockid, strategy string) {
-		side := "BUY"
-		if orderside == commons.SELL {
-			side = "SELL"
-		}
-		msgFormat := "[%s] Strategy for %s(%s) registered: %s"
+		side := []string{"사다", "팔다"}[orderside]
+		msgFormat := "[%s] 종목 %s(%s)의 거래 전략 등록되다: %s"
 		msg := fmt.Sprintf(msgFormat, side, stockname, stockid, strategy)
 		g.pushManager.PushMessage(msg, user.UserID)
 	}
 	botOrders["buy"].SetAction(orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess))
 	botOrders["sell"].SetAction(orders.Trade(commons.SELL, g, g, g, g.onStrategyEvent, tradeOnSuccess))
 	botOrders["strategy"].SetAction(orders.Strategy(g, func(user structs.User, strategies []structs.UserStock) {
-		orderSide := []string{"BUY", "SELL"}
+		side := []string{"사다", "팔다"}
 		buffer := bytes.Buffer{}
-		buffer.WriteString("Strategy: \n")
+		buffer.WriteString("전략: \n")
 		for i := range strategies {
+			stock, ok := g.itemChecker.StockFromID(strategies[i].StockID)
 			buffer.WriteString("[")
-			buffer.WriteString(orderSide[strategies[i].OrderSide])
-			buffer.WriteString("]")
-			buffer.WriteString(strategies[i].StockID)
-			if strategies[i].Repeat {
-				buffer.WriteString("(REPEAT)")
+			buffer.WriteString(side[strategies[i].OrderSide])
+			buffer.WriteString("] ")
+			if ok {
+				buffer.WriteString(stock.Name)
+				buffer.WriteString("(")
+				buffer.WriteString(strategies[i].StockID)
+				buffer.WriteString(")")
+				if strategies[i].Repeat {
+					buffer.WriteString("(반복)")
+				}
+				buffer.WriteString(": ")
+				buffer.WriteString(strategies[i].Strategy)
+			} else {
+				buffer.WriteString("거래정지")
+				buffer.WriteString("(")
+				buffer.WriteString(strategies[i].StockID)
+				buffer.WriteString(")")
 			}
-			buffer.WriteString(": ")
-			buffer.WriteString(strategies[i].Strategy)
 			buffer.WriteString("\n")
 		}
 		g.pushManager.PushMessage(buffer.String(), user.UserID)
 	}))
 	botOrders["stock"].SetAction(orders.QueryStockByName(g, func(user structs.User, stock structs.Stock) {
 		buffer := bytes.Buffer{}
-		buffer.WriteString("Name: ")
+		buffer.WriteString("이름: ")
 		buffer.WriteString(stock.Name)
 		buffer.WriteString("\n")
-		buffer.WriteString("ID: ")
+		buffer.WriteString("종목번호: ")
 		buffer.WriteString(stock.StockID)
 		buffer.WriteString("\n")
-		buffer.WriteString("Market: ")
+		buffer.WriteString("거래소: ")
 		buffer.WriteString(string(stock.MarketType))
 		g.pushManager.PushMessage(buffer.String(), user.UserID)
 	}))
 	botOrders["delete"].SetAction(orders.DeleteOrder(g, g, g, func(user structs.User, stockname, stockid string) {
-		msg := fmt.Sprintf("Deleted strategies of %s(%s)", stockname, stockid)
+		msg := fmt.Sprintf("종목 %s(%s)의 거래 전략 삭제", stockname, stockid)
 		g.pushManager.PushMessage(msg, user.UserID)
 	}))
 
@@ -226,7 +235,6 @@ func (g *General) Initialize() {
 		}
 	}
 	nowHour := commons.Now().Hour()
-	logger.Info("{Controller] Now Hour: %d", nowHour)
 	if watcher.OpeningTime(time.Time{}) < nowHour && nowHour < watcher.ClosingTime(time.Time{}) {
 		go watchPrice()
 	}
@@ -253,23 +261,20 @@ func (g *General) Initialize() {
 	var superuser []structs.User
 	g.dbClient.Select(&superuser, "where Superuser=?", true)
 	if len(superuser) == 1 {
-		g.pushManager.PushMessage("Started ticklestock", superuser[0].UserID)
+		g.pushManager.PushMessage("ticklestock 시작", superuser[0].UserID)
 	}
 }
 
 //
 func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
 	// Notify to user
-	msgFormat := "[%s] %4d년 %d월 %d일 %02d시 %02d분 %02d초\n%s의 가격이 등록하신 조건에 충족되었습니다: 현재가 %d원"
-	buyOrSell := "매수"
-	if orderSide == commons.SELL {
-		buyOrSell = "매도"
-	}
+	msgFormat := "[%s] %4d년 %d월 %d일 %02d시 %02d분 %02d초\n%s의 가격, 전략에 부합: 현재가 %d원"
+	side := []string{"사다", "팔다"}[orderSide]
 	stock, _ := g.itemChecker.StockFromID(stockid)
 	y, m, d := currentTime.Date()
 	h, i, s := currentTime.Clock()
 	msg := fmt.Sprintf(msgFormat,
-		buyOrSell,
+		side,
 		y, m, d, h, i, s,
 		stock.Name, int(price))
 	g.pushManager.PushMessage(msg, userid)
