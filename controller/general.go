@@ -207,8 +207,8 @@ func (g *General) Initialize() {
 	})
 	watchPrice := func() {
 		// 오늘 장날인지 확인
-		isMarketOpen := g.dateChecker.IsHoliday(commons.Now())
-		if !isMarketOpen {
+		isMarketClosed := g.dateChecker.IsHoliday(commons.Now())
+		if isMarketClosed {
 			logger.Warn("[Controller] Holiday: %s", commons.Now().String())
 			return
 		}
