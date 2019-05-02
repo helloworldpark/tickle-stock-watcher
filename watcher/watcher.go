@@ -178,6 +178,8 @@ func (w *Watcher) StopWatchingStock(stockID string) {
 	// Send signal to sentinel
 	if c, ok := w.crawlers[stockID]; ok {
 		close(c.sentinel)
+		c.sentinel = nil
+		w.crawlers[stockID] = c
 	}
 	logger.Info("[Watcher] Stop watching stock ID: %s", stockID)
 }

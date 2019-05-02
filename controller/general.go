@@ -205,7 +205,7 @@ func (g *General) Initialize() {
 	scheduler.ScheduleWeekdays("UpdatePriceBroker", 8, func() {
 		g.broker.UpdatePastPrice()
 	})
-	scheduler.ScheduleWeekdays("WatchPrice", watcher.OpeningTime(time.Time{}), func() {
+	watchPrice := func() {
 		// 오늘 장날인지 확인
 		isMarketOpen := g.dateChecker.IsHoliday(commons.Now())
 		if !isMarketOpen {
@@ -221,12 +221,17 @@ func (g *General) Initialize() {
 			provider := g.priceWatcher.StartWatchingStock(k)
 			g.broker.FeedPrice(k, provider)
 		}
-	})
-	scheduler.ScheduleWeekdays("StopWatchPrice", watcher.ClosingTime(time.Time{}), func() {
+	}
+	nowHour := commons.Now().Hour()
+	if watcher.OpeningTime(time.Time{}) < nowHour && nowHour < watcher.ClosingTime(time.Time{}) {
+		go watchPrice()
+	}
+	scheduler.ScheduleWeekdays("WatchPrice", float64(watcher.OpeningTime(time.Time{})), watchPrice)
+	scheduler.ScheduleWeekdays("StopWatchPrice", float64(watcher.ClosingTime(time.Time{})), func() {
 		g.priceWatcher.StopWatching()
 	})
 	scheduler.ScheduleWeekdays("CollectPrice", 22, func() {
-	 	g.priceWatcher.Collect()
+		g.priceWatcher.Collect()
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
