@@ -105,7 +105,9 @@ func Trade(
 		}
 		now := commons.Now()
 		if watcher.OpeningTime(now) <= now.Hour() && now.Hour() < watcher.ClosingTime(now) {
-			broker.AccessBroker().FeedPrice(stockid, price.AccessWatcher().StartWatchingStock(stock.StockID))
+			if broker.AccessBroker().CanFeedPrice(stockid) {
+				broker.AccessBroker().FeedPrice(stockid, price.AccessWatcher().StartWatchingStock(stock.StockID))	
+			}
 		}
 		onSuccess(user, orderSide, stock.Name, stockid, strategy)
 		return nil
