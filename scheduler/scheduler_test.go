@@ -7,6 +7,9 @@ import (
 )
 
 func TestScheduler(t *testing.T) {
+	a := "999999"[0] - "0"[0]
+	b := "삼성전자"[0] - "0"[0]
+	fmt.Printf("a: %v b: %v c: %v\n", a, b, string(byte(47)))
 	task1 := func() {
 		fmt.Println("Task Terminating")
 	}

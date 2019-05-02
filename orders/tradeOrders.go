@@ -80,7 +80,14 @@ func Trade(
 		stockid := args[0]
 		stock, ok := stockinfo.AccessStockItem(stockid)
 		if !ok {
-			return newError(fmt.Sprintf("Invalid stock id: %s", stockid))
+			stock, ok = stockinfo.AccessStockItemByName(stockid)
+			if !ok {
+				firstCharDiff := stockid[0] - "0"[0]
+				if 0 <= firstCharDiff && firstCharDiff <= 9 {
+					return newError(fmt.Sprintf("Invalid stock ID: %s", stockid))
+				}
+				return newError(fmt.Sprintf("Invalid stock name: %s", stockid))
+			}
 		}
 		strategy := concat(args[1:])
 
