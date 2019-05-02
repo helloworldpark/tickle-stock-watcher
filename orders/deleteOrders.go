@@ -105,6 +105,7 @@ func DeleteOrder(
 			if len(strategies) == 0 {
 				return newError("No strategies to delete")
 			}
+			deleted := 0
 			for i := range strategies {
 				if strategies[i].StockID != stock.StockID {
 					continue
@@ -113,6 +114,10 @@ func DeleteOrder(
 				if err != nil {
 					return err
 				}
+				deleted++
+			}
+			if deleted == 0 {
+				return newError("No strategies to delete")
 			}
 		case 2:
 			if args[1] == "buy" {
