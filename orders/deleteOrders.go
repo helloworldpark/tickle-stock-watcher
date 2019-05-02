@@ -101,11 +101,16 @@ func DeleteOrder(
 		var err error
 		switch len(args) {
 		case 1, 3:
-			err = deleteStrategies(commons.BUY)
-			if err != nil {
-				return err
+			strategies := broker.AccessBroker().GetStrategy(user)
+			if len(strategies) == 0 {
+				return newError("No strategies to delete")
 			}
-			err = deleteStrategies(commons.SELL)
+			for i := range strategies {
+				err = deleteStrategies(strategies[i].OrderSide)
+				if err != nil {
+					return err
+				}
+			}
 		case 2:
 			if args[1] == "buy" {
 				err = deleteStrategies(commons.BUY)
