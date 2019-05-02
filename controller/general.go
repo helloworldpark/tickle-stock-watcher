@@ -209,6 +209,7 @@ func (g *General) Initialize() {
 		// 오늘 장날인지 확인
 		isMarketOpen := g.dateChecker.IsHoliday(commons.Now())
 		if !isMarketOpen {
+			logger.Warn("[Controller] Holiday: %s", commons.Now().String())
 			return
 		}
 
@@ -223,6 +224,7 @@ func (g *General) Initialize() {
 		}
 	}
 	nowHour := commons.Now().Hour()
+	logger.Info("{Controller] Now Hour: %d", nowHour)
 	if watcher.OpeningTime(time.Time{}) < nowHour && nowHour < watcher.ClosingTime(time.Time{}) {
 		go watchPrice()
 	}
