@@ -87,7 +87,7 @@ func DeleteOrder(
 			}
 		}
 		deleteStrategies := func(orderside int) error {
-			err := broker.AccessBroker().DeleteStrategy(user, stockvar, orderside)
+			err := broker.AccessBroker().DeleteStrategy(user, stock.StockID, orderside)
 			if err != nil {
 				return err
 			}
