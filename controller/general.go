@@ -219,8 +219,10 @@ func (g *General) Initialize() {
 			stocks[v.StockID] = true
 		}
 		for k := range stocks {
-			provider := g.priceWatcher.StartWatchingStock(k)
-			g.broker.FeedPrice(k, provider)
+			if g.broker.CanFeedPrice(k) {
+				provider := g.priceWatcher.StartWatchingStock(k)
+				g.broker.FeedPrice(k, provider)	
+			}
 		}
 	}
 	nowHour := commons.Now().Hour()
