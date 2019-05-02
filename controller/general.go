@@ -137,16 +137,16 @@ func (g *General) Initialize() {
 
 	// 명령어들 초기화
 	botOrders["help"].SetAction(func(user structs.User, s []string) error {
-		msg := "참고해라 닝겐:\nhttps://github.com/helloworldpark/tickle-stock-watcher/wiki/BotOrders"
+		msg := "참고해라 닝겐\nhttps://github.com/helloworldpark/tickle-stock-watcher/wiki/BotOrders"
 		g.pushManager.PushMessage(msg, user.UserID)
 		return nil
 	})
 	botOrders["/start"] = botOrders["help"]
 	botOrders["join"].SetAction(orders.Join(g, func(user structs.User) {
-		g.pushManager.PushMessage("축하! 도움 `help` 치고 깨우쳐라 이 봇 사용법.", user.UserID)
+		g.pushManager.PushMessage("축하! `help` 도움 치고 깨우쳐라 이 봇 사용법", user.UserID)
 	}))
 	botOrders["invite"].SetAction(orders.Invite(g, func(user structs.User, signature string) {
-		pushMessage := fmt.Sprintf("[초대] 보내라 이 서명: \n%s", signature)
+		pushMessage := fmt.Sprintf("[초대] 보내라 이 서명\n%s", signature)
 		g.pushManager.PushMessage(pushMessage, user.UserID)
 	}))
 	tradeOnSuccess := func(user structs.User, orderside int, stockname, stockid, strategy string) {
@@ -191,15 +191,16 @@ func (g *General) Initialize() {
 		buffer.WriteString("이름: ")
 		buffer.WriteString(stock.Name)
 		buffer.WriteString("\n")
-		buffer.WriteString("종목번호: ")
-		buffer.WriteString(stock.StockID)
-		buffer.WriteString("\n")
 		buffer.WriteString("거래소: ")
 		buffer.WriteString(string(stock.MarketType))
+		buffer.WriteString("\n")
+		buffer.WriteString("종목번호: ")
+		buffer.WriteString(stock.StockID)
+
 		g.pushManager.PushMessage(buffer.String(), user.UserID)
 	}))
 	botOrders["delete"].SetAction(orders.DeleteOrder(g, g, g, func(user structs.User, stockname, stockid string) {
-		msg := fmt.Sprintf("종목 %s(%s)의 거래 전략 삭제", stockname, stockid)
+		msg := fmt.Sprintf("삭제 종목 %s(%s)의 거래 전략", stockname, stockid)
 		g.pushManager.PushMessage(msg, user.UserID)
 	}))
 

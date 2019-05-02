@@ -31,4 +31,8 @@ func TestUpdate(t *testing.T) {
 	fmt.Println(ok, stock)
 	stock, ok = checker.StockFromID("005930")
 	fmt.Println(ok, stock)
+	stock, ok = checker.StockFromName("CJ CGV")
+	fmt.Println(ok, stock)
+	stock, ok = checker.StockFromName("CJCGV\n")
+	fmt.Println(ok, stock)
 }

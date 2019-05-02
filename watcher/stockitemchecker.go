@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"bytes"
+	"strings"
 
 	"golang.org/x/text/encoding/korean"
 	"golang.org/x/text/transform"
@@ -53,7 +54,7 @@ func (checker *StockItemChecker) StockFromID(stockid string) (structs.Stock, boo
 // StockFromName finds structs.Stock from stock id
 // returns false if not found
 func (checker *StockItemChecker) StockFromName(stockname string) (structs.Stock, bool) {
-	stock, ok := checker.invStocks[stockname]
+	stock, ok := checker.invStocks[trimLowerReplace(stockname)]
 	return stock, ok
 }
 
@@ -63,14 +64,14 @@ func (checker *StockItemChecker) UpdateStocks() {
 	kospi := downloadStockSymbols(structs.KOSPI)
 	for _, v := range kospi {
 		checker.stocks[v.StockID] = v
-		checker.invStocks[v.Name] = v
+		checker.invStocks[trimLowerReplace(v.Name)] = v
 		stocksDB = append(stocksDB, v)
 	}
 	kospi = nil
 	kosdaq := downloadStockSymbols(structs.KOSDAQ)
 	for _, v := range kosdaq {
 		checker.stocks[v.StockID] = v
-		checker.invStocks[v.Name] = v
+		checker.invStocks[trimLowerReplace(v.Name)] = v
 		stocksDB = append(stocksDB, v)
 	}
 	kosdaq = nil
@@ -128,4 +129,11 @@ func euckr2utf8(s string) string {
 	wr.Write([]byte(s))
 	wr.Close()
 	return buf.String()
+}
+
+func trimLowerReplace(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "")
+	return s
 }
