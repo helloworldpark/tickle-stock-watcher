@@ -564,7 +564,7 @@ func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
 	if lastTimestamp == stockPrice.Timestamp {
 		candle = a.timeSeries.LastCandle()
 	} else {
-		start := time.Unix(stockPrice.Timestamp, 0)
+		start := commons.Unix(stockPrice.Timestamp)
 		candle = techan.NewCandle(techan.NewTimePeriod(start, time.Hour*24))
 	}
 	candle.OpenPrice = big.NewDecimal(float64(stockPrice.Open))
@@ -580,7 +580,7 @@ func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
 func (a *Analyser) needPriceFrom() int64 {
 	var start int64
 	if len(a.timeSeries.Candles) > 0 {
-		start = a.timeSeries.LastCandle().Period.End.Unix()
+		start = a.timeSeries.LastCandle().Period.Start.Unix()
 	} else {
 		start = commons.Today().Unix()
 	}
