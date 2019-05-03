@@ -43,11 +43,11 @@ func TestScheduler(t *testing.T) {
 
 func TestWeekdays(t *testing.T) {
 	now := time.Now()
-	ttime := 11 + float64(now.Minute()+1)/60.0
+	ttime := 16 + float64(now.Minute()+1)/60.0
 	ScheduleWeekdays("test", ttime, func() {
-		fmt.Println("HAHA")
+		fmt.Println("HAHA", time.Now())
 	})
-	timer30 := time.NewTimer(60 * time.Second)
+	timer30 := time.NewTimer(120 * time.Second)
 	<-timer30.C
 	fmt.Println("TestWeekdays")
 }

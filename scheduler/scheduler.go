@@ -145,7 +145,9 @@ func startingDate(startHour float64) (time.Time, int64) {
 	now := commons.Now()
 	var refDate time.Time
 	y, m, d := now.Date()
-	if float64(now.Hour()) >= startHour {
+	nowHourSeconds := now.Sub(commons.Today()) / time.Second
+	startHourSeconds := time.Duration(startHour * 60 * 60)
+	if nowHourSeconds >= startHourSeconds {
 		tmrw := now.Add(time.Hour * 24)
 		y, m, d = tmrw.Date()
 	}
