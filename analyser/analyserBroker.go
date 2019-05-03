@@ -179,6 +179,7 @@ func (b *Broker) GetStrategy(user User) []UserStock {
 	return result
 }
 
+// CanFeedPrice returns if can feed price to analyser
 func (b *Broker) CanFeedPrice(stockID string) bool {
 	b.mutex.Lock()
 	holder, ok := b.analysers[stockID]

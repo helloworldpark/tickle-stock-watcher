@@ -27,7 +27,6 @@ func TestAnalyserBroker(t *testing.T) {
 		structs.User{},
 		structs.UserStock{},
 		structs.WatchingStock{},
-		structs.Invitation{},
 	})
 
 	g := mockGeneral{
@@ -53,9 +52,11 @@ func TestAnalyserBroker(t *testing.T) {
 		g.broker.FeedPrice(k, provider)
 	}
 
-	timer := time.NewTimer(20 * time.Second)
+	timer := time.NewTimer(3 * time.Second)
 	<-timer.C
 	g.priceWatcher.StopWatching()
+	timer = time.NewTimer(3 * time.Second)
+	<-timer.C
 	fmt.Println("Test Finished")
 }
 

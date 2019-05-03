@@ -177,6 +177,7 @@ func (w *Watcher) StopWatching() {
 func (w *Watcher) StopWatchingStock(stockID string) {
 	// Send signal to sentinel
 	if c, ok := w.crawlers[stockID]; ok {
+		c.sentinel <- struct{}{}
 		close(c.sentinel)
 		c.sentinel = nil
 		w.crawlers[stockID] = c
