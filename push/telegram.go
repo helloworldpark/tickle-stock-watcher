@@ -150,8 +150,34 @@ func SendMessageTelegram(id int64, msg string) {
 		"text":    msg,
 	}
 	onSuccess := func(result map[string]interface{}) {
-		user := result["chat"].(map[string]interface{})
-		username := user["username"].(string)
+		_, ok := result["chat"]
+		if !ok {
+			logger.Error("[Push] Value corresponding to key 'chat' does not exist in response of 'sendMessage': %v", result)
+			return
+		}
+		if result["chat"] == nil {
+			logger.Error("[Push] Value corresponding to key 'chat' is nil")
+			return
+		}
+		user, ok := result["chat"].(map[string]interface{})
+		if !ok {
+			logger.Error("[Push] Cannot convert 'chat' to map[string]interface{}")
+			return
+		}
+		_, ok = user["username"]
+		if !ok {
+			logger.Error("[Push] Value corresponding to key 'username' does not exist")
+			return
+		}
+		if user["username"] == nil {
+			logger.Error("[Push] Value corresponding to key 'username' is nil")
+			return
+		}
+		username, ok := user["username"].(string)
+		if !ok {
+			logger.Error("[Push] Cannot convert 'username' to string")
+			return
+		}
 		logger.Info("[Push] Sent message to: %s(%d) \n message: %s", username, id, msg)
 	}
 	onFailure := func(err error) {
