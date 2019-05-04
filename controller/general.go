@@ -142,13 +142,16 @@ func (g *General) Initialize() {
 		return nil
 	})
 	botOrders["/start"] = botOrders["help"]
+	botOrders["도움"] = botOrders["help"]
 	botOrders["join"].SetAction(orders.Join(g, func(user structs.User) {
-		g.pushManager.PushMessage("축하! `help` 도움 치고 깨우쳐라 이 봇 사용법", user.UserID)
+		g.pushManager.PushMessage("축하! `help` 또는 `도움` 치고 깨우쳐라 사용법 이 봇", user.UserID)
 	}))
+	botOrders["가입"] = botOrders["join"]
 	botOrders["invite"].SetAction(orders.Invite(g, func(user structs.User, signature string) {
 		pushMessage := fmt.Sprintf("[초대] 보내라 이 서명\n%s", signature)
 		g.pushManager.PushMessage(pushMessage, user.UserID)
 	}))
+	botOrders["invite"] = botOrders["초대"]
 	tradeOnSuccess := func(user structs.User, orderside int, stockname, stockid, strategy string) {
 		side := []string{"사다", "팔다"}[orderside]
 		msgFormat := "[%s] 종목 %s(%s)의 거래 전략 등록되다: %s"
@@ -156,7 +159,11 @@ func (g *General) Initialize() {
 		g.pushManager.PushMessage(msg, user.UserID)
 	}
 	botOrders["buy"].SetAction(orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess))
+	botOrders["산다"] = botOrders["buy"]
+	botOrders["사다"] = botOrders["buy"]
 	botOrders["sell"].SetAction(orders.Trade(commons.SELL, g, g, g, g.onStrategyEvent, tradeOnSuccess))
+	botOrders["팔다"] = botOrders["sell"]
+	botOrders["판다"] = botOrders["sell"]
 	botOrders["strategy"].SetAction(orders.Strategy(g, func(user structs.User, strategies []structs.UserStock) {
 		side := []string{"사다", "팔다"}
 		buffer := bytes.Buffer{}
@@ -186,6 +193,7 @@ func (g *General) Initialize() {
 		}
 		g.pushManager.PushMessage(buffer.String(), user.UserID)
 	}))
+	botOrders["전략"] = botOrders["strategy"]
 	botOrders["stock"].SetAction(orders.QueryStockByName(g, func(user structs.User, stock structs.Stock) {
 		buffer := bytes.Buffer{}
 		buffer.WriteString("이름: ")
@@ -199,10 +207,12 @@ func (g *General) Initialize() {
 
 		g.pushManager.PushMessage(buffer.String(), user.UserID)
 	}))
+	botOrders["주식"] = botOrders["stock"]
 	botOrders["delete"].SetAction(orders.DeleteOrder(g, g, g, func(user structs.User, stockname, stockid string) {
 		msg := fmt.Sprintf("삭제 종목 %s(%s)의 거래 전략", stockname, stockid)
 		g.pushManager.PushMessage(msg, user.UserID)
 	}))
+	botOrders["삭제"] = botOrders["delete"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
