@@ -47,7 +47,7 @@ func NewBroker(dbClient *database.DBClient) *Broker {
 }
 
 func newHolder(stockID string) *analyserHolder {
-	newAnalyser := newAnalyser(stockID)
+	newAnalyser := NewAnalyser(stockID)
 	newAnalyser.Retain()
 	holder := analyserHolder{
 		analyser: newAnalyser,
@@ -112,7 +112,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 
 	// Add or update strategy of the analyser
 	b.mutex.Lock()
-	ok, err := b.analysers[userStrategy.StockID].analyser.appendStrategy(userStrategy, callback)
+	ok, err := b.analysers[userStrategy.StockID].analyser.AppendStrategy(userStrategy, callback)
 	b.mutex.Unlock()
 	if !ok {
 		if retainedAnalyser {
@@ -157,7 +157,7 @@ func (b *Broker) DeleteStrategy(user User, stockID string, orderSide int) error 
 			// Delete analyser from list
 			delete(b.analysers, stockID)
 		} else {
-			holder.analyser.deleteStrategy(user.UserID, techan.OrderSide(orderSide))
+			holder.analyser.DeleteStrategy(user.UserID, techan.OrderSide(orderSide))
 		}
 		defer b.mutex.Unlock()
 	} else {
@@ -220,7 +220,7 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 					return
 				}
 				holder.analyser.watchStockPrice(price)
-				holder.analyser.calculateStrategies()
+				holder.analyser.CalculateStrategies()
 			case <-holder.sentinel:
 				logger.Info("[Analyser] Holder Sentinel Called: %s", stockID)
 				return
@@ -235,7 +235,7 @@ func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
 	defer b.mutex.Unlock()
 	holder, ok := b.analysers[stockPrice.StockID]
 	if ok {
-		holder.analyser.appendPastStockPrice(stockPrice)
+		holder.analyser.AppendPastStockPrice(stockPrice)
 	} else {
 		logger.Error("[Analyser] Attempt to append past price of nonexisting stock ID: %s", stockPrice.StockID)
 	}
@@ -265,7 +265,7 @@ func (b *Broker) UpdatePastPriceOfStock(stockID string) {
 }
 
 func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHolder) {
-	timestampFrom := holder.analyser.needPriceFrom()
+	timestampFrom := holder.analyser.NeedPriceFrom()
 	var prices []structs.StockPrice
 	_, err := b.dbClient.Select(&prices,
 		"where StockID=? and Timestamp>=? order by Timestamp",
@@ -276,7 +276,7 @@ func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHold
 		return
 	}
 	for i := range prices {
-		holder.analyser.appendPastStockPrice(prices[i])
+		holder.analyser.AppendPastStockPrice(prices[i])
 	}
 	logger.Info("[Analyser] Updated past price info of %s: %d cases", stockID, len(prices))
 }

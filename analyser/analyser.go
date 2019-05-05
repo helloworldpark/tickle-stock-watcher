@@ -50,8 +50,8 @@ type Analyser struct {
 	isWatching   bool
 }
 
-// newAnalyser creates and returns a pointer of a new prepared Analyser struct
-func newAnalyser(stockID string) *Analyser {
+// NewAnalyser creates and returns a pointer of a new prepared Analyser struct
+func NewAnalyser(stockID string) *Analyser {
 	newAnalyser := Analyser{}
 	newAnalyser.indicatorMap = make(map[string]indicatorGen)
 	newAnalyser.userStrategy = make(map[uid]map[techan.OrderSide]eventWrapper)
@@ -65,7 +65,7 @@ func newAnalyser(stockID string) *Analyser {
 }
 
 func newTestAnalyser() *Analyser {
-	analyser := newAnalyser("123456")
+	analyser := NewAnalyser("123456")
 	for i := 0; i < 100; i++ {
 		start := time.Date(0, 0, i, 0, 0, 0, 0, time.UTC)
 		candle := techan.NewCandle(techan.NewTimePeriod(start, time.Hour*6))
@@ -518,11 +518,11 @@ func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
 	return rules[0], nil
 }
 
-func (a *Analyser) appendStrategy(userStrategy structs.UserStock, callback EventCallback) (bool, error) {
+func (a *Analyser) AppendStrategy(userStrategy structs.UserStock, callback EventCallback) (bool, error) {
 	return a.parseAndCacheStrategy(userStrategy, callback)
 }
 
-func (a *Analyser) deleteStrategy(userid int64, orderside techan.OrderSide) {
+func (a *Analyser) DeleteStrategy(userid int64, orderside techan.OrderSide) {
 	delete(a.userStrategy[userid], orderside)
 	if len(a.userStrategy[userid]) == 0 {
 		delete(a.userStrategy, userid)
@@ -552,7 +552,8 @@ func (a *Analyser) stopWatchingPrice() {
 	a.isWatching = false
 }
 
-func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
+// AppendPastStockPrice appends price into the time series
+func (a *Analyser) AppendPastStockPrice(stockPrice structs.StockPrice) {
 	var lastTimestamp int64
 	if len(a.timeSeries.Candles) > 0 {
 		lastTimestamp = a.timeSeries.LastCandle().Period.Start.Unix()
@@ -577,7 +578,8 @@ func (a *Analyser) appendPastStockPrice(stockPrice structs.StockPrice) {
 	}
 }
 
-func (a *Analyser) needPriceFrom() int64 {
+// NeedPriceFrom calculates timestamp from when to fetch stock price data.
+func (a *Analyser) NeedPriceFrom() int64 {
 	var start int64
 	if len(a.timeSeries.Candles) > 0 {
 		start = a.timeSeries.LastCandle().Period.Start.Unix()
@@ -588,7 +590,8 @@ func (a *Analyser) needPriceFrom() int64 {
 	return start - before
 }
 
-func (a *Analyser) calculateStrategies() {
+// CalculateStrategies calculates strategies from the last candle
+func (a *Analyser) CalculateStrategies() {
 	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
 	currentTime := a.timeSeries.LastCandle().Period.End
 	for userid, events := range a.userStrategy {
