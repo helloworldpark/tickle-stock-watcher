@@ -203,7 +203,7 @@ func (w *Watcher) Collect() {
 		w.crawlers[v.StockID] = newCrawler
 	}
 
-	timestampTwoYears := getCollectionStartingDate(2017).Unix()
+	timestampTwoYears := GetCollectionStartingDate(2017).Unix()
 
 	// Construct function
 	workerFuncGenerator := func(stockID string) workerFunc {
@@ -339,7 +339,7 @@ func (w *Watcher) Collect() {
 	logger.Info("[Watcher] Finished Collect: %d stocks, %d items", len(w.crawlers), total)
 }
 
-func getCollectionStartingDate(year int) time.Time {
+func GetCollectionStartingDate(year int) time.Time {
 	start := time.Date(year, 1, 2, 0, 0, 0, 0, commons.AsiaSeoul)
 
 	y, m, _ := start.Date()
