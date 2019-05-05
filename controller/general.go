@@ -277,17 +277,18 @@ func (g *General) Initialize() {
 }
 
 // onStrategyEvent callback to be called when the users' strategies are fulfilled
-func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
+func (g *General) onStrategyEvent(price structs.StockPrice, orderSide int, userid int64, repeat bool) {
 	// Notify to user
 	msgFormat := "[%s] %4d년 %d월 %d일 %02d시 %02d분 %02d초\n%s의 가격, 전략에 부합: 현재가 %d원"
 	side := []string{"사다", "팔다"}[orderSide]
-	stock, _ := g.itemChecker.StockFromID(stockid)
+	stock, _ := g.itemChecker.StockFromID(price.StockID)
+	currentTime := commons.Unix(price.Timestamp)
 	y, m, d := currentTime.Date()
 	h, i, s := currentTime.Clock()
 	msg := fmt.Sprintf(msgFormat,
 		side,
 		y, m, d, h, i, s,
-		stock.Name, int(price))
+		stock.Name, int(price.Close))
 	g.pushManager.PushMessage(msg, userid)
 
 	// Handle Repeat
@@ -295,7 +296,7 @@ func (g *General) onStrategyEvent(currentTime time.Time, price float64, stockid 
 		return
 	}
 	// Delete Strategy
-	err := g.broker.DeleteStrategy(structs.User{UserID: userid}, stockid, orderSide)
+	err := g.broker.DeleteStrategy(structs.User{UserID: userid}, price.StockID, orderSide)
 	if err == nil {
 		logger.Info("[Controller] Deleted strategy: %d, %s, %d", userid, stock, orderSide)
 	} else {

@@ -592,14 +592,32 @@ func (a *Analyser) NeedPriceFrom() int64 {
 
 // CalculateStrategies calculates strategies from the last candle
 func (a *Analyser) CalculateStrategies() {
-	closePrice := a.timeSeries.LastCandle().ClosePrice.Float()
-	currentTime := a.timeSeries.LastCandle().Period.End
+	price := CandleToStockPrice(a.stockID, a.timeSeries.LastCandle(), true)
 	for userid, events := range a.userStrategy {
 		for orderside, event := range events {
 			if event.event.IsTriggered(a.timeSeries.LastIndex(), nil) {
-				event.event.OnEvent(currentTime, closePrice, a.stockID, int(orderside), userid, event.repeat)
+				event.event.OnEvent(price, int(orderside), userid, event.repeat)
 			}
 		}
+	}
+}
+
+func CandleToStockPrice(stockID string, c *techan.Candle, useEndTime bool) structs.StockPrice {
+	if c == nil {
+		return structs.StockPrice{}
+	}
+	timestamp := c.Period.Start.Unix()
+	if useEndTime {
+		timestamp = c.Period.End.Unix()
+	}
+	return structs.StockPrice{
+		StockID:   stockID,
+		Timestamp: timestamp,
+		Open:      int(c.OpenPrice.Float()),
+		Close:     int(c.ClosePrice.Float()),
+		High:      int(c.MaxPrice.Float()),
+		Low:       int(c.MinPrice.Float()),
+		Volume:    c.Volume.Float(),
 	}
 }
 
