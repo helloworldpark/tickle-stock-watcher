@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -203,7 +204,7 @@ func (w *Watcher) Collect() {
 		w.crawlers[v.StockID] = newCrawler
 	}
 
-	timestampTwoYears := GetCollectionStartingDate(2017).Unix()
+	timestampTwoYears := GetCollectionStartingDate(commons.Now().Year() - 2).Unix()
 
 	// Construct function
 	workerFuncGenerator := func(stockID string) workerFunc {
@@ -278,11 +279,14 @@ func (w *Watcher) Collect() {
 			IsWatching:         true,
 		}
 	}
+	randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for stockID := range w.crawlers {
 		worker := workerFuncGenerator(stockID)
 		go output(stockID, worker())
 		wg.Add(1)
-		time.Sleep(w.sleepTime)
+		sleepTime := randomGen.Float64()
+		sleepTime += 0.001
+		time.Sleep(time.Duration(sleepTime * float64(time.Second)))
 	}
 	go func() {
 		wg.Wait()
@@ -339,6 +343,7 @@ func (w *Watcher) Collect() {
 	logger.Info("[Watcher] Finished Collect: %d stocks, %d items", len(w.crawlers), total)
 }
 
+// GetCollectionStartingDate gets time until when to crawl
 func GetCollectionStartingDate(year int) time.Time {
 	start := time.Date(year, 1, 2, 0, 0, 0, 0, commons.AsiaSeoul)
 
