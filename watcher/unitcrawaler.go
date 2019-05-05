@@ -39,6 +39,9 @@ func CrawlPast(stockID string, page int) []structs.StockPrice {
 	result := make([]structs.StockPrice, len(priceContents))
 	for i, row := range priceContents {
 		rowContents := row.FindAll("span")
+		if len(rowContents) == 0 {
+			return nil
+		}
 		rowTimestamp := commons.GetTimestamp(dateFormat, rowContents[0].Text())
 		rowClose := commons.GetInt(rowContents[1].Text())
 		rowOpen := commons.GetInt(rowContents[3].Text())
