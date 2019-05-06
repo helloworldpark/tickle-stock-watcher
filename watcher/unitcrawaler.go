@@ -2,6 +2,8 @@ package watcher
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/anaskhan96/soup"
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
@@ -17,7 +19,8 @@ const (
 
 // CrawlPast actually performs crawling for the past prices
 func CrawlPast(stockID string, page int) []structs.StockPrice {
-	response, err := soup.Get(fmt.Sprintf(pastURLFormat, stockID, page))
+	client := &http.Client{Timeout: 3 * time.Second}
+	response, err := soup.GetWithClient(fmt.Sprintf(pastURLFormat, stockID, page), client)
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
 		return nil

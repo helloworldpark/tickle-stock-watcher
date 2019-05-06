@@ -203,13 +203,13 @@ func (w *Watcher) Collect() {
 		}
 	}
 
-	logger.Info("[Watcher] Start Collect")
 	for _, watch := range registeredWatching {
 		sentinel := w.crawlers[watch.StockID].sentinel
 		newCrawler := newInternalCrawler(watch.LastPriceTimestamp)
 		newCrawler.sentinel = sentinel
 		w.crawlers[watch.StockID] = newCrawler
 	}
+	logger.Info("[Watcher] Start Collect %d stocks", len(w.crawlers))
 
 	timestampTwoYears := GetCollectionStartingDate(commons.Now().Year() - 2).Unix()
 
