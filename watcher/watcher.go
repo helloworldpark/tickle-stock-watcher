@@ -229,15 +229,11 @@ func (w *Watcher) Collect() {
 				defer close(outResult)
 
 				shouldCollectMore := func(collected []StockPrice) (bool, int) {
-					if len(collected) == 0 {
-						return false, 0
-					}
-
 					k := sort.Search(len(collected), func(i int) bool {
 						return collected[i].Timestamp <= pivotValue
 					})
-					shouldStop := k < len(collected)
-					return !shouldStop, k
+					shouldGo := k == len(collected)
+					return shouldGo, k
 				}
 
 				var page = 1
@@ -246,6 +242,9 @@ func (w *Watcher) Collect() {
 					// 그렇지 않으면 페이지를 늘린다
 					// 그리고 잠시 쉰다
 					collected := CrawlPast(stockID, page)
+					if len(collected) == 0 {
+						break
+					}
 					shouldGo, k := shouldCollectMore(collected)
 					if (k + 1) < len(collected) {
 						k++
