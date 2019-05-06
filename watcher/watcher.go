@@ -195,13 +195,20 @@ func (w *Watcher) Collect() {
 		logger.Error("[Watcher] Error while querying WatchingStock for Collect: %s", errWatching.Error())
 		return
 	}
+	registeredWatching := make([]WatchingStock, 0)
+	for i := range watching {
+		_, ok := w.crawlers[watching[i].StockID]
+		if ok {
+			registeredWatching = append(registeredWatching, watching[i])
+		}
+	}
 
 	logger.Info("[Watcher] Start Collect")
-	for _, v := range watching {
-		sentinel := w.crawlers[v.StockID].sentinel
-		newCrawler := newInternalCrawler(v.LastPriceTimestamp)
+	for _, watch := range registeredWatching {
+		sentinel := w.crawlers[watch.StockID].sentinel
+		newCrawler := newInternalCrawler(watch.LastPriceTimestamp)
 		newCrawler.sentinel = sentinel
-		w.crawlers[v.StockID] = newCrawler
+		w.crawlers[watch.StockID] = newCrawler
 	}
 
 	timestampTwoYears := GetCollectionStartingDate(commons.Now().Year() - 2).Unix()
@@ -286,7 +293,8 @@ func (w *Watcher) Collect() {
 		wg.Add(1)
 		sleepTime := randomGen.Float64()
 		sleepTime += 0.001
-		time.Sleep(time.Duration(sleepTime * float64(time.Second)))
+		duration := time.Duration(sleepTime * float64(time.Second))
+		time.Sleep(duration)
 	}
 	go func() {
 		wg.Wait()
