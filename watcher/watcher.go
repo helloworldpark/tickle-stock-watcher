@@ -196,6 +196,7 @@ func (w *Watcher) Collect() {
 		return
 	}
 	registeredWatching := make([]WatchingStock, 0)
+	w.mutex.Lock()
 	for i := range watching {
 		_, ok := w.crawlers[watching[i].StockID]
 		if ok {
@@ -209,7 +210,8 @@ func (w *Watcher) Collect() {
 		newCrawler.sentinel = sentinel
 		w.crawlers[watch.StockID] = newCrawler
 	}
-	logger.Info("[Watcher] Start Collect %d stocks", len(w.crawlers))
+	logger.Info("[Watcher] Start Collect %d stocks", len(registeredWatching))
+	w.mutex.Unlock()
 
 	timestampTwoYears := GetCollectionStartingDate(commons.Now().Year() - 2).Unix()
 
@@ -287,7 +289,8 @@ func (w *Watcher) Collect() {
 		}
 	}
 	randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for stockID := range w.crawlers {
+	for _, watch := range registeredWatching {
+		stockID := watch.StockID
 		worker := workerFuncGenerator(stockID)
 		go output(stockID, worker())
 		wg.Add(1)
@@ -348,7 +351,7 @@ func (w *Watcher) Collect() {
 		total += counter
 	}
 	wg2.Wait()
-	logger.Info("[Watcher] Finished Collect: %d stocks, %d items", len(w.crawlers), total)
+	logger.Info("[Watcher] Finished Collect: %d stocks, %d items", len(registeredWatching), total)
 }
 
 // GetCollectionStartingDate gets time until when to crawl

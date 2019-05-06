@@ -57,13 +57,17 @@ func TestCrawlPast(t *testing.T) {
 	})
 
 	w := watcher.New(client, time.Millisecond*500)
-	w.Register(structs.Stock{Name: "Samsung Electronics", StockID: "005930", MarketType: structs.KOSPI})
-	w.Register(structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI})
-	w.Register(structs.Stock{Name: "Hanwha Chemicals", StockID: "009830", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010060", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010100", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010120", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010130", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010140", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010400", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010420", MarketType: structs.KOSPI})
+	w.Register(structs.Stock{StockID: "010580", MarketType: structs.KOSPI})
 
 	now := time.Now().Unix()
 	w.Collect()
-
 	elapsed := time.Now().Unix() - now
 	logger.Info("Finished!! %d mins", elapsed/60)
 }

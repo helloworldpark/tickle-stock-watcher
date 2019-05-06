@@ -20,6 +20,7 @@ const (
 // CrawlPast actually performs crawling for the past prices
 func CrawlPast(stockID string, page int) []structs.StockPrice {
 	client := &http.Client{Timeout: 3 * time.Second}
+	fmt.Println("Stock And Page: ", stockID, page)
 	response, err := soup.GetWithClient(fmt.Sprintf(pastURLFormat, stockID, page), client)
 	if err != nil {
 		logger.Error("[Watcher] %s", err.Error())
