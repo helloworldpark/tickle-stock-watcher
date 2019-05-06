@@ -237,6 +237,7 @@ func (w *Watcher) Collect() {
 				}
 
 				var page = 1
+				var collectedLastTimestamp = int64(0)
 				for {
 					// 열심히 긁어온 값에서 같은 시간의 데이터를 발견하면 중지한다
 					// 그렇지 않으면 페이지를 늘린다
@@ -248,13 +249,14 @@ func (w *Watcher) Collect() {
 					shouldGo, k := shouldCollectMore(collected)
 					if (k + 1) < len(collected) {
 						k++
-					} else {
-						if shouldGo == false {
-							shouldGo = true
-						}
 					}
 					for i := 0; i < k; i++ {
 						outResult <- collected[i]
+						if collectedLastTimestamp < collected[i].Timestamp {
+							collectedLastTimestamp = collected[i].Timestamp
+						} else {
+							shouldGo = false
+						}
 					}
 					if shouldGo {
 						page++
