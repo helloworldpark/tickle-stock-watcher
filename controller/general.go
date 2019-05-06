@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ type General struct {
 // NewGeneral returns a new pointer to General, uninitialized
 func NewGeneral(dbClient *database.DBClient) *General {
 	g := General{
-		priceWatcher: watcher.New(dbClient, time.Millisecond*500),
+		priceWatcher: watcher.New(dbClient, time.Second),
 		dateChecker:  watcher.NewDateChecker(),
 		itemChecker:  watcher.NewStockItemChecker(dbClient),
 		broker:       analyser.NewBroker(dbClient),
@@ -238,10 +239,14 @@ func (g *General) Initialize() {
 		for _, v := range structs.AllStrategies(g.dbClient) {
 			stocks[v.StockID] = true
 		}
+		randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for k := range stocks {
 			if g.broker.CanFeedPrice(k) {
 				provider := g.priceWatcher.StartWatchingStock(k)
 				g.broker.FeedPrice(k, provider)
+				sleepTime := randomGen.Float64()
+				duration := time.Duration(sleepTime * float64(time.Second))
+				time.Sleep(duration)
 			}
 		}
 	}
