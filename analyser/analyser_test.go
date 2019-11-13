@@ -3,8 +3,8 @@ package analyser
 import (
 	"fmt"
 	"testing"
-	"time"
 
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/sdcoffey/techan"
 )
 
@@ -16,7 +16,7 @@ func TestRuleGeneration(t *testing.T) {
 		fmt.Println("------------------")
 	}
 	analyser := newTestAnalyser()
-	tokens, err := analyser.parseTokens("extrema(Price(), 1, 2) < 0")
+	tokens, err := analyser.parseTokens("extrema(Price(), 1, 5) < 0")
 	handleErr(err)
 	tokens, err = analyser.tidyTokens(tokens)
 	handleErr(err)
@@ -25,8 +25,8 @@ func TestRuleGeneration(t *testing.T) {
 	for _, f := range fcns {
 		fmt.Println(f.t.Kind, f.t.Value, f.argc)
 	}
-	event, err := analyser.createEvent(fcns, techan.BUY, func(currentTime time.Time, price float64, stockid string, orderSide int, userid int64, repeat bool) {
-		fmt.Println("Event Callback: ", currentTime, price, stockid, orderSide, userid, repeat)
+	event, err := analyser.createEvent(fcns, techan.BUY, func(price structs.StockPrice, orderSide int, userid int64, repeat bool) {
+		fmt.Println("Event Callback: ", price.Close, orderSide, userid, repeat)
 	})
 	handleErr(err)
 

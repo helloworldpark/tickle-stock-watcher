@@ -191,6 +191,27 @@ func (a *Analyser) cacheIndicators() {
 		return newLocalExtremaIndicator(indicator, lag, samples), nil
 	}
 	a.indicatorMap["extrema"] = funcExtrema
+
+	// Money Flow Index
+	funcMoneyFlow := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 1 {
+			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need 1", len(a)))
+		}
+		timeframe := int(a[0].(float64))
+		if timeframe < 1 {
+			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", timeframe))
+		}
+		if timeframe+1 < series.LastIndex() {
+			return nil, newError(fmt.Sprintf("Lag is shorter than the length of time series(time series: %d)", series.LastIndex()))
+		}
+		return newMoneyFlowIndex(series, timeframe), nil
+	}
+	a.indicatorMap["moneyflowindex"] = funcMoneyFlow
+	a.indicatorMap["moneyFlowIndex"] = funcMoneyFlow
+	a.indicatorMap["moneyflow"] = funcMoneyFlow
+	a.indicatorMap["moneyFlow"] = funcMoneyFlow
+	a.indicatorMap["mFlow"] = funcMoneyFlow
+	a.indicatorMap["mflow"] = funcMoneyFlow
 }
 
 func (a *Analyser) cacheRules() {

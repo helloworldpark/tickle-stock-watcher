@@ -42,7 +42,7 @@ func TestAnalyserBroker(t *testing.T) {
 	for _, v := range structs.AllStrategies(client) {
 		stock := structs.Stock{StockID: v.StockID}
 		g.priceWatcher.Register(stock)
-		g.broker.AddStrategy(v, g.onStrategyEvent, false)
+		// g.broker.AddStrategy(v, g.onStrategyEvent, false)
 
 		stocks[v.StockID] = true
 	}

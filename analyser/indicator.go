@@ -91,6 +91,47 @@ func newMACDHist(series *techan.TimeSeries, shortWindow, longWindow, signalWindo
 	return techan.NewMACDHistogramIndicator(macd, signalWindow)
 }
 
+type moneyFlowIndexIndicator struct {
+	series *techan.TimeSeries
+	window int
+}
+
+func (id *moneyFlowIndexIndicator) typicalPrice(index int) big.Decimal {
+	candle := id.series.Candles[index]
+	return candle.MinPrice.Add(candle.MaxPrice).Add(candle.ClosePrice).Div(big.NewDecimal(3))
+}
+
+// https://school.stockcharts.com/doku.php?id=technical_indicators:money_flow_index_mfi#calculation
+func (id *moneyFlowIndexIndicator) Calculate(index int) big.Decimal {
+	idx := index - id.window - 1
+	lastTypicalPrice := id.typicalPrice(idx)
+	positiveMflow := big.ZERO
+	negativeMflow := big.ZERO
+	for idx <= index {
+		idx++
+		currentTypicalPrice := id.typicalPrice(idx)
+		volume := id.series.Candles[idx].Volume
+		if lastTypicalPrice.Cmp(currentTypicalPrice) == -1 { // last < current
+			positiveMflow.Add(currentTypicalPrice.Mul(volume))
+		} else if lastTypicalPrice.Cmp(currentTypicalPrice) == 1 { // last > current
+			negativeMflow.Add(currentTypicalPrice.Mul(volume))
+		}
+		lastTypicalPrice = currentTypicalPrice
+	}
+	if negativeMflow.Zero() {
+		return big.NewDecimal(100)
+	}
+	moneyRate := positiveMflow.Div(negativeMflow)
+	return moneyRate.Div(big.ONE.Add(moneyRate)).Mul(big.NewDecimal(100))
+}
+
+func newMoneyFlowIndex(series *techan.TimeSeries, window int) techan.Indicator {
+	return &moneyFlowIndexIndicator{
+		series: series,
+		window: window,
+	}
+}
+
 type lagDifferenceIndicator struct {
 	indicator techan.Indicator
 	lag       int
