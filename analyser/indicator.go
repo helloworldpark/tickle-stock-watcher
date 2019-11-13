@@ -103,18 +103,22 @@ func (id *moneyFlowIndexIndicator) typicalPrice(index int) big.Decimal {
 
 // https://school.stockcharts.com/doku.php?id=technical_indicators:money_flow_index_mfi#calculation
 func (id *moneyFlowIndexIndicator) Calculate(index int) big.Decimal {
+	if index < id.window+1 {
+		return big.NewDecimal(100)
+	}
 	idx := index - id.window - 1
 	lastTypicalPrice := id.typicalPrice(idx)
 	positiveMflow := big.ZERO
 	negativeMflow := big.ZERO
-	for idx <= index {
+	for idx < index {
 		idx++
 		currentTypicalPrice := id.typicalPrice(idx)
 		volume := id.series.Candles[idx].Volume
-		if lastTypicalPrice.Cmp(currentTypicalPrice) == -1 { // last < current
-			positiveMflow.Add(currentTypicalPrice.Mul(volume))
-		} else if lastTypicalPrice.Cmp(currentTypicalPrice) == 1 { // last > current
-			negativeMflow.Add(currentTypicalPrice.Mul(volume))
+		isPositive := currentTypicalPrice.Cmp(lastTypicalPrice)
+		if isPositive == 1 { // current > last
+			positiveMflow = positiveMflow.Add(currentTypicalPrice.Mul(volume))
+		} else if isPositive == -1 { // current < last
+			negativeMflow = negativeMflow.Add(currentTypicalPrice.Mul(volume))
 		}
 		lastTypicalPrice = currentTypicalPrice
 	}
@@ -122,7 +126,8 @@ func (id *moneyFlowIndexIndicator) Calculate(index int) big.Decimal {
 		return big.NewDecimal(100)
 	}
 	moneyRate := positiveMflow.Div(negativeMflow)
-	return moneyRate.Div(big.ONE.Add(moneyRate)).Mul(big.NewDecimal(100))
+	moneyFlow := moneyRate.Div(big.ONE.Add(moneyRate)).Mul(big.NewDecimal(100))
+	return moneyFlow
 }
 
 func newMoneyFlowIndex(series *techan.TimeSeries, window int) techan.Indicator {
