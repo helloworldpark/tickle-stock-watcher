@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -344,7 +345,7 @@ func newFunction(t token, argc int) *function {
 }
 
 // 재귀함수로 동작
-func (a *Analyser) findFuncArgumentCount(tokens *[]token, startIdx int) (map[token]int, int, error) {
+func findFuncArgumentCount(tokens *[]token, startIdx int) (map[token]int, int, error) {
 	if startIdx == len(*tokens)-1 {
 		return make(map[govaluate.ExpressionToken]int), 0, nil
 	}
@@ -357,7 +358,6 @@ func (a *Analyser) findFuncArgumentCount(tokens *[]token, startIdx int) (map[tok
 OUTERFOR:
 	for idx < len(*tokens) {
 		t := (*tokens)[idx]
-		fmt.Printf("findFcnArgc[%d][%d][%v][%s]\n", startIdx, idx, t.Value, t.Kind.String())
 		switch t.Kind {
 		case govaluate.CLAUSE_CLOSE: // stop
 			startedSearch = false
@@ -365,7 +365,7 @@ OUTERFOR:
 			break OUTERFOR
 		case govaluate.VARIABLE:
 			if startedSearch {
-				subFuncArgs, fcnLength, err := a.findFuncArgumentCount(tokens, idx)
+				subFuncArgs, fcnLength, err := findFuncArgumentCount(tokens, idx)
 				if err != nil {
 					fmt.Println(err.Error())
 					return nil, (idx + 1 - startIdx), err
@@ -394,6 +394,38 @@ OUTERFOR:
 	return result, idx - startIdx, nil
 }
 
+// clauseMap: true if clause, false if clauseClose
+type clausePair struct {
+	openIdx  int
+	closeIdx int
+}
+
+func inspectClausePairs(tokens *[]token) (closeMap map[int]*clausePair, err error) {
+	stack := make([]*clausePair, 0)
+	closeMap = make(map[int]*clausePair)
+	err = nil
+
+	for idx, tok := range *tokens {
+		if tok.Kind == govaluate.CLAUSE {
+			stack = append(stack, &clausePair{idx, -1})
+		} else if tok.Kind == govaluate.CLAUSE_CLOSE {
+			if len(stack) == 0 {
+				return nil, newError("Invalid pairing of clauses: Pairs do not match.")
+			}
+			popped := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			popped.closeIdx = idx
+			closeMap[idx] = popped
+		}
+	}
+
+	if len(stack) > 0 {
+		return nil, newError(fmt.Sprintf("Invalid pairing of clauses: Some clauses are left(%v)", tokens))
+	}
+
+	return closeMap, err
+}
+
 func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 	// Convert tokens into techan strategy
 	// Tokens are reordered by postfix notation
@@ -408,7 +440,43 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 
 	postfixToken := make([]function, 0)
 	operatorStack := make([]*function, 0)
-	clauseIdxStack := make([]int, 0)
+
+	closeClauseMap, _ := inspectClausePairs(&tokens)
+
+	// 불필요한 괄호들은 trim한다
+	clauseList := make([]*clausePair, 0)
+	for _, v := range closeClauseMap {
+		clauseList = append(clauseList, v)
+	}
+	sort.Slice(clauseList, func(i, j int) bool {
+		return clauseList[i].openIdx < clauseList[j].openIdx
+	})
+	for _, pair := range clauseList {
+		dummy := false
+		if pair.openIdx == 0 {
+			dummy = true
+		} else if tokens[pair.openIdx-1].Kind == govaluate.COMPARATOR {
+			dummy = true
+		} else if tokens[pair.openIdx-1].Kind == govaluate.LOGICALOP {
+			dummy = true
+		}
+
+		if dummy {
+			tokens = append(tokens[:pair.closeIdx], tokens[pair.closeIdx+1:]...)
+			tokens = append(tokens[:pair.openIdx], tokens[pair.openIdx+1:]...)
+			for _, subPair := range clauseList {
+				subPair.openIdx--
+				subPair.closeIdx--
+				if pair.closeIdx < subPair.closeIdx {
+					subPair.closeIdx--
+				}
+				if pair.closeIdx < subPair.openIdx {
+					subPair.openIdx--
+				}
+			}
+		}
+	}
+	closeClauseMap, _ = inspectClausePairs(&tokens)
 
 	for i := range tokens {
 		t := tokens[i]
@@ -434,9 +502,6 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 			operatorStack = append(operatorStack, newFunction(t, 0))
 		case govaluate.CLAUSE:
 			operatorStack = append(operatorStack, newFunction(t, 0))
-			// 함수의 인자의 갯수를 파악하기 위해
-			// 스택을 사용하여 함수들의 인자를 순서대로 파악한다
-			clauseIdxStack = append(clauseIdxStack, i)
 		case govaluate.CLAUSE_CLOSE:
 			for {
 				o := operatorStack[len(operatorStack)-1]
@@ -447,14 +512,13 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 					postfixToken = append(postfixToken, *o)
 				}
 			}
-			lastClauseIdx := clauseIdxStack[len(clauseIdxStack)-1]
+			openClauseIdx := closeClauseMap[i].openIdx
 			// 함수도 operator stack에서 pop하고 postfix stack으로 옮긴다
-			if lastClauseIdx-1 >= 0 && tokens[lastClauseIdx-1].Kind == govaluate.VARIABLE {
+			if openClauseIdx-1 >= 0 && tokens[openClauseIdx-1].Kind == govaluate.VARIABLE {
 				o := operatorStack[len(operatorStack)-1]
 				operatorStack = operatorStack[:len(operatorStack)-1]
 				postfixToken = append(postfixToken, *o)
 			}
-			clauseIdxStack = clauseIdxStack[:len(clauseIdxStack)-1]
 		case govaluate.SEPARATOR:
 			continue
 		default:
@@ -468,7 +532,7 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 		operatorStack = operatorStack[:j]
 	}
 	// 함수 인자의 수를 넣어준다
-	funcArgcMap, _, _ := a.findFuncArgumentCount(&tokens, 0)
+	funcArgcMap, _, _ := findFuncArgumentCount(&tokens, 0)
 	for idx := range postfixToken {
 		argc, funcExists := funcArgcMap[postfixToken[idx].t]
 		if funcExists {
