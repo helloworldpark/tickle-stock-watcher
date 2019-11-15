@@ -106,15 +106,15 @@ func (a *Analyser) cacheIndicators() {
 	modifierAppender := func(operator string, ctor func(lhs, rhs techan.Indicator) techan.Indicator) {
 		f := func(series *techan.TimeSeries, args ...interface{}) (techan.Indicator, error) {
 			if len(args) != 2 {
-				return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need more or equal to 2", len(args)))
+				return nil, newError(fmt.Sprintf("[+-*/] Not enough parameters: got %d, need more or equal to 2", len(args)))
 			}
 			lhs, ok := args[0].(techan.Indicator)
 			if !ok {
-				return nil, newError(fmt.Sprintf("First argument must be of type techan.Indicator, you are %v", args[0]))
+				return nil, newError(fmt.Sprintf("[+-*/] First argument must be of type techan.Indicator, you are %v", args[0]))
 			}
 			rhs, ok := args[1].(techan.Indicator)
 			if !ok {
-				return nil, newError(fmt.Sprintf("Second argument must be of type techan.Indicator, you are %v", args[1]))
+				return nil, newError(fmt.Sprintf("[+-*/] Second argument must be of type techan.Indicator, you are %v", args[1]))
 			}
 			return ctor(lhs, rhs), nil
 		}
@@ -138,18 +138,18 @@ func (a *Analyser) cacheIndicators() {
 			signalWindow := int(a[2].(float64))
 			return newMACDHist(series, shortWindow, longWindow, signalWindow), nil
 		}
-		return nil, newError(fmt.Sprintf("Too much parameters: got %d, need less or equal to 3", len(a)))
+		return nil, newError(fmt.Sprintf("[MACD] Too much parameters: got %d, need less or equal to 3", len(a)))
 	}
 	a.indicatorMap["macd"] = funcMacd
 
 	// RSI
 	funcRsi := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 1 {
-			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need 1", len(a)))
+			return nil, newError(fmt.Sprintf("[rsi] Not enough parameters: got %d, need 1", len(a)))
 		}
 		timeframe := int(a[0].(float64))
 		if timeframe < 1 {
-			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", timeframe))
+			return nil, newError(fmt.Sprintf("[rsi] Lag should be longer than 0, not %d", timeframe))
 		}
 		return newRSI(series, timeframe), nil
 	}
@@ -158,7 +158,7 @@ func (a *Analyser) cacheIndicators() {
 	// Close Price
 	funcClose := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 0 {
-			return nil, newError(fmt.Sprintf("Too many parameters: got %d, need 0", len(a)))
+			return nil, newError(fmt.Sprintf("[ClosePrice] Too many parameters: got %d, need 0", len(a)))
 		}
 		return techan.NewClosePriceIndicator(series), nil
 	}
@@ -169,12 +169,12 @@ func (a *Analyser) cacheIndicators() {
 	// Increase
 	funcIncrease := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 2 {
-			return nil, newError(fmt.Sprintf("Number of parameters incorrect: got %d, need 2", len(a)))
+			return nil, newError(fmt.Sprintf("[Increase] Number of parameters incorrect: got %d, need 2", len(a)))
 		}
 		indicator := a[0].(techan.Indicator)
 		lag := int(a[1].(float64))
 		if lag < 1 {
-			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", lag))
+			return nil, newError(fmt.Sprintf("[Increase] Lag should be longer than 0, not %d", lag))
 		}
 		return newIncreaseIndicator(indicator, lag), nil
 	}
@@ -183,16 +183,16 @@ func (a *Analyser) cacheIndicators() {
 	// Local Extrema
 	funcExtrema := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 3 {
-			return nil, newError(fmt.Sprintf("Number of parameters incorrect: got %d, need 3", len(a)))
+			return nil, newError(fmt.Sprintf("[LocalExtrema] Number of parameters incorrect: got %d, need 3", len(a)))
 		}
 		indicator := a[0].(techan.Indicator)
 		lag := int(a[1].(float64))
 		if lag < 1 {
-			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", lag))
+			return nil, newError(fmt.Sprintf("[LocalExtrema] Lag should be longer than 0, not %d", lag))
 		}
 		samples := int(a[2].(float64))
 		if samples < 4 {
-			return nil, newError(fmt.Sprintf("Samples should be more than 4, not %d", lag))
+			return nil, newError(fmt.Sprintf("[LocalExtrema] Samples should be more than 4, not %d", lag))
 		}
 		return newLocalExtremaIndicator(indicator, lag, samples), nil
 	}
@@ -201,14 +201,14 @@ func (a *Analyser) cacheIndicators() {
 	// Money Flow Index
 	funcMoneyFlow := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) != 1 {
-			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need 1", len(a)))
+			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Not enough parameters: got %d, need 1", len(a)))
 		}
 		timeframe := int(a[0].(float64))
 		if timeframe < 1 {
-			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", timeframe))
+			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Lag should be longer than 0, not %d", timeframe))
 		}
 		if timeframe+1 > series.LastIndex() {
-			return nil, newError(fmt.Sprintf("Lag is shorter than the length of time series(time series: %d)", series.LastIndex()))
+			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Lag is shorter than the length of time series(time series: %d)", series.LastIndex()))
 		}
 		return newMoneyFlowIndex(series, timeframe), nil
 	}
