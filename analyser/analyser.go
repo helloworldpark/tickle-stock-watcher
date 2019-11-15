@@ -345,53 +345,53 @@ func newFunction(t token, argc int) *function {
 }
 
 // 재귀함수로 동작
-func findFuncArgumentCount(tokens *[]token, startIdx int) (map[token]int, int, error) {
+func findFuncArgumentCount(tokens *[]token, clauses map[int]int, startIdx, endIdx int) (map[token]int, int, error) {
 	if startIdx == len(*tokens)-1 {
 		return make(map[govaluate.ExpressionToken]int), 0, nil
 	}
 
-	vars := 0
 	result := make(map[govaluate.ExpressionToken]int)
 	startedSearch := false
-	idx := startIdx
+	tokenIdx := startIdx
+	fcnNameIdx := -1
 
-OUTERFOR:
-	for idx < len(*tokens) {
-		t := (*tokens)[idx]
+	for tokenIdx <= endIdx {
+		t := (*tokens)[tokenIdx]
 		switch t.Kind {
-		case govaluate.CLAUSE_CLOSE: // stop
-			startedSearch = false
-			idx++
-			break OUTERFOR
 		case govaluate.VARIABLE:
 			if startedSearch {
-				subFuncArgs, fcnLength, err := findFuncArgumentCount(tokens, idx)
+				subEndIdx := clauses[tokenIdx+1]
+				subFuncArgs, idxToSkip, err := findFuncArgumentCount(tokens, clauses, tokenIdx, subEndIdx)
 				if err != nil {
-					fmt.Println(err.Error())
-					return nil, (idx + 1 - startIdx), err
+					return nil, (tokenIdx + 1 - startIdx), err
 				}
 				for subFunc := range subFuncArgs {
 					subArgc := subFuncArgs[subFunc]
 					result[subFunc] = subArgc
 				}
-				vars++
-				idx += fcnLength
+				result[(*tokens)[fcnNameIdx]]++
+				tokenIdx += idxToSkip
 			} else {
 				startedSearch = true
-				idx++
+				fcnNameIdx = tokenIdx
+				result[t] = 0
+				tokenIdx++
 			}
 		case govaluate.NUMERIC:
 			if startedSearch {
-				vars++
+				result[(*tokens)[fcnNameIdx]]++
 			}
-			idx++
+			tokenIdx++
+		case govaluate.CLAUSE_CLOSE: // stop for a function, can proceed
+			startedSearch = false
+			fcnNameIdx = -1
+			tokenIdx++
 		default:
-			idx++
+			tokenIdx++
 		}
 	}
-	result[(*tokens)[startIdx]] = vars
 
-	return result, idx - startIdx, nil
+	return result, tokenIdx - startIdx, nil
 }
 
 // clauseMap: true if clause, false if clauseClose
@@ -532,7 +532,11 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 		operatorStack = operatorStack[:j]
 	}
 	// 함수 인자의 수를 넣어준다
-	funcArgcMap, _, _ := findFuncArgumentCount(&tokens, 0)
+	openCloseClauseMap := make(map[int]int)
+	for _, v := range closeClauseMap {
+		openCloseClauseMap[v.openIdx] = v.closeIdx
+	}
+	funcArgcMap, _, _ := findFuncArgumentCount(&tokens, openCloseClauseMap, 0, len(tokens)-1)
 	for idx := range postfixToken {
 		argc, funcExists := funcArgcMap[postfixToken[idx].t]
 		if funcExists {
