@@ -128,7 +128,7 @@ func (a *Analyser) cacheIndicators() {
 	// MACD
 	funcMacd := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
 		if len(a) < 2 {
-			return nil, newError(fmt.Sprintf("Not enough parameters: got %d, need 2(MACD) or 3(MACD+Histogram)", len(a)))
+			return nil, newError(fmt.Sprintf("[MACD] Not enough parameters: got %d, need 2(MACD) or 3(MACD+Histogram)", len(a)))
 		}
 		shortWindow := int(a[0].(float64))
 		longWindow := int(a[1].(float64))
