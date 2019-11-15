@@ -207,9 +207,9 @@ func (a *Analyser) cacheIndicators() {
 		if timeframe < 1 {
 			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Lag should be longer than 0, not %d", timeframe))
 		}
-		if timeframe+1 > series.LastIndex() {
-			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Length of time series is shorter than the lag(time series: %d)", series.LastIndex()))
-		}
+		// if timeframe+1 > series.LastIndex() {
+		// 	return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Length of time series is shorter than the lag(time series: %d)", series.LastIndex()))
+		// }
 		return newMoneyFlowIndex(series, timeframe), nil
 	}
 	a.indicatorMap["moneyflowindex"] = funcMoneyFlow
