@@ -343,7 +343,7 @@ func newFunction(t token, argc int) *function {
 	return &f
 }
 
-// 자고 나서 함수 걸리면 함수에 대해 검색한 만큼 건너뛰도록 수정
+// 재귀함수로 동작
 func (a *Analyser) findFuncArgumentCount(tokens *[]token, startIdx int) (map[token]int, int, error) {
 	if startIdx == len(*tokens)-1 {
 		return make(map[govaluate.ExpressionToken]int), 0, nil
@@ -408,10 +408,7 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 
 	postfixToken := make([]function, 0)
 	operatorStack := make([]*function, 0)
-	realFcnStack := make([]*function, 0)
 	clauseIdxStack := make([]int, 0)
-
-	funcArgcMap, _, _ := a.findFuncArgumentCount(&tokens, 0)
 
 	for i := range tokens {
 		t := tokens[i]
@@ -435,9 +432,6 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 				}
 			}
 			operatorStack = append(operatorStack, newFunction(t, 0))
-			if t.Kind == govaluate.VARIABLE {
-				realFcnStack = append(realFcnStack, operatorStack[len(operatorStack)-1])
-			}
 		case govaluate.CLAUSE:
 			operatorStack = append(operatorStack, newFunction(t, 0))
 			// 함수의 인자의 갯수를 파악하기 위해
@@ -454,22 +448,15 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 				}
 			}
 			lastClauseIdx := clauseIdxStack[len(clauseIdxStack)-1]
-			// 함수의 괄호였으므로, realFcnStack에서 함수포인터를 pop한다
 			// 함수도 operator stack에서 pop하고 postfix stack으로 옮긴다
 			if lastClauseIdx-1 >= 0 && tokens[lastClauseIdx-1].Kind == govaluate.VARIABLE {
-				if realFcnStack[len(realFcnStack)-1].argc > 0 {
-					realFcnStack[len(realFcnStack)-1].argc++
-				}
-				realFcnStack = realFcnStack[:len(realFcnStack)-1]
 				o := operatorStack[len(operatorStack)-1]
 				operatorStack = operatorStack[:len(operatorStack)-1]
 				postfixToken = append(postfixToken, *o)
 			}
 			clauseIdxStack = clauseIdxStack[:len(clauseIdxStack)-1]
 		case govaluate.SEPARATOR:
-			if len(realFcnStack) > 0 {
-				realFcnStack[len(realFcnStack)-1].argc++
-			}
+			continue
 		default:
 			return nil, newError(fmt.Sprintf("Invalid token: %v", t))
 		}
@@ -480,6 +467,8 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 		}
 		operatorStack = operatorStack[:j]
 	}
+	// 함수 인자의 수를 넣어준다
+	funcArgcMap, _, _ := a.findFuncArgumentCount(&tokens, 0)
 	for idx := range postfixToken {
 		argc, funcExists := funcArgcMap[postfixToken[idx].t]
 		if funcExists {
