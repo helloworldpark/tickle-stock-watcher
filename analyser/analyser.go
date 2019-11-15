@@ -3,6 +3,7 @@ package analyser
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -69,7 +70,11 @@ func newTestAnalyser() *Analyser {
 	for i := 0; i < 100; i++ {
 		start := time.Date(0, 0, i, 0, 0, 0, 0, time.UTC)
 		candle := techan.NewCandle(techan.NewTimePeriod(start, time.Hour*6))
-		candle.ClosePrice = big.NewDecimal(math.Sin(float64(i)))
+		base := (math.Sin(float64(0.1*float64(i)))+1)*10000 + 200
+		candle.ClosePrice = big.NewDecimal(base)
+		candle.MaxPrice = big.NewDecimal(base + rand.Float64()*100)
+		candle.MinPrice = big.NewDecimal(base - rand.Float64()*100)
+		candle.Volume = big.NewDecimal(rand.Float64() * 1000)
 		analyser.timeSeries.AddCandle(candle)
 	}
 	return analyser
@@ -201,7 +206,7 @@ func (a *Analyser) cacheIndicators() {
 		if timeframe < 1 {
 			return nil, newError(fmt.Sprintf("Lag should be longer than 0, not %d", timeframe))
 		}
-		if timeframe+1 < series.LastIndex() {
+		if timeframe+1 > series.LastIndex() {
 			return nil, newError(fmt.Sprintf("Lag is shorter than the length of time series(time series: %d)", series.LastIndex()))
 		}
 		return newMoneyFlowIndex(series, timeframe), nil
@@ -338,6 +343,57 @@ func newFunction(t token, argc int) *function {
 	return &f
 }
 
+// 자고 나서 함수 걸리면 함수에 대해 검색한 만큼 건너뛰도록 수정
+func (a *Analyser) findFuncArgumentCount(tokens *[]token, startIdx int) (map[token]int, int, error) {
+	if startIdx == len(*tokens)-1 {
+		return make(map[govaluate.ExpressionToken]int), 0, nil
+	}
+
+	vars := 0
+	result := make(map[govaluate.ExpressionToken]int)
+	startedSearch := false
+	idx := startIdx
+
+OUTERFOR:
+	for idx < len(*tokens) {
+		t := (*tokens)[idx]
+		fmt.Printf("findFcnArgc[%d][%d][%v][%s]\n", startIdx, idx, t.Value, t.Kind.String())
+		switch t.Kind {
+		case govaluate.CLAUSE_CLOSE: // stop
+			startedSearch = false
+			idx++
+			break OUTERFOR
+		case govaluate.VARIABLE:
+			if startedSearch {
+				subFuncArgs, fcnLength, err := a.findFuncArgumentCount(tokens, idx)
+				if err != nil {
+					fmt.Println(err.Error())
+					return nil, (idx + 1 - startIdx), err
+				}
+				for subFunc := range subFuncArgs {
+					subArgc := subFuncArgs[subFunc]
+					result[subFunc] = subArgc
+				}
+				vars++
+				idx += fcnLength
+			} else {
+				startedSearch = true
+				idx++
+			}
+		case govaluate.NUMERIC:
+			if startedSearch {
+				vars++
+			}
+			idx++
+		default:
+			idx++
+		}
+	}
+	result[(*tokens)[startIdx]] = vars
+
+	return result, idx - startIdx, nil
+}
+
 func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 	// Convert tokens into techan strategy
 	// Tokens are reordered by postfix notation
@@ -354,6 +410,9 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 	operatorStack := make([]*function, 0)
 	realFcnStack := make([]*function, 0)
 	clauseIdxStack := make([]int, 0)
+
+	funcArgcMap, _, _ := a.findFuncArgumentCount(&tokens, 0)
+
 	for i := range tokens {
 		t := tokens[i]
 		switch t.Kind {
@@ -420,6 +479,12 @@ func (a *Analyser) reorderTokenByPostfix(tokens []token) ([]function, error) {
 			postfixToken = append(postfixToken, *operatorStack[j])
 		}
 		operatorStack = operatorStack[:j]
+	}
+	for idx := range postfixToken {
+		argc, funcExists := funcArgcMap[postfixToken[idx].t]
+		if funcExists {
+			postfixToken[idx].argc = argc
+		}
 	}
 	return postfixToken, nil
 }
