@@ -283,6 +283,12 @@ func findLocalExtrema(f vec4) extrema {
 	return extrema{minima: minima, maxima: maxima}
 }
 
+func value(f vec4) func(float64) float64 {
+	return func(t float64) float64 {
+		return f[0] + t*(f[1]+t*(f[2]+t*f[3]))
+	}
+}
+
 func derivative(f vec4) func(float64) float64 {
 	return func(t float64) float64 {
 		return f[1] + t*(2*f[2]+t*3*f[3])
@@ -293,4 +299,55 @@ func curvature(f vec4) func(float64) float64 {
 	return func(t float64) float64 {
 		return 2*f[2] + t*6*f[3]
 	}
+}
+
+type localZeroIndicator struct {
+	indicator techan.Indicator
+	lag       int
+	samples   int
+}
+
+func (ld localZeroIndicator) Calculate(index int) big.Decimal {
+	// -1: Invalid
+	//  0: No zero
+	//  1: Zero exists, and increasing
+	//  2: Zero exists, and decreasing
+	r := new(regression.Regression)
+	dataAdded := 0
+	for i := 0; i < ld.samples; i++ {
+		idx := index - i*ld.lag
+		if idx < 0 {
+			return big.NewDecimal(-1)
+		}
+		t := float64(ld.samples - i - 1)
+		p := ld.indicator.Calculate(idx).Float()
+		r.Train(regression.DataPoint(p, []float64{t, t * t, t * t * t}))
+		dataAdded++
+	}
+	r.Run()
+
+	c := newVec4(r.Coeff(0), r.Coeff(1), r.Coeff(2), r.Coeff(3))
+	if !hasLocalExtrema(c) {
+		if c[3] > 0 {
+			return big.NewDecimal(6)
+		}
+		return big.NewDecimal(3)
+	}
+	f0 := value(c)
+	f1 := derivative(c)
+	now := float64(ld.samples - 1)
+
+	increasing := f1(now) > 0
+	hasZero := f0(0)*f0(now) < 0
+	if hasZero {
+		if increasing {
+			return big.NewDecimal(1)
+		}
+		return big.NewDecimal(2)
+	}
+	return big.NewDecimal(0)
+}
+
+func newLocalZeroIndicator(indicator techan.Indicator, lag, samples int) techan.Indicator {
+	return localZeroIndicator{indicator: indicator, lag: lag, samples: samples}
 }

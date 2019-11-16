@@ -207,9 +207,6 @@ func (a *Analyser) cacheIndicators() {
 		if timeframe < 1 {
 			return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Lag should be longer than 0, not %d", timeframe))
 		}
-		// if timeframe+1 > series.LastIndex() {
-		// 	return nil, newError(fmt.Sprintf("[MoneyFlowIndex] Length of time series is shorter than the lag(time series: %d)", series.LastIndex()))
-		// }
 		return newMoneyFlowIndex(series, timeframe), nil
 	}
 	a.indicatorMap["moneyflowindex"] = funcMoneyFlow
@@ -218,6 +215,26 @@ func (a *Analyser) cacheIndicators() {
 	a.indicatorMap["moneyFlow"] = funcMoneyFlow
 	a.indicatorMap["mFlow"] = funcMoneyFlow
 	a.indicatorMap["mflow"] = funcMoneyFlow
+
+	// Zero
+	funcIsZero := func(series *techan.TimeSeries, a ...interface{}) (techan.Indicator, error) {
+		if len(a) != 3 {
+			return nil, newError(fmt.Sprintf("[Zero] Number of parameters incorrect: got %d, need 3", len(a)))
+		}
+		indicator := a[0].(techan.Indicator)
+		lag := int(a[1].(float64))
+		if lag < 1 {
+			return nil, newError(fmt.Sprintf("[Zero] Lag should be longer than 0, not %d", lag))
+		}
+		samples := int(a[2].(float64))
+		if samples < 4 {
+			return nil, newError(fmt.Sprintf("[Zero] Samples should be more than 4, not %d", lag))
+		}
+		return newLocalZeroIndicator(indicator, lag, samples), nil
+	}
+	a.indicatorMap["isZero"] = funcIsZero
+	a.indicatorMap["iszero"] = funcIsZero
+	a.indicatorMap["zero"] = funcIsZero
 }
 
 func (a *Analyser) cacheRules() {
