@@ -389,6 +389,13 @@ func findFuncArgumentCount(tokens *[]token, clauses map[int]int, startIdx, endId
 				result[(*tokens)[fcnNameIdx]]++
 				tokenIdx += idxToSkip
 			} else {
+				// 인자가 없는 경우 괄호를 생략하기도 함
+				// 이에 대한 예외처리
+				if tokenIdx < endIdx && (*tokens)[tokenIdx+1].Kind != govaluate.CLAUSE {
+					result[t] = 0
+					tokenIdx++
+					continue
+				}
 				startedSearch = true
 				fcnNameIdx = tokenIdx
 				result[t] = 0
@@ -591,7 +598,6 @@ func (a *Analyser) createRule(fcns []function) (techan.Rule, error) {
 
 		switch f.t.Kind {
 		case govaluate.NUMERIC:
-			// indicators = append(indicators, techan.NewConstantIndicator(t.Value.(float64)))
 			indicators = append(indicators, f.t.Value.(float64))
 		case govaluate.VARIABLE:
 			// 함수를 구성한다
