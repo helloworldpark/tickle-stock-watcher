@@ -75,3 +75,19 @@ func Unix(timestamp int64) time.Time {
 	t = t.In(AsiaSeoul)
 	return t
 }
+
+// MaxInt Maximum of two numbers
+func MaxInt(a, b int) int {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+// MinInt Minimum of two numbers
+func MinInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
