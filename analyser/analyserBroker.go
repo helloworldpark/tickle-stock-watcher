@@ -210,7 +210,7 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	holder := b.analysers[stockID]
 	holder.analyser.prepareWatching()
 	b.mutex.Unlock()
-	go func() {
+	funcWork := func() {
 		defer logger.Info("[Analyser] Stop watching price: %s", stockID)
 		defer holder.analyser.stopWatchingPrice()
 		for {
@@ -219,26 +219,15 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 				if !ok {
 					return
 				}
-				holder.analyser.watchStockPrice(price)
+				holder.analyser.watchPrice(price)
 				holder.analyser.CalculateStrategies()
 			case <-holder.sentinel:
 				logger.Info("[Analyser] Holder Sentinel Called: %s", stockID)
 				return
 			}
 		}
-	}()
-}
-
-// AppendPastPrice is for appending the past price of the stock.
-func (b *Broker) AppendPastPrice(stockPrice structs.StockPrice) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	holder, ok := b.analysers[stockPrice.StockID]
-	if ok {
-		holder.analyser.AppendPastStockPrice(stockPrice)
-	} else {
-		logger.Error("[Analyser] Attempt to append past price of nonexisting stock ID: %s", stockPrice.StockID)
 	}
+	commons.InvokeGoroutine(fmt.Sprintf("[Broker][%s]", stockID), funcWork)
 }
 
 // UpdatePastPrice is for updating the past price of the stock.
@@ -276,7 +265,7 @@ func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHold
 		return
 	}
 	for i := range prices {
-		holder.analyser.AppendPastStockPrice(prices[i])
+		holder.analyser.AppendPastPrice(prices[i])
 	}
 	logger.Info("[Analyser] Updated past price info of %s: %d cases", stockID, len(prices))
 }

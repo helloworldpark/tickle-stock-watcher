@@ -13,6 +13,14 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 )
 
+// CandleTimeUnitMinute 하나의 캔들은 15분
+const CandleTimeUnitMinute = int64(15) // 15분
+// CandleTimeUnitSeconds 하나의 캔들은 15분, 이를 초 단위로 표현
+const CandleTimeUnitSeconds = CandleTimeUnitMinute * 60
+
+// CandleTimeUnitNanoseconds 하나의 캔들은 15분, 이를 time.Time 구조체로 표현
+const CandleTimeUnitNanoseconds = time.Minute * 15 // 15분
+
 // StockPrice is just a simple type alias
 type StockPrice = structs.StockPrice
 

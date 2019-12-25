@@ -3,6 +3,8 @@ package analyser
 import (
 	"math"
 
+	"github.com/helloworldpark/gonaturalspline/cubicSpline"
+	"github.com/helloworldpark/gonaturalspline/knot"
 	"github.com/sajari/regression"
 	"github.com/sdcoffey/big"
 	"github.com/sdcoffey/techan"
@@ -327,18 +329,58 @@ func (ld localZeroIndicator) Calculate(index int) big.Decimal {
 	r.Run()
 
 	c := newVec4(r.Coeff(0), r.Coeff(1), r.Coeff(2), r.Coeff(3))
-	if !hasLocalExtrema(c) {
-		if c[3] > 0 {
-			return big.NewDecimal(6)
-		}
-		return big.NewDecimal(3)
-	}
 	f0 := value(c)
 	f1 := derivative(c)
 	now := float64(ld.samples - 1)
 
 	increasing := f1(now) > 0
-	hasZero := f0(0)*f0(now) < 0
+	hasZero := f0(now) > 0 && f0(now*0.75) < 0
+	if hasZero {
+		if increasing {
+			return big.NewDecimal(1)
+		}
+		return big.NewDecimal(2)
+	}
+	return big.NewDecimal(0)
+}
+
+// func newLocalZeroIndicator(indicator techan.Indicator, lag, samples int) techan.Indicator {
+// 	return localZeroIndicator{indicator: indicator, lag: lag, samples: samples}
+// }
+
+type localZeroSplineIndicator struct {
+	indicator techan.Indicator
+	lag       int
+	samples   int
+	ncs       *cubicSpline.NaturalCubicSplines
+	knots     knot.Knot
+}
+
+func (ld localZeroSplineIndicator) Calculate(index int) big.Decimal {
+	// -1: Invalid
+	//  0: No zero
+	//  1: Zero exists, and increasing
+	//  2: Zero exists, and decreasing
+	var y []float64
+	for i := 0; i < ld.knots.Count(); i++ {
+		idx := index + int(ld.knots.At(i))
+		if idx < 0 {
+			return big.NewDecimal(-1)
+		}
+		p := ld.indicator.Calculate(idx).Float()
+		y = append(y, p)
+	}
+	ld.ncs.Interpolate(y)
+
+	x0 := ld.knots.At(ld.knots.Count() - 2)
+	v0 := ld.ncs.At(x0)
+	x1 := ld.knots.At(ld.knots.Count() - 1)
+	v1 := ld.ncs.At(x1)
+	x2 := ld.knots.At(0) + (x1-ld.knots.At(0))*0.75
+	v2 := ld.ncs.At(x2)
+
+	increasing := v1 > v0
+	hasZero := v1 > 0 && v2 < 0
 	if hasZero {
 		if increasing {
 			return big.NewDecimal(1)
@@ -349,5 +391,11 @@ func (ld localZeroIndicator) Calculate(index int) big.Decimal {
 }
 
 func newLocalZeroIndicator(indicator techan.Indicator, lag, samples int) techan.Indicator {
-	return localZeroIndicator{indicator: indicator, lag: lag, samples: samples}
+	end := 0
+	start := -lag * (samples - 1)
+	knots := knot.NewUniformKnot(float64(start), float64(end), samples, 1)
+	ncs := cubicSpline.NewNaturalCubicSplines(knots, nil)
+	const lambda = 0.001
+	ncs.Solve(lambda)
+	return localZeroSplineIndicator{indicator: indicator, lag: lag, samples: samples, ncs: ncs, knots: knots}
 }

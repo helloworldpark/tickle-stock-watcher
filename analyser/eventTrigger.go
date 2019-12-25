@@ -22,8 +22,8 @@ type eventTrigger struct {
 	callback  EventCallback
 }
 
-// NewEventTrigger will create an EventTrigger for notifiying price changes
-func NewEventTrigger(orderSide techan.OrderSide, rule techan.Rule, callback EventCallback) EventTrigger {
+// newEventTrigger will create an EventTrigger for notifiying price changes
+func newEventTrigger(orderSide techan.OrderSide, rule techan.Rule, callback EventCallback) EventTrigger {
 	return &eventTrigger{
 		orderSide: orderSide,
 		rule:      rule,
