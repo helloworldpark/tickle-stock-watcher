@@ -275,6 +275,12 @@ func (client *DBClient) BulkInsert(allowDuplicate bool, o ...interface{}) (bool,
 	return handleError(err)
 }
 
+// BulkUpsert upserts data by bulk, i.e. in a one query.
+// It may fail if any one of the data has a problem, i.e. all or none.
+func (client *DBClient) BulkUpsert(o ...interface{}) (bool, error) {
+	return client.Upsert(o...)
+}
+
 // Update updates value to the database
 func (client *DBClient) Update(o ...interface{}) (bool, error) {
 	if !client.IsOpen() {

@@ -390,3 +390,46 @@ func TestAllSameType(t *testing.T) {
 	// fmt.Println(database.IsAllSameType(v1))
 	// fmt.Println(database.IsAllSameType(v2))
 }
+
+type TestKeyStruct struct {
+	Time    int64
+	DidOpen bool
+	Name    string
+}
+
+func TestBulkUpsert(t *testing.T) {
+	credential := database.LoadCredential("/Users/shp/Documents/projects/tickle-stock-watcher/credee.json")
+	client := database.CreateClient()
+	client.Init(credential)
+	client.Open()
+
+	defer client.Close()
+
+	register := make([]database.DBRegisterForm, 1)
+	register[0] = database.DBRegisterForm{
+		BaseStruct: TestKeyStruct{},
+		Name:       "",
+		KeyColumns: []string{"Time"},
+	}
+	client.RegisterStruct(register)
+
+	stress := 5000
+	testdata := make([]interface{}, stress)
+	for i := 0; i < stress; i++ {
+		testdata[i] = TestKeyStruct{Time: int64(i) % 10, Name: ("Pepe" + strconv.Itoa(i)), DidOpen: i%2 == 0}
+	}
+
+	_, err := client.BulkUpsert(testdata...)
+	if err != nil {
+		fmt.Println("BulkUpsert: " + err.Error())
+	}
+
+	var bucket []TestKeyStruct
+	_, err = client.Select(&bucket, "where Time<=?", 10)
+	if err != nil {
+		fmt.Println("Select: " + err.Error())
+	}
+	for i := range bucket {
+		fmt.Println(bucket[i])
+	}
+}
