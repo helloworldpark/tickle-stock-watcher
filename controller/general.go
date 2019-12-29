@@ -100,9 +100,9 @@ func (g *General) runOrder(user structs.User, isGuest bool, orders []string, pre
 	}
 	if action.IsAsync() {
 		preAsync()
-		go func() {
+		commons.InvokeGoroutine("General_runOrder_"+orders[0], func() {
 			onAsync(action.OnAction(user, lowerOrders[1:]))
-		}()
+		})
 		return nil
 	}
 	return action.OnAction(user, lowerOrders[1:])

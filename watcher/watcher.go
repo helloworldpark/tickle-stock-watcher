@@ -158,7 +158,7 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 	w.crawlers[stockID] = newInternalCrawler(old.lastTimestamp)
 	// Construct function
 	out := make(chan StockPrice)
-	go func() {
+	funcWork := func() {
 		defer close(out)
 		for {
 			select {
@@ -168,7 +168,8 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 				return
 			}
 		}
-	}()
+	}
+	commons.InvokeGoroutine("Watcher_StartWatchingStock_"+stockID, funcWork)
 	logger.Info("[Watcher] StartWatchingStock: %s", stockID)
 	return out
 }
@@ -233,7 +234,7 @@ func (w *Watcher) Collect() {
 			} else {
 				pivotValue = w.crawlers[stockID].lastTimestamp
 			}
-			go func() {
+			commons.InvokeGoroutine("Watcher_Collect_workerFunc_"+stockID, func() {
 				defer close(outResult)
 
 				shouldCollectMore := func(collected []StockPrice) (bool, int) {
@@ -273,7 +274,7 @@ func (w *Watcher) Collect() {
 						break
 					}
 				}
-			}()
+			})
 			return outResult
 		}
 		return f
@@ -308,14 +309,14 @@ func (w *Watcher) Collect() {
 		duration := time.Duration(sleepTime * float64(time.Second))
 		time.Sleep(duration)
 	}
-	go func() {
+	commons.InvokeGoroutine("Watcher_Collect_dbcollect1", func() {
 		wg.Wait()
 		close(outCollect)
 		close(outWatchingStock)
-	}()
+	})
 
 	var wg2 sync.WaitGroup
-	go func() {
+	commons.InvokeGoroutine("Watcher_Collect_dbcollect2", func() {
 		defer wg2.Done()
 		for v := range outWatchingStock {
 			_, err := w.dbClient.Upsert(&v)
@@ -323,7 +324,7 @@ func (w *Watcher) Collect() {
 				logger.Error("[Watcher] Error while Collect: %s", err.Error())
 			}
 		}
-	}()
+	})
 	wg2.Add(1)
 
 	// Write to DB by bucket

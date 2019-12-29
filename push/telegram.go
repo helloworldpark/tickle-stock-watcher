@@ -201,9 +201,9 @@ func OnTelegramUpdate(wh WebhookHandler) func(c *gin.Context) {
 			c.String(400, err.Error())
 			return
 		}
-		go func() {
+		commons.InvokeGoroutine("Push_OnTelegramUpdate", func() {
 			wh.OnWebhook(u.Message.From.ID, u.Message.Text)
-		}()
+		})
 		c.String(200, "")
 	}
 	return f

@@ -81,12 +81,12 @@ func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 			ticker: time.NewTicker(period),
 		}
 		taskMap.SetValue(tag, &task)
-		go func() {
+		commons.InvokeGoroutine("Scheduler_Periodic_"+tag, func() {
 			(&task).do()
 			for range task.ticker.C {
 				(&task).do()
 			}
-		}()
+		})
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
@@ -108,12 +108,12 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 			counter: n,
 		}
 		taskMap.SetValue(tag, &task)
-		go func() {
+		commons.InvokeGoroutine("Scheduler_PeriodicFinite_"+tag, func() {
 			(&task).do()
 			for range task.ticker.C {
 				(&task).do()
 			}
-		}()
+		})
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
@@ -154,7 +154,7 @@ func startingDate(startHour float64) (time.Time, int64) {
 	h := int(startHour)
 	remainder := startHour - float64(h)
 	i := int(60.0 * remainder)
-	s := int(3600.0 * remainder - 60.0 * float64(i))
+	s := int(3600.0*remainder - 60.0*float64(i))
 	refDate = time.Date(y, m, d, h, i, s, 0, commons.AsiaSeoul)
 	return refDate, refDate.UnixNano() - now.UnixNano()
 }
@@ -167,12 +167,12 @@ func appendSingleTask(tag string, after time.Duration, todo func(), reuseTag boo
 	}
 	Cancel(tag)
 	taskMap.SetValue(tag, &task)
-	go func() {
+	commons.InvokeGoroutine("Scheduler_appendSingleTask_"+tag, func() {
 		logger.Info("[Scheduler] Appended task %s: after %f minutes", tag, float64(after)/float64(time.Minute))
 		<-task.timer.C
 		(&task).do()
 		if !reuseTag {
 			taskMap.DeleteValue(tag)
 		}
-	}()
+	})
 }
