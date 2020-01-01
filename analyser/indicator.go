@@ -348,6 +348,7 @@ func (ld localZeroIndicator) Calculate(index int) big.Decimal {
 // 	return localZeroIndicator{indicator: indicator, lag: lag, samples: samples}
 // }
 
+// SmoothSplineCalculator Wrapper of cubicSpline.NaturalCubicSplines
 type SmoothSplineCalculator struct {
 	indicator techan.Indicator
 	lag       int
@@ -356,6 +357,7 @@ type SmoothSplineCalculator struct {
 	knots     knot.Knot
 }
 
+// Graph Returns local smooth spline values around the index
 func (ld SmoothSplineCalculator) Graph(index int) []float64 {
 	// -1: Invalid
 	//  0: No zero
