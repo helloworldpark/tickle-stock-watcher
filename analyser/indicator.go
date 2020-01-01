@@ -348,6 +348,48 @@ func (ld localZeroIndicator) Calculate(index int) big.Decimal {
 // 	return localZeroIndicator{indicator: indicator, lag: lag, samples: samples}
 // }
 
+type SmoothSplineCalculator struct {
+	indicator techan.Indicator
+	lag       int
+	samples   int
+	ncs       *cubicSpline.NaturalCubicSplines
+	knots     knot.Knot
+}
+
+func (ld SmoothSplineCalculator) Graph(index int) []float64 {
+	// -1: Invalid
+	//  0: No zero
+	//  1: Zero exists, and increasing
+	//  2: Zero exists, and decreasing
+	var y []float64
+	for i := 0; i < ld.knots.Count(); i++ {
+		idx := index + int(ld.knots.At(i))
+		if idx < 0 {
+			return nil
+		}
+		p := ld.indicator.Calculate(idx).Float()
+		y = append(y, p)
+	}
+	ld.ncs.Interpolate(y)
+
+	var yhat []float64
+	for i := 0; i < ld.knots.Count(); i++ {
+		yhat = append(yhat, ld.ncs.At(ld.knots.At(i)))
+	}
+
+	return yhat
+}
+
+func newSmoothSplineCalculator(indicator techan.Indicator, lag, samples int) SmoothSplineCalculator {
+	end := 0
+	start := -lag * (samples - 1)
+	knots := knot.NewUniformKnot(float64(start), float64(end), samples, 1)
+	ncs := cubicSpline.NewNaturalCubicSplines(knots, nil)
+	const lambda = 0.1
+	ncs.Solve(lambda)
+	return SmoothSplineCalculator{indicator: indicator, lag: lag, samples: samples, ncs: ncs, knots: knots}
+}
+
 type localZeroSplineIndicator struct {
 	indicator techan.Indicator
 	lag       int
@@ -376,7 +418,8 @@ func (ld localZeroSplineIndicator) Calculate(index int) big.Decimal {
 	v0 := ld.ncs.At(x0)
 	x1 := ld.knots.At(ld.knots.Count() - 1)
 	v1 := ld.ncs.At(x1)
-	x2 := ld.knots.At(0) + (x1-ld.knots.At(0))*0.75
+	const t = 0.8
+	x2 := ld.knots.At(0)*(1.0-t) + x1*t
 	v2 := ld.ncs.At(x2)
 
 	increasing := v1 > v0
@@ -395,7 +438,7 @@ func newLocalZeroIndicator(indicator techan.Indicator, lag, samples int) techan.
 	start := -lag * (samples - 1)
 	knots := knot.NewUniformKnot(float64(start), float64(end), samples, 1)
 	ncs := cubicSpline.NewNaturalCubicSplines(knots, nil)
-	const lambda = 0.001
+	const lambda = 0.1
 	ncs.Solve(lambda)
 	return localZeroSplineIndicator{indicator: indicator, lag: lag, samples: samples, ncs: ncs, knots: knots}
 }

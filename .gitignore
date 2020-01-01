@@ -14,3 +14,4 @@
 tickle-stock-watcher
 *.json
 vendor/*
+analyser/images/*
