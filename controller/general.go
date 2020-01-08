@@ -264,15 +264,12 @@ func (g *General) Initialize() {
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
-	now := commons.Now()
+	now = commons.Now()
 	dec29 := time.Date(now.Year(), time.December, 29, 7, 0, 0, 0, commons.AsiaSeoul)
 	ttl := dec29.Sub(now)
 	scheduler.SchedulePeriodic("HolidayCheck", time.Hour*24*365, ttl, func() {
 		g.dateChecker.UpdateHolidays(commons.Now().Year())
 	})
-
-	// 주기적으로 유저들에게 메세지를 보내고(현재 봇에 등록한 주식 종목들), 응답이 없으면 그 유저는 봇을 탈퇴한 것으로 간주하고 유저를 삭제한다
-
 	logger.Info("[Controller] Initialized Controller")
 
 	var superuser []structs.User
