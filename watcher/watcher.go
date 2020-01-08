@@ -90,7 +90,7 @@ func (w *Watcher) Register(stock Stock) bool {
 	var watchingStock []WatchingStock
 	_, err := w.dbClient.Select(&watchingStock, "where StockID=?", stock.StockID)
 	if err != nil {
-		logger.Error("[Watcher] Error while querying WatcherStock from DB: %s", err.Error())
+		logger.Error("[Watcher] Error while querying WatcherStock from DB: %+v", err)
 		return false
 	}
 	var newWatchingStock WatchingStock
@@ -107,7 +107,7 @@ func (w *Watcher) Register(stock Stock) bool {
 	if err == nil {
 		logger.Info("[Watcher] Registered to watch %s(%s)", stock.Name, stock.StockID)
 	} else {
-		logger.Error("[Watcher] %s", err.Error())
+		logger.Error("[Watcher] DB error: %+v", err)
 	}
 	return err == nil
 }
@@ -134,7 +134,7 @@ func (w *Watcher) Withdraw(stock Stock) bool {
 	}
 	_, err := w.dbClient.Update(&watchingStock)
 	if err != nil {
-		logger.Error("[Watcher] Error while deleting WatchingStock: %s", err.Error())
+		logger.Error("[Watcher] Error while deleting WatchingStock: %+v", err)
 		return false
 	}
 	close(crawler.sentinel)
@@ -205,7 +205,7 @@ func (w *Watcher) Collect() {
 	var watching []WatchingStock
 	_, errWatching := w.dbClient.Select(&watching, "where IsWatching=?", true)
 	if errWatching != nil {
-		logger.Error("[Watcher] Error while querying WatchingStock for Collect: %s", errWatching.Error())
+		logger.Error("[Watcher] Error while querying WatchingStock for Collect: %+v", errWatching)
 		return
 	}
 	registeredWatching := make([]WatchingStock, 0)
@@ -327,7 +327,7 @@ func (w *Watcher) Collect() {
 		for v := range outWatchingStock {
 			_, err := w.dbClient.Upsert(&v)
 			if err != nil {
-				logger.Error("[Watcher] Error while Collect: %s", err.Error())
+				logger.Error("[Watcher] Error while Collect: %+v", err)
 			}
 		}
 	})
@@ -344,7 +344,7 @@ func (w *Watcher) Collect() {
 	insertToDb := func(b *[]interface{}) {
 		_, err := w.dbClient.BulkInsert(true, (*b)...)
 		if err != nil {
-			logger.Error("[Watcher] Error while Collect: %s", err.Error())
+			logger.Error("[Watcher] Error while Collect: %+v", err)
 		}
 	}
 	counter := 0

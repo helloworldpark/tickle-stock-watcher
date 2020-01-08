@@ -22,7 +22,9 @@ func CrawlPast(stockID string, page int) []structs.StockPrice {
 	client := &http.Client{Timeout: 3 * time.Second}
 	response, err := soup.GetWithClient(fmt.Sprintf(pastURLFormat, stockID, page), client)
 	if err != nil {
-		logger.Error("[Watcher] %s", err.Error())
+		logger.Error("[Watcher] Error while CrawlPast: URL=%s, StockID=%s, Page=%d, error=%+v",
+			pastURLFormat, stockID, page, err,
+		)
 		return nil
 	}
 
@@ -69,7 +71,9 @@ func CrawlPast(stockID string, page int) []structs.StockPrice {
 func CrawlNow(stockID string, page int) structs.StockPrice {
 	response, err := soup.Get(fmt.Sprintf(nowURLFormat, stockID))
 	if err != nil {
-		logger.Error("[Watcher] %s", err.Error())
+		logger.Error("[Watcher] Error while CrawlNow: URL=%s, StockID=%s, response=%s, error=%+v",
+			pastURLFormat, stockID, response, err,
+		)
 		return structs.StockPrice{Close: -1}
 	}
 
@@ -97,6 +101,6 @@ func CrawlNow(stockID string, page int) structs.StockPrice {
 
 func handleSoupError(r soup.Root) {
 	if r.Pointer == nil {
-		logger.Panic("[Watcher] %s", r.Error.Error())
+		logger.Panic("[Watcher] handleSoupError: %+v", r.Error)
 	}
 }
