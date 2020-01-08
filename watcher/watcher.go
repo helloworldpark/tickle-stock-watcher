@@ -9,7 +9,6 @@ import (
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
-	"github.com/helloworldpark/tickle-stock-watcher/scheduler"
 
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
@@ -162,9 +161,11 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 	out := make(chan StockPrice)
 	sleepTime := w.sleepTime
 	after := time.Second * time.Duration(rand.Int63n(60))
-	funcWork := func() {
-		defer close(out)
-		for {
+	commons.InvokeGoroutine("Watcher_StartWatchingStock_"+stockID, func() {
+		afterTimer := time.NewTimer(after)
+		<-afterTimer.C
+		ticker := time.NewTicker(sleepTime)
+		for range ticker.C {
 			select {
 			case out <- CrawlNow(stockID, 0):
 				continue
@@ -172,8 +173,9 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 				return
 			}
 		}
-	}
-	scheduler.SchedulePeriodic("Watcher_StartWatchingStock_"+stockID, sleepTime, after, funcWork)
+		logger.Info("[Watcher] Finish StartWatchingStock: %s", stockID)
+		close(out)
+	})
 	logger.Info("[Watcher] StartWatchingStock: %s", stockID)
 	return out
 }

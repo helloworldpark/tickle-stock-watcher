@@ -18,6 +18,7 @@ func InvokeGoroutine(tag string, f func()) {
 		defer func() {
 			if v := recover(); v != nil {
 				msg := strings.Builder{}
+				msg.WriteString(Now().String())
 				msg.WriteString(fmt.Sprintf("[Reason] %+v\n", v))
 				msg.WriteString("[Position] goroutine ")
 				msg.WriteString(tag)
