@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -305,21 +306,23 @@ func (w *Watcher) Collect() {
 	for _, watch := range registeredWatching {
 		stockID := watch.StockID
 		worker := workerFuncGenerator(stockID)
-		go output(stockID, worker())
+		commons.InvokeGoroutine(fmt.Sprintf("watcher_Watcher_Collect_workerFunc_%s", stockID), func() {
+			output(stockID, worker())
+		})
 		wg.Add(1)
 		sleepTime := randomGen.Float64()
 		sleepTime += 0.001
 		duration := time.Duration(sleepTime * float64(time.Second))
 		time.Sleep(duration)
 	}
-	commons.InvokeGoroutine("Watcher_Collect_dbcollect1", func() {
+	commons.InvokeGoroutine("watcher_Watcher_Collect_dbcollect1", func() {
 		wg.Wait()
 		close(outCollect)
 		close(outWatchingStock)
 	})
 
 	var wg2 sync.WaitGroup
-	commons.InvokeGoroutine("Watcher_Collect_dbcollect2", func() {
+	commons.InvokeGoroutine("watcher_Watcher_Collect_dbcollect2", func() {
 		defer wg2.Done()
 		for v := range outWatchingStock {
 			_, err := w.dbClient.Upsert(&v)
@@ -353,7 +356,10 @@ func (w *Watcher) Collect() {
 		if counter < bucketSize {
 			continue
 		}
-		go insertToDb(buckets[activeBucket])
+		bucketToInsert := buckets[activeBucket]
+		commons.InvokeGoroutine("watcher_Watcher_Collect_insertToDb", func() {
+			insertToDb(bucketToInsert)
+		})
 		activeBucket = (activeBucket + 1) % 2
 		total += counter
 		counter = 0

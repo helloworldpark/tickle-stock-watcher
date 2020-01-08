@@ -1,5 +1,7 @@
 package push
 
+import "github.com/helloworldpark/tickle-stock-watcher/commons"
+
 type msgTask = func()
 
 // Manager manager for push
@@ -15,7 +17,9 @@ func NewManager() *Manager {
 			k()
 		}
 	}
-	go runPusher(m.tasksTelegram)
+	commons.InvokeGoroutine("push_Manager_NewManager", func() {
+		runPusher(m.tasksTelegram)
+	})
 	return &m
 }
 
