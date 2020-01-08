@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+func TestHourf(t *testing.T) {
+	tt := Now()
+	nowHour := float64(tt.Hour()) + float64(tt.Minute())/60
+	fmt.Println("Now: ", tt, nowHour)
+}
+
 func TestTime(t *testing.T) {
 	tt := Now()
 	fmt.Println("Hour: ", tt.Hour())

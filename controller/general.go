@@ -250,9 +250,10 @@ func (g *General) Initialize() {
 			}
 		}
 	}
-	nowHour := commons.Now().Hour()
-	if 9 < nowHour && float64(nowHour) < 15.5 {
-		go watchPrice()
+	now := commons.Now()
+	nowHour := float64(now.Hour()) + float64(now.Minute())/60
+	if 9 < nowHour && nowHour < 15.5 {
+		commons.InvokeGoroutine("controller_General_Initialize_WatchPrice_daily", watchPrice)
 	}
 	scheduler.ScheduleWeekdays("WatchPrice", 9, watchPrice)
 	scheduler.ScheduleWeekdays("StopWatchPrice", 15.5, func() {
