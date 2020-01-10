@@ -83,10 +83,13 @@ func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 		taskMap.SetValue(tag, &task)
 		commons.InvokeGoroutine("Scheduler_Periodic_"+tag, func() {
 			(&task).do()
+			logger.Info("[Scheduler][Periodic] Did %s", tag)
 			for range task.ticker.C {
 				(&task).do()
+				logger.Info("[Scheduler][Periodic] Did %s", tag)
 			}
 		})
+		logger.Info("[Scheduler][Periodic] Started %s", tag)
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
@@ -110,10 +113,13 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 		taskMap.SetValue(tag, &task)
 		commons.InvokeGoroutine("Scheduler_PeriodicFinite_"+tag, func() {
 			(&task).do()
+			logger.Info("[Scheduler][Periodic][Finite] Did %s", tag)
 			for range task.ticker.C {
 				(&task).do()
+				logger.Info("[Scheduler][Periodic][Finite] Did %s", tag)
 			}
 		})
+		logger.Info("[Scheduler][Periodic][Finite] Started %s", tag)
 	}
 	if after > 0 {
 		appendSingleTask(tag, after, todoAfter, true)
