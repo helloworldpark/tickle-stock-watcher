@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ type General struct {
 // NewGeneral returns a new pointer to General, uninitialized
 func NewGeneral(dbClient *database.DBClient) *General {
 	g := General{
-		priceWatcher: watcher.New(dbClient, time.Second),
+		priceWatcher: watcher.New(dbClient, 30*time.Second),
 		dateChecker:  watcher.NewDateChecker(),
 		itemChecker:  watcher.NewStockItemChecker(dbClient),
 		broker:       analyser.NewBroker(dbClient),
@@ -169,6 +170,9 @@ func (g *General) Initialize() {
 		side := []string{"사다", "팔다"}
 		buffer := bytes.Buffer{}
 		buffer.WriteString("전략: \n")
+		sort.Slice(strategies, func(i, j int) bool {
+			return strategies[i].OrderSide < strategies[j].OrderSide
+		})
 		for i := range strategies {
 			stock, ok := g.itemChecker.StockFromID(strategies[i].StockID)
 			buffer.WriteString("[")
