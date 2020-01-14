@@ -19,7 +19,7 @@ type UserStock = structs.UserStock
 
 type analyserHolder struct {
 	analyser *Analyser
-	sentinel chan bool
+	sentinel chan struct{}
 }
 
 // BrokerAccess give access to broker
@@ -51,21 +51,21 @@ func newHolder(stockID string) *analyserHolder {
 	newAnalyser.Retain()
 	holder := analyserHolder{
 		analyser: newAnalyser,
-		sentinel: make(chan bool),
+		sentinel: make(chan struct{}),
 	}
 	return &holder
 }
 
 // AddStrategy adds a user's strategy with a callback which will be for sending push messages.
 // Returns
-//     shouldRetainWatcher bool
+//     didRetainAnalyser   bool
 //     error               error
 func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, updateDB bool) (bool, error) {
 	b.mutex.Lock()
 	// Handle analysers
 	holder, stockOK := b.analysers[userStrategy.StockID]
 	userStockList, userOK := b.users[userStrategy.UserID]
-	retainedAnalyser := false
+	didRetainAnalyser := false // Retain 하는 경우(원칙): 뭔가 새로울 때
 	b.mutex.Unlock()
 
 	if stockOK {
@@ -76,7 +76,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 				b.mutex.Lock()
 				holder.analyser.Retain()
 				b.mutex.Unlock()
-				retainedAnalyser = true
+				didRetainAnalyser = true
 			}
 		} else {
 			// 이 주식은 다른 사람이 전략을 넣은 적이 있는데, 이 유저는 처음
@@ -88,7 +88,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 			userStockList[userStrategy.StockID] = true
 			b.users[userStrategy.UserID] = userStockList
 
-			retainedAnalyser = true
+			didRetainAnalyser = true
 		}
 	} else {
 		if userOK {
@@ -107,7 +107,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 		b.mutex.Unlock()
 
 		holder = b.analysers[userStrategy.StockID]
-		retainedAnalyser = true
+		didRetainAnalyser = true
 	}
 
 	// Add or update strategy of the analyser
@@ -115,7 +115,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 	ok, err := b.analysers[userStrategy.StockID].analyser.AppendStrategy(userStrategy, callback)
 	b.mutex.Unlock()
 	if !ok {
-		if retainedAnalyser {
+		if didRetainAnalyser {
 			b.mutex.Lock()
 			holder.analyser.Release()
 			if holder.analyser.Count() <= 0 {
@@ -126,8 +126,8 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 			}
 			b.mutex.Unlock()
 		}
-		retainedAnalyser = false
-		return retainedAnalyser, err
+		didRetainAnalyser = false
+		return didRetainAnalyser, err
 	}
 
 	// Handle DB if needed
@@ -139,7 +139,7 @@ func (b *Broker) AddStrategy(userStrategy UserStock, callback EventCallback, upd
 	if !stockOK {
 		b.UpdatePastPriceOfStock(userStrategy.StockID)
 	}
-	return retainedAnalyser, err
+	return didRetainAnalyser, err
 }
 
 // DeleteStrategy deletes a strategy from the managing list.
@@ -211,14 +211,13 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 	holder.analyser.prepareWatching()
 	b.mutex.Unlock()
 	funcWork := func() {
-		defer logger.Info("[Analyser] Stop watching price: %s", stockID)
-		defer holder.analyser.stopWatchingPrice()
+		defer func() {
+			holder.analyser.stopWatchingPrice()
+			logger.Info("[Analyser] Stop watching price: %s", stockID)
+		}()
 		for {
 			select {
-			case price, ok := <-provider:
-				if !ok {
-					return
-				}
+			case price := <-provider:
 				holder.analyser.watchPrice(price)
 				holder.analyser.CalculateStrategies()
 			case <-holder.sentinel:
@@ -228,6 +227,17 @@ func (b *Broker) FeedPrice(stockID string, provider <-chan structs.StockPrice) {
 		}
 	}
 	commons.InvokeGoroutine(fmt.Sprintf("[Broker][%s]", stockID), funcWork)
+}
+
+// StopFeedingPrice Stop feeding price of all analysers
+func (b *Broker) StopFeedingPrice() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	for _, holder := range b.analysers {
+		close(holder.sentinel)
+		holder.sentinel = make(chan struct{})
+	}
 }
 
 // UpdatePastPrice is for updating the past price of the stock.

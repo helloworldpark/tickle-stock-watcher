@@ -193,12 +193,13 @@ func (w *Watcher) StopWatching() {
 func (w *Watcher) StopWatchingStock(stockID string) {
 	// Send signal to sentinel
 	if c, ok := w.crawlers[stockID]; ok {
-		c.sentinel <- struct{}{}
 		close(c.sentinel)
 		c.sentinel = nil
 		w.crawlers[stockID] = c
+		logger.Info("[Watcher] Stop watching stock ID: %s", stockID)
+	} else {
+		logger.Error("[Watcher] Stop watching stock ID(%s) has failed: No crawler found", stockID)
 	}
-	logger.Info("[Watcher] Stop watching stock ID: %s", stockID)
 }
 
 // Collect collects the past price data of the market.

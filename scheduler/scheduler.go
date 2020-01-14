@@ -88,6 +88,7 @@ func SchedulePeriodic(tag string, period, after time.Duration, todo func()) {
 				(&task).do()
 				logger.Info("[Scheduler][Periodic] Did %s", tag)
 			}
+			logger.Info("[Scheduler][Periodic] Terminated %s", tag)
 		})
 		logger.Info("[Scheduler][Periodic] Started %s", tag)
 	}
@@ -118,6 +119,7 @@ func SchedulePeriodicFinite(tag string, period, after time.Duration, n int64, to
 				(&task).do()
 				logger.Info("[Scheduler][Periodic][Finite] Did %s", tag)
 			}
+			logger.Info("[Scheduler][Periodic] Terminated %s", tag)
 		})
 		logger.Info("[Scheduler][Periodic][Finite] Started %s", tag)
 	}

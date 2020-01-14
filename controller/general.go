@@ -239,6 +239,7 @@ func (g *General) Initialize() {
 		for _, v := range structs.AllStrategies(g.dbClient) {
 			stocks[v.StockID] = true
 		}
+		logger.Info("[Controller] Stock Set = %+v", stocks)
 		randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for k := range stocks {
 			if g.broker.CanFeedPrice(k) {
@@ -257,6 +258,7 @@ func (g *General) Initialize() {
 	}
 	scheduler.ScheduleWeekdays("WatchPrice", 9, watchPrice)
 	scheduler.ScheduleWeekdays("StopWatchPrice", 15.5, func() {
+		g.broker.StopFeedingPrice()
 		g.priceWatcher.StopWatching()
 	})
 	scheduler.ScheduleWeekdays("CollectPrice", 18.5, func() {

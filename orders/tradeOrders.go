@@ -105,13 +105,13 @@ func Trade(
 		}
 		// Add to watcher
 		if shouldRetainWatcher {
-			ok = price.AccessWatcher().Register(stock)
-			if !ok {
+			if ok = price.AccessWatcher().Register(stock); !ok {
 				return newError(fmt.Sprintf("Failed to add %s(%s) to PriceWatcher", stock.Name, stock.StockID))
 			}
 		}
-		nowHour := commons.Now().Hour()
-		if 9 <= nowHour && float64(nowHour) < 15.5 {
+		now := commons.Now()
+		nowHour := float64(now.Hour()) + float64(now.Minute())/60
+		if 9 < nowHour && nowHour < 15.5 {
 			if broker.AccessBroker().CanFeedPrice(stock.StockID) {
 				broker.AccessBroker().FeedPrice(stock.StockID, price.AccessWatcher().StartWatchingStock(stock.StockID))
 			}

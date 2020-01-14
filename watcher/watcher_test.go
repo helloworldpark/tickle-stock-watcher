@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
@@ -76,4 +77,62 @@ func TestReflect(t *testing.T) {
 	aa := reflect.TypeOf([]structs.Stock{structs.Stock{}})
 	fmt.Println(aa)
 	fmt.Printf("Name: %v Kind: %v Elem: %v", aa.Name(), aa.Kind(), aa.Elem())
+}
+
+func TestWatchAndOff(t *testing.T) {
+	type testCrawler struct {
+		sentinel chan struct{}
+	}
+
+	crawlers := make(map[string]testCrawler)
+	const key = "aaa"
+	crawlers[key] = testCrawler{
+		sentinel: make(chan struct{}),
+	}
+
+	dummyjob := func(id string, zero int) int {
+		fmt.Printf("%v: %s\n", time.Now(), id)
+		return zero
+	}
+	out := make(chan int)
+	commons.InvokeGoroutine("Watcher_StartWatchingStock_"+key, func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			select {
+			case out <- dummyjob(key, 9):
+				continue
+			case <-crawlers[key].sentinel:
+				return
+			}
+		}
+		fmt.Printf("[Watcher] Finish TestWatchAndOff: %s", key)
+		close(out)
+	})
+
+	go func() {
+		for {
+			select {
+			case v, ok := <-out:
+				if ok {
+					fmt.Println(v)
+				} else {
+					fmt.Println("Ruined")
+				}
+				fmt.Println("I'm running?")
+			}
+			fmt.Println("Machine Running")
+		}
+	}()
+
+	timer := time.NewTimer(10 * time.Second)
+	<-timer.C
+
+	b := "aaa"
+	// crawlers[b].sentinel <- struct{}{}
+	close(crawlers[b].sentinel)
+
+	timer = time.NewTimer(10 * time.Second)
+	<-timer.C
+
+	fmt.Println("Finished")
 }
