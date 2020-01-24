@@ -84,9 +84,9 @@ func TestWatchAndOff(t *testing.T) {
 		sentinel chan struct{}
 	}
 
-	crawlers := make(map[string]testCrawler)
+	crawlers := make(map[string]*testCrawler)
 	const key = "aaa"
-	crawlers[key] = testCrawler{
+	crawlers[key] = &testCrawler{
 		sentinel: make(chan struct{}),
 	}
 
@@ -102,6 +102,7 @@ func TestWatchAndOff(t *testing.T) {
 			case out <- dummyjob(key, 9):
 				continue
 			case <-crawlers[key].sentinel:
+				fmt.Println("Got Sentinel")
 				return
 			}
 		}
@@ -128,8 +129,8 @@ func TestWatchAndOff(t *testing.T) {
 	<-timer.C
 
 	b := "aaa"
-	// crawlers[b].sentinel <- struct{}{}
-	close(crawlers[b].sentinel)
+	crawlers[b].sentinel <- struct{}{}
+	// close(crawlers[b].sentinel)
 
 	timer = time.NewTimer(10 * time.Second)
 	<-timer.C

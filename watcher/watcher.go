@@ -45,7 +45,7 @@ type internalCrawler struct {
 
 // Watcher is a struct for watching the market
 type Watcher struct {
-	crawlers  map[string]internalCrawler // key: Stock ID, value: last timestamp of the price info and sentinel
+	crawlers  map[string]*internalCrawler // key: Stock ID, value: last timestamp of the price info and sentinel
 	dbClient  *database.DBClient
 	sleepTime time.Duration
 	mutex     *sync.Mutex
@@ -54,7 +54,7 @@ type Watcher struct {
 // New creates a new Watcher struct
 func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 	watcher := Watcher{
-		crawlers:  make(map[string]internalCrawler),
+		crawlers:  make(map[string]*internalCrawler),
 		dbClient:  dbClient,
 		sleepTime: sleepingTime,
 		mutex:     &sync.Mutex{},
@@ -62,10 +62,10 @@ func New(dbClient *database.DBClient, sleepingTime time.Duration) *Watcher {
 	return &watcher
 }
 
-func newInternalCrawler(lastTimestamp int64) internalCrawler {
+func newInternalCrawler(lastTimestamp int64) *internalCrawler {
 	ref := &commons.Ref{}
 	ref.Retain()
-	return internalCrawler{
+	return &internalCrawler{
 		lastTimestamp: lastTimestamp,
 		sentinel:      make(chan struct{}),
 		ref:           ref,
@@ -193,9 +193,7 @@ func (w *Watcher) StopWatching() {
 func (w *Watcher) StopWatchingStock(stockID string) {
 	// Send signal to sentinel
 	if c, ok := w.crawlers[stockID]; ok {
-		close(c.sentinel)
-		c.sentinel = nil
-		w.crawlers[stockID] = c
+		c.sentinel <- struct{}{}
 		logger.Info("[Watcher] Stop watching stock ID: %s", stockID)
 	} else {
 		logger.Error("[Watcher] Stop watching stock ID(%s) has failed: No crawler found", stockID)
