@@ -19,6 +19,7 @@ func InvokeGoroutine(tag string, f func()) {
 			if v := recover(); v != nil {
 				msg := strings.Builder{}
 				msg.WriteString(Now().String())
+				msg.WriteString("\n")
 				msg.WriteString(fmt.Sprintf("[Reason] %+v\n", v))
 				msg.WriteString("[Position] goroutine ")
 				msg.WriteString(tag)
@@ -39,7 +40,7 @@ func InvokeGoroutine(tag string, f func()) {
 				}
 
 				logger.Panic(msg.String())
-				<-time.NewTimer(time.Second * 2).C
+				<-time.NewTimer(time.Second * 5).C
 				panic(v)
 			}
 		}()
