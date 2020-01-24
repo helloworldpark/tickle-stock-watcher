@@ -72,3 +72,19 @@ func BrokerDescription(broker analyser.BrokerAccess, onSuccess func(user structs
 	}
 	return f
 }
+
+func NewDateCheckerDescriptionOrder() Order {
+	return &watchOrders{name: "holiday"}
+}
+
+func DateCheckerDescription(dateChecker *watcher.DateChecker, onSuccess func(user structs.User, desc string)) Action {
+	f := func(user structs.User, args []string) error {
+		if !user.Superuser {
+			return newError("Only superuser can order this")
+		}
+		description := dateChecker.Description()
+		onSuccess(user, description)
+		return nil
+	}
+	return f
+}
