@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -86,6 +87,7 @@ func (w *Watcher) Register(stock Stock) bool {
 		logger.Info("[Watcher] Registered to watch %s(%s): Referred %d times", stock.Name, stock.StockID, w.crawlers[stock.StockID].ref.Count())
 		return true
 	}
+
 	var watchingStock []WatchingStock
 	_, err := w.dbClient.Select(&watchingStock, "where StockID=?", stock.StockID)
 	if err != nil {
@@ -385,4 +387,31 @@ func GetCollectionStartingDate(year int) time.Time {
 		start = time.Date(y, m, 4, 0, 0, 0, 0, commons.AsiaSeoul)
 	}
 	return start
+}
+
+// Description description of this Watcher
+func (w *Watcher) Description() string {
+	now := commons.Now()
+	var buf bytes.Buffer
+
+	addLine := func(str string, args ...interface{}) {
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	addLine("[Watcher] Status \n%v", now)
+	addLine("SleepTime: %v", w.sleepTime)
+	addLine("Crawlers")
+	i := 1
+	for stockID, crawler := range w.crawlers {
+		addLine("    [Crawler #%v]", i)
+		addLine("        Stock ID: ", stockID)
+		addLine("        Last Timestamp: %v", commons.Unix(crawler.lastTimestamp))
+		addLine("        Reference Count: %v", crawler.ref.Count())
+		i++
+	}
+	return buf.String()
 }
