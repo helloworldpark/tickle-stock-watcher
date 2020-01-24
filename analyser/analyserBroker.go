@@ -296,16 +296,16 @@ func (b *Broker) Description() string {
 
 	addLine("[AnalyserBroker] Status \n%v", now)
 	addLine("Users: %v", len(b.users))
-	for userid, coincodes := range b.users {
+	for userid, stocks := range b.users {
 		addLine("    [UserID: #%v]", userid)
-		for coincode := range coincodes {
-			addLine("        [CoinCode: %v]", coincode)
+		for stock := range stocks {
+			addLine("        [Stock ID: %v]", stock)
 		}
 	}
 
 	addLine("Analysers: %v", len(b.analysers))
-	for coincode, holder := range b.analysers {
-		addLine("    [Analyser#%v]", coincode)
+	for stockid, holder := range b.analysers {
+		addLine("    [Analyser#%v]", stockid)
 		addLine("        [IsWatching: %v]", holder.analyser.isWatchingPrice())
 		addLine("        [Reference Count: %v]", holder.analyser.Count())
 		addLine("        [Time Series: %v]", holder.analyser.timeSeries.LastIndex()+1)

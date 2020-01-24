@@ -408,7 +408,7 @@ func (w *Watcher) Description() string {
 	i := 1
 	for stockID, crawler := range w.crawlers {
 		addLine("    [Crawler #%v]", i)
-		addLine("        Stock ID: ", stockID)
+		addLine("        Stock ID: %v", stockID)
 		addLine("        Last Timestamp: %v", commons.Unix(crawler.lastTimestamp))
 		addLine("        Reference Count: %v", crawler.ref.Count())
 		i++
