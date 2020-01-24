@@ -127,7 +127,14 @@ func (d *DateChecker) Description() string {
 	now.Weekday()
 	weekdayKorean := [7]string{"일", "월", "화", "수", "목", "금", "토"}
 	currentYear := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, commons.AsiaSeoul).Unix()
-	addLine("[Holiday] Now: %v", now)
+	addLine("[Holiday]")
+	addLine("    Today: %v", now)
+	if d.IsHoliday(now) {
+		addLine("    Today is holiday")
+	} else {
+		addLine("    Today is not holiday")
+	}
+	addLine("List")
 	i := 1
 	var holidayTimestamp []int64
 	for timestamp := range d.holidays {
