@@ -14,7 +14,9 @@ func TestDateDownloadHolidays(t *testing.T) {
 
 func TestDateChecker(t *testing.T) {
 	checker := NewDateChecker()
-	checker.UpdateHolidays(2019)
+	checker.UpdateHolidays(2020)
+
+	fmt.Println(checker.Description())
 
 	today := commons.Now()
 	fmt.Printf("Is %v Holiday: %v\n", today, checker.IsHoliday(today))

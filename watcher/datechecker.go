@@ -1,10 +1,13 @@
 package watcher
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
@@ -107,4 +110,41 @@ func downloadHolidays(year int) []int64 {
 		result[i] = dateTimestamp
 	}
 	return result
+}
+
+func (d *DateChecker) Description() string {
+	now := commons.Now()
+	var buf bytes.Buffer
+
+	addLine := func(str string, args ...interface{}) {
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args...)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	now.Weekday()
+	weekdayKorean := [7]string{"일", "월", "화", "수", "목", "금", "토"}
+	currentYear := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, commons.AsiaSeoul).Unix()
+	addLine("[Holiday] Now: %v", now)
+	i := 1
+	var holidayTimestamp []int64
+	for timestamp := range d.holidays {
+		if timestamp < currentYear {
+			continue
+		}
+		holidayTimestamp = append(holidayTimestamp, timestamp)
+	}
+	sort.Slice(holidayTimestamp, func(i, j int) bool {
+		return holidayTimestamp[i] < holidayTimestamp[j]
+	})
+	for _, timestamp := range holidayTimestamp {
+		holiday := commons.Unix(timestamp)
+		y, m, d := holiday.Date()
+		weekday := weekdayKorean[int(holiday.Weekday())]
+		addLine("    %2d. %4d년 %2d월 %2d일 %v요일", i, y, int(m), d, weekday)
+		i++
+	}
+	return buf.String()
 }
