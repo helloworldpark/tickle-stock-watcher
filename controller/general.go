@@ -28,6 +28,8 @@ var botOrders = map[string]orders.Order{
 	"strategy": orders.NewStrategyOrder(),
 	"stock":    orders.NewStockOrder(),
 	"delete":   orders.NewDeleteOrder(),
+	"watcher":  orders.NewWatcherDescriptionOrder(),
+	"analyser": orders.NewBrokerDescriptionOrder(),
 }
 var newError = commons.NewTaggedError("Controller")
 
@@ -218,6 +220,18 @@ func (g *General) Initialize() {
 		g.pushManager.PushMessage(msg, user.UserID)
 	}))
 	botOrders["삭제"] = botOrders["delete"]
+
+	// Watcher 현황
+	botOrders["watcher"].SetAction(orders.WatcherDescription(g, func(user structs.User, desc string) {
+		g.pushManager.PushMessage(desc, user.UserID)
+	}))
+
+	// Analyser 현황
+	botOrders["analyser"].SetAction(orders.BrokerDescription(g, func(user structs.User, desc string) {
+		g.pushManager.PushMessage(desc, user.UserID)
+	}))
+	botOrders["broker"] = botOrders["analyser"]
+	botOrders["analyserbroker"] = botOrders["analyser"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
