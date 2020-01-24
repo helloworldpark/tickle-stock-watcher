@@ -1,6 +1,7 @@
 package analyser
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -278,4 +279,45 @@ func (b *Broker) updatePastPriceOfStockImpl(stockID string, holder *analyserHold
 		holder.analyser.AppendPastPrice(prices[i])
 	}
 	logger.Info("[Analyser] Updated past price info of %s: %d cases", stockID, len(prices))
+}
+
+// Description description of this Watcher
+func (b *Broker) Description() string {
+	now := commons.Now()
+	var buf bytes.Buffer
+
+	addLine := func(str string, args ...interface{}) {
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	addLine("[AnalyserBroker] Status \n%v", now)
+	addLine("Users: %v", len(b.users))
+	for userid, coincodes := range b.users {
+		addLine("    [UserID: #%v]", userid)
+		for coincode := range coincodes {
+			addLine("        [CoinCode: %v]", coincode)
+		}
+	}
+
+	addLine("Analysers: %v", len(b.analysers))
+	for coincode, holder := range b.analysers {
+		addLine("    [Analyser#%v]", coincode)
+		addLine("        [IsWatching: %v]", holder.analyser.isWatchingPrice())
+		addLine("        [Reference Count: %v]", holder.analyser.Count())
+		addLine("        [Time Series: %v]", holder.analyser.timeSeries.LastIndex()+1)
+		lastCandle := holder.analyser.timeSeries.LastCandle()
+		addLine("            [Last Candle]")
+		addLine("                [Time:   %v]", lastCandle.Period)
+		addLine("                [Open:   %v]", lastCandle.OpenPrice.FormattedString(2))
+		addLine("                [Close:  %v]", lastCandle.ClosePrice.FormattedString(2))
+		addLine("                [High:   %v]", lastCandle.MaxPrice.FormattedString(2))
+		addLine("                [Low:    %v]", lastCandle.MinPrice.FormattedString(2))
+		addLine("                [Volume: %v]", lastCandle.Volume.FormattedString(2))
+	}
+
+	return buf.String()
 }
