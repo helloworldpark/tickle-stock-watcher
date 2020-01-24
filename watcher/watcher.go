@@ -396,7 +396,7 @@ func (w *Watcher) Description() string {
 
 	addLine := func(str string, args ...interface{}) {
 		if len(args) > 0 {
-			str = fmt.Sprintf(str, args)
+			str = fmt.Sprintf(str, args...)
 		}
 		buf.WriteString(str)
 		buf.WriteString("\n")
