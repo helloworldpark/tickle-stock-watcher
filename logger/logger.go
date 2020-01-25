@@ -107,9 +107,9 @@ func handleLog(logHandle *log.Logger, severity, format string, v ...interface{})
 
 	// Log to Stdout
 	if logHandle == nil {
-		checkExtrasStdLogPrint(msgFormat, v)
+		checkExtrasStdLogPrint(msgFormat, v...)
 	} else {
-		checkExtrasGCEPrint(logHandle, msgFormat, v)
+		checkExtrasGCEPrint(logHandle, msgFormat, v...)
 	}
 }
 
