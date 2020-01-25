@@ -1,21 +1,22 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"runtime"
 
 	// Imports the Stackdriver Logging client package.
-	"cloud.google.com/go/logging"
+	gce "cloud.google.com/go/logging"
 	"golang.org/x/net/context"
 )
 
 var (
 	isLoggerGCE  bool
-	loggerClient *logging.Client
+	loggerClient *gce.Client
 	loggerInfo   *log.Logger
 	loggerWarn   *log.Logger
 	loggerError  *log.Logger
-	loggerPanic  *log.Logger
+	loggerPanic  *gce.Logger
 	logName      string
 )
 
@@ -34,7 +35,7 @@ func init() {
 	// Else, use only stdout
 	if runtime.GOOS == "linux" {
 		// Creates a client.
-		client, err := logging.NewClient(ctx, projectID)
+		client, err := gce.NewClient(ctx, projectID)
 		if err != nil {
 			loggerInfo = nil
 			loggerWarn = nil
@@ -46,10 +47,10 @@ func init() {
 		}
 		loggerClient = client
 
-		loggerInfo = client.Logger(logName).StandardLogger(logging.Info)
-		loggerWarn = client.Logger(logName).StandardLogger(logging.Warning)
-		loggerError = client.Logger(logName).StandardLogger(logging.Error)
-		loggerPanic = client.Logger(logName).StandardLogger(logging.Critical)
+		loggerInfo = client.Logger(logName).StandardLogger(gce.Info)
+		loggerWarn = client.Logger(logName).StandardLogger(gce.Warning)
+		loggerError = client.Logger(logName).StandardLogger(gce.Error)
+		loggerPanic = client.Logger(logName)
 
 		isLoggerGCE = true
 	} else {
@@ -90,55 +91,43 @@ func Error(format string, v ...interface{}) {
 
 // Panic prints logs as this format: [PANIC]
 func Panic(format string, v ...interface{}) {
-	handleLog(loggerPanic, "PANIC", format, v...)
+	handlePanicLog(format, v...)
 }
 
 func handleLog(logHandle *log.Logger, severity, format string, v ...interface{}) {
 	msgFormat := "[" + logName + "][" + severity + "] " + format
 
-	checkExtrasLogPanic := func(msgFormatStr string, vv []interface{}) {
-		if len(vv) > 0 {
-			log.Panicf(msgFormatStr, vv...)
-		} else {
-			log.Panicf(msgFormatStr)
-		}
+	checkExtrasStdLogPrint := func(msgFormatStr string, vv ...interface{}) {
+		log.Printf(msgFormatStr, vv...)
 	}
 
-	checkExtrasLoggerPanic := func(internalLogHandle *log.Logger, msgFormatStr string, vv []interface{}) {
-		if len(vv) > 0 {
-			internalLogHandle.Panicf(msgFormatStr, vv...)
-		} else {
-			internalLogHandle.Panicf(msgFormatStr)
-		}
+	checkExtrasGCEPrint := func(internalLogHandle *log.Logger, msgFormatStr string, vv ...interface{}) {
+		internalLogHandle.Printf(msgFormatStr, vv...)
 	}
 
-	checkExtrasLogPrint := func(msgFormatStr string, vv []interface{}) {
-		if len(vv) > 0 {
-			log.Printf(msgFormatStr, vv...)
-		} else {
-			log.Printf(msgFormatStr)
-		}
-	}
-
-	checkExtrasLoggerPrint := func(internalLogHandle *log.Logger, msgFormatStr string, vv []interface{}) {
-		if len(vv) > 0 {
-			internalLogHandle.Printf(msgFormatStr, vv...)
-		} else {
-			internalLogHandle.Printf(msgFormatStr)
-		}
-	}
-
+	// Log to Stdout
 	if logHandle == nil {
-		if severity == "PANIC" {
-			checkExtrasLogPanic(msgFormat, v)
-		} else {
-			checkExtrasLogPrint(msgFormat, v)
-		}
+		checkExtrasStdLogPrint(msgFormat, v)
 	} else {
-		if logHandle == loggerPanic {
-			checkExtrasLoggerPanic(logHandle, msgFormat, v)
-		} else {
-			checkExtrasLoggerPrint(logHandle, msgFormat, v)
-		}
+		checkExtrasGCEPrint(logHandle, msgFormat, v)
 	}
+}
+
+func handlePanicLog(format string, v ...interface{}) {
+	const severity = gce.Critical
+	msgFormat := "[" + logName + "][PANIC] " + format
+
+	if loggerPanic == nil {
+		log.Panicf(msgFormat, v...)
+		return
+	}
+
+	s := fmt.Sprintf(format, v...)
+	loggerPanic.Log(gce.Entry{
+		Severity: severity,
+		Payload:  s,
+	})
+	loggerPanic.Flush()
+
+	panic("Killed by logger.handlePanicLog")
 }
