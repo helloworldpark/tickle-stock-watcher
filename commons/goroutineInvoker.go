@@ -39,6 +39,8 @@ func InvokeGoroutine(tag string, f func()) {
 					funcName, file, line, ok = runtime.Caller(i)
 				}
 
+				fmt.Println("Is GCE Logger: ", logger.IsLoggerGCE())
+
 				logger.Panic(msg.String())
 				<-time.NewTimer(time.Second * 5).C
 				panic(v)
