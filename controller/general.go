@@ -20,17 +20,18 @@ import (
 )
 
 var botOrders = map[string]orders.Order{
-	"help":     orders.NewHelpOrder(),
-	"invite":   orders.NewInviteOrder(),
-	"join":     orders.NewJoinOrder(),
-	"buy":      orders.NewBuyOrder(),
-	"sell":     orders.NewSellOrder(),
-	"strategy": orders.NewStrategyOrder(),
-	"stock":    orders.NewStockOrder(),
-	"delete":   orders.NewDeleteOrder(),
-	"watcher":  orders.NewWatcherDescriptionOrder(),
-	"analyser": orders.NewBrokerDescriptionOrder(),
-	"holiday":  orders.NewDateCheckerDescriptionOrder(),
+	"help":      orders.NewHelpOrder(),
+	"invite":    orders.NewInviteOrder(),
+	"join":      orders.NewJoinOrder(),
+	"buy":       orders.NewBuyOrder(),
+	"sell":      orders.NewSellOrder(),
+	"strategy":  orders.NewStrategyOrder(),
+	"stock":     orders.NewStockOrder(),
+	"delete":    orders.NewDeleteOrder(),
+	"watcher":   orders.NewWatcherDescriptionOrder(),
+	"analyser":  orders.NewBrokerDescriptionOrder(),
+	"holiday":   orders.NewDateCheckerDescriptionOrder(),
+	"terminate": orders.NewTerminationOrder(),
 }
 var newError = commons.NewTaggedError("Controller")
 
@@ -239,6 +240,18 @@ func (g *General) Initialize() {
 		g.pushManager.PushMessage(desc, user.UserID)
 	}))
 	botOrders["holidays"] = botOrders["holiday"]
+
+	// Terminate
+	botOrders["terminate"].SetAction(func(user structs.User, args []string) error {
+		if !user.Superuser {
+			return newError("Only superuser can order this")
+		}
+		logger.Panic("Reboot")
+		return nil
+	})
+	botOrders["terminator"] = botOrders["terminate"]
+	botOrders["reboot"] = botOrders["terminate"]
+	botOrders["restart"] = botOrders["terminate"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다

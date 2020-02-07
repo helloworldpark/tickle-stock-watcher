@@ -53,3 +53,8 @@ func (o *simpleOrder) IsPublic() bool {
 func NewHelpOrder() Order {
 	return &simpleOrder{name: "help"}
 }
+
+// NewTerminationOrder order Termination
+func NewTerminationOrder() Order {
+	return &simpleOrder{name: "terminate"}
+}
