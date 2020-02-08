@@ -88,6 +88,14 @@ func (checker *StockItemChecker) UpdateStocks() {
 	}
 }
 
+func (checker *StockItemChecker) AllStockID() []string {
+	var result []string
+	for stockID := range checker.stocks {
+		result = append(result, stockID)
+	}
+	return result
+}
+
 // https://minjejeon.github.io/learningstock/2017/09/07/download-krx-ticker-symbols-at-once.html
 func downloadStockSymbols(market structs.Market) []structs.Stock {
 	marketType := map[structs.Market]string{

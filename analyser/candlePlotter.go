@@ -9,18 +9,19 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
+	"github.com/sdcoffey/techan"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
 )
 
 const savePath = "images/candle1.png"
 
-func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) bool {
+func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) (bool, string) {
 
 	stockInfo, isValid := stockAccess.StockFromID(stockID)
 	if !isValid {
 		logger.Error("[CandlePlotter] Error: No valid stock item corresponding to %s", stockID)
-		return false
+		return false, ""
 	}
 
 	ana := NewAnalyser(stockInfo.StockID)
@@ -31,7 +32,7 @@ func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, sto
 		stockID, timestampFrom)
 	if err != nil {
 		logger.Error("[CandlePlotter] Error: +v", err)
-		return false
+		return false, ""
 	}
 
 	candles := Candles{}
@@ -68,5 +69,62 @@ func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, sto
 		panic(err)
 	}
 
-	return true
+	return true, savePath
+}
+
+// NewProspect find new prospect of the day
+func NewProspect(dbClient *database.DBClient, days int, stockID string) []structs.StockPrice {
+	ana := NewAnalyser(stockID)
+	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+1))
+	var prices []structs.StockPrice
+	_, err := dbClient.Select(&prices,
+		"where StockID=? and Timestamp>=? order by Timestamp",
+		stockID, timestampFrom)
+	if err != nil {
+		logger.Error("[CandlePlotter] Error: +v", err)
+		return nil
+	}
+
+	indiFuncs := func(name string, args ...interface{}) techan.Indicator {
+		generator := indicatorMap[name]
+		f, err := generator(ana.timeSeries, args...)
+		if err != nil {
+			logger.Error("Error at %s: +v", name, err)
+		}
+		return f
+	}
+	// MACD > 0 && MACDHist == 0
+	const zeroLag = 1
+	const zeroSamples = 7
+	f0 := indiFuncs("macd", 12.0, 26.0)
+	f1 := indiFuncs("macdhist", 12.0, 26.0, 9.0)
+	smoothSpline := newSmoothSplineCalculator(f1, zeroLag, zeroSamples)
+
+	var promisingPrices []structs.StockPrice
+	for i := range prices {
+		ana.AppendPastPrice(prices[i])
+
+		v0 := f0.Calculate(i).Float()
+		if v0 <= 0 {
+			continue
+		}
+
+		g := smoothSpline.Graph(i)
+		if len(g) < 7 {
+			continue
+		}
+
+		if g[6] > 0 {
+			continue
+		}
+
+		isIncreasing := g[6] > g[5] && g[5] > g[4]
+		if !isIncreasing {
+			continue
+		}
+
+		promisingPrices = append(promisingPrices, prices[i])
+	}
+
+	return promisingPrices
 }

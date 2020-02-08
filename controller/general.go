@@ -229,9 +229,14 @@ func (g *General) Initialize() {
 	}))
 
 	// Analyser 현황
-	botOrders["analyser"].SetAction(orders.BrokerDescription(g, func(user structs.User, desc string) {
-		g.pushManager.PushMessage(desc, user.UserID)
-	}))
+	botOrders["analyser"].SetAction(func(user structs.User, args []string) error {
+		if user.Superuser {
+			desc := g.AccessBroker().Description()
+			g.pushManager.PushMessage(desc, user.UserID)
+			return nil
+		}
+		return newError("Only superuser can order this")
+	})
 	botOrders["broker"] = botOrders["analyser"]
 	botOrders["analyserbroker"] = botOrders["analyser"]
 
@@ -301,6 +306,19 @@ func (g *General) Initialize() {
 	})
 	scheduler.ScheduleWeekdays("CollectPrice", 18.5, func() {
 		g.priceWatcher.Collect()
+	})
+	findProspect := func() {
+		users := structs.AllUsers(g.dbClient)
+		uids := make([]int64, len(users))
+		for i := range users {
+			uids[i] = users[i].UserID
+		}
+		g.broker.FindProspects(uids, g.itemChecker, func(msg string, uid int64) {
+			g.pushManager.PushMessage(msg, uid)
+		})
+	}
+	scheduler.ScheduleWeekdays("FindProspects", 22.5, func() {
+		commons.InvokeGoroutine("FindProspects", findProspect)
 	})
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신

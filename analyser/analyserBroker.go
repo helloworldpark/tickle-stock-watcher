@@ -9,6 +9,7 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/structs"
+	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"github.com/sdcoffey/techan"
 )
 
@@ -320,4 +321,56 @@ func (b *Broker) Description() string {
 	}
 
 	return buf.String()
+}
+
+func (b *Broker) Situation(stockName, stockID string) (bool, string, string) {
+	stockAccess := watcher.NewStockItemChecker(b.dbClient)
+	didDraw, savePath := NewCandlePlotter(b.dbClient, 10, stockID, stockAccess)
+	if !didDraw {
+		return false, "", ""
+	}
+
+	var buf bytes.Buffer
+
+	addLine := func(str string, args ...interface{}) {
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args...)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	now := commons.Now()
+	addLine("[AnalyserBroker] Prospect of the day: #%s(%s) \n%v", stockID, stockName, now)
+
+	return true, savePath, buf.String()
+}
+
+func (b *Broker) FindProspects(uid []int64, itemChecker *watcher.StockItemChecker, onFind func(msg string, uid int64)) {
+	stocks := itemChecker.AllStockID()
+	logger.Info("[Controller] Finding Prospect from %d stocks", len(stocks))
+	for _, stockID := range stocks {
+		prospects := NewProspect(b.dbClient, 10, stockID)
+		if len(prospects) > 0 {
+			var buf bytes.Buffer
+			addLine := func(str string, args ...interface{}) {
+				if len(args) > 0 {
+					str = fmt.Sprintf(str, args...)
+				}
+				buf.WriteString(str)
+				buf.WriteString("\n")
+			}
+
+			stockInfo, _ := itemChecker.StockFromID(stockID)
+			addLine("[Prospect] #%s: %s", stockID, stockInfo.Name)
+			for _, prospect := range prospects {
+				y, m, d := commons.Unix(prospect.Timestamp).Date()
+				addLine("    %4d년 %02d월 %02d일", y, m, d)
+			}
+
+			for _, u := range uid {
+				onFind(buf.String(), u)
+			}
+		}
+	}
 }
