@@ -3,146 +3,70 @@ package analyser
 import (
 	"fmt"
 	"image/color"
-	"math"
 
-	"github.com/sdcoffey/techan"
+	"github.com/helloworldpark/tickle-stock-watcher/commons"
+	"github.com/helloworldpark/tickle-stock-watcher/database"
+	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/structs"
+	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
-	"gonum.org/v1/plot/vg/draw"
 )
 
-type candler interface {
-	Len() int
-	Candle(int) (float64, float64, float64, float64, float64)
-}
+const savePath = "images/candle1.png"
 
-type Candle struct {
-	Timestamp, Open, Close, High, Low float64
-}
+func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) bool {
 
-type Candles []Candle
-
-func (c Candles) Len() int { return len(c) }
-
-func (c Candles) Candle(i int) (float64, float64, float64, float64, float64) {
-	return c[i].Timestamp, c[i].Open, c[i].Close, c[i].High, c[i].Low
-}
-
-func CopyCandles(data candler) Candles {
-	cp := make(Candles, data.Len())
-	for i := range cp {
-		cp[i].Timestamp, cp[i].Open, cp[i].Close, cp[i].High, cp[i].Low = data.Candle(i)
-	}
-	return cp
-}
-
-type CandleSticks struct {
-	Candles
-	timeSeries         *techan.TimeSeries
-	UpColor, DownColor color.Color
-}
-
-func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.Color) *CandleSticks {
-	cp := CopyCandles(cs)
-	return &CandleSticks{
-		Candles:    cp,
-		timeSeries: timeSeries,
-		UpColor:    up,
-		DownColor:  down,
-	}
-}
-
-func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
-	trX, trY := plt.Transforms(&c)
-
-	// Plot candlestick
-	for _, d := range cs.Candles {
-		x0 := trX(d.Timestamp)
-		x1 := trX(d.Timestamp + 24*60*60) // 24시간
-		y0 := trY(d.Open)
-		y1 := trY(d.Close)
-
-		if y0 <= y1 {
-			c.SetColor(cs.UpColor)
-		} else {
-			c.SetColor(cs.DownColor)
-		}
-
-		var p vg.Rectangle
-		p.Min = vg.Point{X: x0, Y: vg.Length(math.Min(float64(y0), float64(y1)))}
-		p.Max = vg.Point{X: x1, Y: vg.Length(math.Max(float64(y0), float64(y1)))}
-		c.Fill(p.Path())
-
-		x0 = trX(d.Timestamp + 8*60*60)
-		x1 = trX(d.Timestamp + 16*60*60) // 8시간
-		y0 = trY(d.High)
-		y1 = trY(d.Low)
-
-		var q vg.Rectangle
-		q.Min = vg.Point{X: x0, Y: y0}
-		q.Max = vg.Point{X: x1, Y: y1}
-		c.Fill(q.Path())
+	stockInfo, isValid := stockAccess.StockFromID(stockID)
+	if !isValid {
+		logger.Error("[CandlePlotter] Error: No valid stock item corresponding to %s", stockID)
+		return false
 	}
 
-	// Plot MACD > 0 && MACDHist == 0
-	indiFuncs := func(name string, args ...interface{}) techan.Indicator {
-		generator := indicatorMap[name]
-		f, err := generator(cs.timeSeries, args...)
-		if err != nil {
-			fmt.Errorf(name, err)
-		}
-		return f
+	ana := NewAnalyser(stockInfo.StockID)
+	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+1))
+	var prices []structs.StockPrice
+	_, err := dbClient.Select(&prices,
+		"where StockID=? and Timestamp>=? order by Timestamp",
+		stockID, timestampFrom)
+	if err != nil {
+		logger.Error("[CandlePlotter] Error: +v", err)
+		return false
 	}
 
-	// MACD > 0 && MACDHist == 0
-	const zeroLag = 1
-	const zeroSamples = 7
-	f0 := indiFuncs("macd", 12.0, 26.0)
-	f1 := indiFuncs("macdhist", 12.0, 26.0, 9.0)
-	smoothSpline := newSmoothSplineCalculator(f1, zeroLag, zeroSamples)
-	for i, d := range cs.Candles {
-		v0 := f0.Calculate(i).Float()
-		if v0 <= 0 {
-			continue
-		}
-
-		g := smoothSpline.Graph(i)
-		if len(g) < 7 {
-			continue
-		}
-
-		if g[6] > 0 {
-			continue
-		}
-
-		isIncreasing := g[6] > g[5] && g[5] > g[4]
-		if !isIncreasing {
-			continue
-		}
-
-		x0 := trX(d.Timestamp)
-		x1 := trX(d.Timestamp + 24*60*60) // 24시간
-		y0 := trY(d.Open)
-		y1 := trY(d.Close)
-		var q vg.Rectangle
-		q.Min = vg.Point{X: x0, Y: vg.Length(math.Min(float64(y0), float64(y1)))}
-		q.Max = vg.Point{X: x1, Y: vg.Length(math.Max(float64(y0), float64(y1)))}
-		c.SetColor(color.RGBA{R: 255, G: 255, A: 255})
-		c.Fill(q.Path())
-	}
-}
-
-func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
-	xmin = cs.Candles[0].Timestamp
-	xmax = cs.Candles[len(cs.Candles)-1].Timestamp + 9*60
-
-	ymin = cs.Candles[0].Low
-	ymax = cs.Candles[0].High
-
-	for _, d := range cs.Candles {
-		ymin = math.Min(ymin, d.Low)
-		ymax = math.Max(ymax, d.High)
+	candles := Candles{}
+	for i := range prices {
+		ana.AppendPastPrice(prices[i])
+		candles = append(candles, Candle{
+			Timestamp: float64(prices[i].Timestamp),
+			Open:      float64(prices[i].Open),
+			Close:     float64(prices[i].Close),
+			High:      float64(prices[i].High),
+			Low:       float64(prices[i].Low),
+		})
 	}
 
-	return xmin, xmax, ymin, ymax
+	// Plot Candles
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+	p.Title.Text = fmt.Sprintf("Candles(#%s)", stockInfo.StockID)
+	fmt.Println(p.Title.Text)
+	p.X.Label.Text = "Time"
+	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
+	p.Y.Label.Text = "Price"
+
+	if len(candles) >= (days + 1) {
+		candles = candles[len(candles)-days-1:]
+	}
+
+	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
+	p.Add(cs)
+
+	if err := p.Save(vg.Length(days)*vg.Centimeter, vg.Length(days)*vg.Centimeter, savePath); err != nil {
+		panic(err)
+	}
+
+	return true
 }

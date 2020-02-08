@@ -91,3 +91,19 @@ func MinInt(a, b int) int {
 	}
 	return b
 }
+
+// MaxInt64 Maximum of two numbers
+func MaxInt64(a, b int64) int64 {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+// MinInt64 Minimum of two numbers
+func MinInt64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}

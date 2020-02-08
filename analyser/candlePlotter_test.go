@@ -1,13 +1,8 @@
 package analyser
 
 import (
-	"fmt"
-	"image/color"
+	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"testing"
-
-	"github.com/helloworldpark/tickle-stock-watcher/structs"
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/vg"
 )
 
 func TestCandlePlotterValidity(t *testing.T) {
@@ -16,50 +11,9 @@ func TestCandlePlotterValidity(t *testing.T) {
 		dbClient.Close()
 	}()
 
-	const savePath = "images/candle1.png"
+	stockItemChecker := watcher.NewStockItemChecker(dbClient)
 
-	info := structs.Stock{Name: "Korean Air", StockID: "003490", MarketType: structs.KOSPI}
-	ana := NewAnalyser(info.StockID)
-
-	timestampFrom := ana.NeedPriceFrom()
-	var prices []structs.StockPrice
-	_, err := dbClient.Select(&prices,
-		"where StockID=? and Timestamp>=? order by Timestamp",
-		info.StockID, timestampFrom)
-	if err != nil {
-		t.Fatal(err)
+	if didDraw := NewCandlePlotter(dbClient, 10, "003490", stockItemChecker); !didDraw {
+		t.FailNow()
 	}
-
-	candles := Candles{}
-	for i := range prices {
-		ana.AppendPastPrice(prices[i])
-		candles = append(candles, Candle{
-			Timestamp: float64(prices[i].Timestamp),
-			Open:      float64(prices[i].Open),
-			Close:     float64(prices[i].Close),
-			High:      float64(prices[i].High),
-			Low:       float64(prices[i].Low)})
-	}
-
-	// Plot Candles
-	p, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
-	p.Title.Text = fmt.Sprintf("Candles(%s)", info.Name)
-	p.X.Label.Text = "Time"
-	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
-	p.Y.Label.Text = "Price"
-
-	if len(candles) >= 100 {
-		candles = candles[len(candles)-100:]
-	}
-
-	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
-	p.Add(cs)
-
-	if err := p.Save(15*vg.Inch, 5*vg.Inch, savePath); err != nil {
-		panic(err)
-	}
-
 }

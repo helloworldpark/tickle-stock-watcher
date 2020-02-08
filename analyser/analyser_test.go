@@ -22,6 +22,7 @@ func prepareDBClient() *database.DBClient {
 	client.Open()
 	client.RegisterStructFromRegisterables([]database.DBRegisterable{
 		// structs.CoinInfo{},
+		structs.Stock{},
 		structs.StockPrice{},
 		// structs.Invitation{},
 		// structs.TradeCredential{},

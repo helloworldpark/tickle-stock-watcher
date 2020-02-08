@@ -26,16 +26,21 @@ type StockAccess interface {
 	AccessStockItemByName(stockname string) (structs.Stock, bool)
 }
 
+var stockAccessGlobal *StockItemChecker = nil
+
 // NewStockItemChecker returns a new StockItemChecker with stocks unfilled.
 // Stock info will be updated.
 func NewStockItemChecker(dbClient *database.DBClient) *StockItemChecker {
-	checker := StockItemChecker{
-		stocks:    make(map[string]structs.Stock),
-		invStocks: make(map[string]structs.Stock),
-		dbClient:  dbClient,
+	if stockAccessGlobal == nil {
+		checker := StockItemChecker{
+			stocks:    make(map[string]structs.Stock),
+			invStocks: make(map[string]structs.Stock),
+			dbClient:  dbClient,
+		}
+		checker.UpdateStocks()
+		stockAccessGlobal = &checker
 	}
-	checker.UpdateStocks()
-	return &checker
+	return stockAccessGlobal
 }
 
 // IsValid checks if the given stock ID exists in the list.
