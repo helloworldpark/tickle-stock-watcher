@@ -75,7 +75,7 @@ func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, sto
 // NewProspect find new prospect of the day
 func NewProspect(dbClient *database.DBClient, days int, stockID string) []structs.StockPrice {
 	ana := NewAnalyser(stockID)
-	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+1))
+	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+10))
 	var prices []structs.StockPrice
 	_, err := dbClient.Select(&prices,
 		"where StockID=? and Timestamp>=? order by Timestamp",
