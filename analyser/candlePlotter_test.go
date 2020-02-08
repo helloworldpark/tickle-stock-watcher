@@ -30,18 +30,6 @@ func TestCandlePlotterValidity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// indiFuncs := func(name string, args ...interface{}) techan.Indicator {
-	// 	generator := indicatorMap[name]
-	// 	f, err := generator(ana.timeSeries, args...)
-	// 	if err != nil {
-	// 		t.Fatal(name, err)
-	// 	}
-	// 	return f
-	// }
-
-	// Price
-	// f0 := indiFuncs("price()")
-
 	candles := Candles{}
 	for i := range prices {
 		ana.AppendPastPrice(prices[i])
@@ -63,8 +51,11 @@ func TestCandlePlotterValidity(t *testing.T) {
 	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
 	p.Y.Label.Text = "Price"
 
-	candles = candles[len(candles)-100:]
-	cs := NewCandleSticks(candles, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255}, 0, 10)
+	if len(candles) >= 100 {
+		candles = candles[len(candles)-100:]
+	}
+
+	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
 	p.Add(cs)
 
 	if err := p.Save(15*vg.Inch, 5*vg.Inch, savePath); err != nil {

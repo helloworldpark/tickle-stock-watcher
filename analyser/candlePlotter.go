@@ -1,9 +1,11 @@
 package analyser
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
+	"github.com/sdcoffey/techan"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
@@ -36,24 +38,24 @@ func CopyCandles(data candler) Candles {
 
 type CandleSticks struct {
 	Candles
-	UpColor, DownColor   color.Color
-	MinHeight, MaxHeight vg.Length
+	timeSeries         *techan.TimeSeries
+	UpColor, DownColor color.Color
 }
 
-func NewCandleSticks(cs Candles, up, down color.Color, min, max vg.Length) *CandleSticks {
+func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.Color) *CandleSticks {
 	cp := CopyCandles(cs)
 	return &CandleSticks{
-		Candles:   cp,
-		UpColor:   up,
-		DownColor: down,
-		MinHeight: min,
-		MaxHeight: max,
+		Candles:    cp,
+		timeSeries: timeSeries,
+		UpColor:    up,
+		DownColor:  down,
 	}
 }
 
 func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	trX, trY := plt.Transforms(&c)
 
+	// Plot candlestick
 	for _, d := range cs.Candles {
 		x0 := trX(d.Timestamp)
 		x1 := trX(d.Timestamp + 24*60*60) // 24시간
@@ -79,6 +81,53 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 		var q vg.Rectangle
 		q.Min = vg.Point{X: x0, Y: y0}
 		q.Max = vg.Point{X: x1, Y: y1}
+		c.Fill(q.Path())
+	}
+
+	// Plot MACD > 0 && MACDHist == 0
+	indiFuncs := func(name string, args ...interface{}) techan.Indicator {
+		generator := indicatorMap[name]
+		f, err := generator(cs.timeSeries, args...)
+		if err != nil {
+			fmt.Errorf(name, err)
+		}
+		return f
+	}
+
+	// MACD > 0 && MACDHist == 0
+	const zeroLag = 1
+	const zeroSamples = 7
+	f0 := indiFuncs("macd", 12.0, 26.0)
+	f1 := indiFuncs("macdhist", 12.0, 26.0, 9.0)
+	smoothSpline := newSmoothSplineCalculator(f1, zeroLag, zeroSamples)
+	for i, d := range cs.Candles {
+		v0 := f0.Calculate(i).Float()
+		if v0 <= 0 {
+			continue
+		}
+
+		g := smoothSpline.Graph(i)
+		if len(g) < 7 {
+			continue
+		}
+
+		if g[6] > 0 {
+			continue
+		}
+
+		isIncreasing := g[6] > g[5] && g[5] > g[4]
+		if !isIncreasing {
+			continue
+		}
+
+		x0 := trX(d.Timestamp)
+		x1 := trX(d.Timestamp + 24*60*60) // 24시간
+		y0 := trY(d.Open)
+		y1 := trY(d.Close)
+		var q vg.Rectangle
+		q.Min = vg.Point{X: x0, Y: vg.Length(math.Min(float64(y0), float64(y1)))}
+		q.Max = vg.Point{X: x1, Y: vg.Length(math.Max(float64(y0), float64(y1)))}
+		c.SetColor(color.RGBA{R: 255, G: 255, A: 255})
 		c.Fill(q.Path())
 	}
 }
