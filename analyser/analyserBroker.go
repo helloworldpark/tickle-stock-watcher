@@ -349,6 +349,7 @@ func (b *Broker) Situation(stockName, stockID string) (bool, string, string) {
 func (b *Broker) FindProspects(uid []int64, itemChecker *watcher.StockItemChecker, onFind func(msg string, uid int64)) {
 	stocks := itemChecker.AllStockID()
 	logger.Info("[Controller] Finding Prospect from %d stocks", len(stocks))
+	var count = 0
 	for _, stockID := range stocks {
 		prospects := NewProspect(b.dbClient, 10, stockID)
 		if len(prospects) > 0 {
@@ -371,6 +372,13 @@ func (b *Broker) FindProspects(uid []int64, itemChecker *watcher.StockItemChecke
 			for _, u := range uid {
 				onFind(buf.String(), u)
 			}
+
+			count++
+		}
+	}
+	if count == 0 {
+		for _, u := range uid {
+			onFind("No prospects today", u)
 		}
 	}
 }
