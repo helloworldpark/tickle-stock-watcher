@@ -317,9 +317,7 @@ func (g *General) Initialize() {
 			g.pushManager.PushMessage(msg, uid)
 		})
 	}
-	scheduler.ScheduleWeekdays("FindProspects", 22.5, func() {
-		commons.InvokeGoroutine("FindProspects", findProspect)
-	})
+	scheduler.ScheduleEveryday("FindProspects", 22.5, findProspect)
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
 	now = commons.Now()
