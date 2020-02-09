@@ -110,10 +110,6 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 			continue
 		}
 
-		if g[6] > 0 {
-			continue
-		}
-
 		isIncreasing := g[6] > g[5] && g[5] > g[4]
 		if !isIncreasing {
 			continue
