@@ -13,8 +13,8 @@ func TestFindProspect(t *testing.T) {
 
 	itemChecker := watcher.NewStockItemChecker(dbClient)
 
-	onFind := func(msg string) {
-		fmt.Println(msg)
+	onFind := func(msg, savePath string) {
+		fmt.Println(msg, savePath)
 	}
 
 	FindProspects(dbClient, itemChecker, onFind)

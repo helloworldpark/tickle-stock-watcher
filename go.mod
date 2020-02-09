@@ -40,6 +40,7 @@ require (
 	gonum.org/v1/netlib v0.0.0-20191031114514-eccb95939662 // indirect
 	gonum.org/v1/plot v0.0.0-20191107103940-ca91d9d40d0a
 	google.golang.org/appengine v1.6.5 // indirect
+	google.golang.org/genproto v0.0.0-20191108220845-16a3f7862a1a
 	google.golang.org/grpc v1.25.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect

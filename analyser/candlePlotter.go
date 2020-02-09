@@ -3,6 +3,8 @@ package analyser
 import (
 	"fmt"
 	"image/color"
+	"os"
+	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
@@ -14,9 +16,37 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-const savePath = "images/candle1.png"
+const saveDirFormat = "tmpday%04d%02d%02d/"
+const savePathFormat = "candle%s.png"
+
+func NewCandlePlotDir(date time.Time) string {
+	y, m, d := date.Date()
+	return fmt.Sprintf(saveDirFormat, y, m, d)
+}
+
+func MkCandlePlotDir() error {
+	dir := NewCandlePlotDir(commons.Now())
+	return os.Mkdir(dir, 0755)
+}
+
+func CleanupOldCandleplots() error {
+	now := commons.Now()
+	var err error
+	for t := 3; t >= 0; t-- {
+		before := now.AddDate(0, 0, t)
+		y, m, d := before.Date()
+		oldDirectory := fmt.Sprintf(saveDirFormat, y, m, d)
+		err = os.RemoveAll(oldDirectory)
+	}
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return err
+}
 
 // NewCandlePlot draws and saves a new candle plot of Stock ID
+//               didPlot bool
+//               savePath string
 func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) (bool, string) {
 
 	stockInfo, isValid := stockAccess.StockFromID(stockID)
@@ -55,7 +85,6 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	}
 	y, m, d := commons.Now().Date()
 	p.Title.Text = fmt.Sprintf("%4d.%02d.%02d#%s", y, m, d, stockInfo.StockID)
-	fmt.Println(p.Title.Text)
 	p.X.Label.Text = "Time"
 	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
 	p.Y.Label.Text = "Price"
@@ -63,6 +92,10 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	if len(candles) >= (days + 1) {
 		candles = candles[len(candles)-days-1:]
 	}
+
+	saveDir := fmt.Sprintf(saveDirFormat, y, m, d)
+	savePath := saveDir + fmt.Sprintf(savePathFormat, stockID)
+	fmt.Println(savePath)
 
 	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
 	p.Add(cs)

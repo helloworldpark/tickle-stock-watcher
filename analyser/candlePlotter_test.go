@@ -1,8 +1,9 @@
 package analyser
 
 import (
-	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"testing"
+
+	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
 func TestCandlePlotterValidity(t *testing.T) {
@@ -10,6 +11,13 @@ func TestCandlePlotterValidity(t *testing.T) {
 	defer func() {
 		dbClient.Close()
 	}()
+
+	if err := CleanupOldCandleplots(); err != nil {
+		panic(err)
+	}
+	if err := MkCandlePlotDir(); err != nil {
+		panic(err)
+	}
 
 	stockItemChecker := watcher.NewStockItemChecker(dbClient)
 

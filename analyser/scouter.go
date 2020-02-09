@@ -10,13 +10,25 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
-func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker, onFind func(msg string)) {
+func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker, onFind func(msg, savePath string)) {
+	// Delete all past records
+	if err := CleanupOldCandleplots(); err != nil {
+		logger.Error("[Analyser][Prospects] Error while cleanup: %+v", err)
+		onFind("No prospects today!", "")
+		return
+	}
+	if err := MkCandlePlotDir(); err != nil {
+		logger.Error("[Analyser][Prospects] Error while making directory for candleplot: %+v", err)
+		onFind("No prospects today!", "")
+		return
+	}
+
 	stocks := itemChecker.AllStockID()
-	logger.Info("[Analyser] Finding Prospect from %d stocks", len(stocks))
+	logger.Info("[Analyser][Prospects] Finding from %d stocks", len(stocks))
 	var count = 0
+	const days = 10
 	for _, stockID := range stocks {
-		prospects := NewProspect(dbClient, 10, stockID)
-		fmt.Println("Stock ID: ", stockID)
+		prospects := NewProspect(dbClient, days, stockID)
 		if len(prospects) > 0 {
 			var buf bytes.Buffer
 			addLine := func(str string, args ...interface{}) {
@@ -34,11 +46,18 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				addLine("    %4d년 %02d월 %02d일", y, m, d)
 			}
 
-			onFind(buf.String())
+			stockItemChecker := watcher.NewStockItemChecker(dbClient)
+			didPlot, savePath := NewCandlePlot(dbClient, days, stockID, stockItemChecker)
+			if didPlot {
+				onFind(buf.String(), savePath)
+			} else {
+				onFind(buf.String(), "")
+			}
+
 			count++
 		}
 	}
 	if count == 0 {
-		onFind("No prospects today")
+		onFind("No prospects today", "")
 	}
 }
