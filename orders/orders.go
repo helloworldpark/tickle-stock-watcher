@@ -21,8 +21,9 @@ type Order interface {
 }
 
 type simpleOrder struct {
-	name   string
-	action Action
+	name    string
+	action  Action
+	isAsync bool
 }
 
 func (o *simpleOrder) Name() string {
@@ -42,7 +43,7 @@ func (o *simpleOrder) OnAction(user structs.User, s []string) error {
 }
 
 func (o *simpleOrder) IsAsync() bool {
-	return false
+	return o.IsAsync()
 }
 
 func (o *simpleOrder) IsPublic() bool {
@@ -57,4 +58,9 @@ func NewHelpOrder() Order {
 // NewTerminationOrder order Termination
 func NewTerminationOrder() Order {
 	return &simpleOrder{name: "terminate"}
+}
+
+// NewProspectsOrder order Termination
+func NewProspectsOrder() Order {
+	return &simpleOrder{name: "prospect", isAsync: true}
 }

@@ -32,6 +32,7 @@ var botOrders = map[string]orders.Order{
 	"analyser":  orders.NewBrokerDescriptionOrder(),
 	"holiday":   orders.NewDateCheckerDescriptionOrder(),
 	"terminate": orders.NewTerminationOrder(),
+	"prospect":  orders.NewProspectsOrder(),
 }
 var newError = commons.NewTaggedError("Controller")
 
@@ -258,6 +259,21 @@ func (g *General) Initialize() {
 	botOrders["reboot"] = botOrders["terminate"]
 	botOrders["restart"] = botOrders["terminate"]
 
+	// Prospect
+	botOrders["prospect"].SetAction(func(user structs.User, args []string) error {
+		if !user.Superuser {
+			return newError("Only superuser can order this")
+		}
+		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg string) {
+			g.pushManager.PushMessage(msg, user.UserID)
+		})
+		return nil
+	})
+	botOrders["prospects"] = botOrders["prospect"]
+	botOrders["scout"] = botOrders["prospect"]
+	botOrders["scouter"] = botOrders["prospect"]
+	botOrders["scouters"] = botOrders["prospect"]
+
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
 	// PriceWatcher는 주중, 장이 열리는 날이면 09시부터 감시 시작
@@ -309,12 +325,10 @@ func (g *General) Initialize() {
 	})
 	findProspect := func() {
 		users := structs.AllUsers(g.dbClient)
-		uids := make([]int64, len(users))
-		for i := range users {
-			uids[i] = users[i].UserID
-		}
-		g.broker.FindProspects(uids, g.itemChecker, func(msg string, uid int64) {
-			g.pushManager.PushMessage(msg, uid)
+		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg string) {
+			for _, u := range users {
+				g.pushManager.PushMessage(msg, u.UserID)
+			}
 		})
 	}
 	scheduler.ScheduleEveryday("FindProspects", 23.0, findProspect)
