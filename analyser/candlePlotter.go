@@ -16,11 +16,12 @@ import (
 
 const savePath = "images/candle1.png"
 
-func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) (bool, string) {
+// NewCandlePlot draws and saves a new candle plot of Stock ID
+func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) (bool, string) {
 
 	stockInfo, isValid := stockAccess.StockFromID(stockID)
 	if !isValid {
-		logger.Error("[CandlePlotter] Error: No valid stock item corresponding to %s", stockID)
+		logger.Error("[CandlePlot] Error: No valid stock item corresponding to %s", stockID)
 		return false, ""
 	}
 
@@ -31,7 +32,7 @@ func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, sto
 		"where StockID=? and Timestamp>=? order by Timestamp",
 		stockID, timestampFrom)
 	if err != nil {
-		logger.Error("[CandlePlotter] Error: +v", err)
+		logger.Error("[CandlePlot] Error: +v", err)
 		return false, ""
 	}
 
@@ -52,7 +53,8 @@ func NewCandlePlotter(dbClient *database.DBClient, days int, stockID string, sto
 	if err != nil {
 		panic(err)
 	}
-	p.Title.Text = fmt.Sprintf("Candles(#%s)", stockInfo.StockID)
+	y, m, d := commons.Now().Date()
+	p.Title.Text = fmt.Sprintf("%4d.%02d.%02d#%s", y, m, d, stockInfo.StockID)
 	fmt.Println(p.Title.Text)
 	p.X.Label.Text = "Time"
 	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}

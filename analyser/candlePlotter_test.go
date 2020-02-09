@@ -13,7 +13,7 @@ func TestCandlePlotterValidity(t *testing.T) {
 
 	stockItemChecker := watcher.NewStockItemChecker(dbClient)
 
-	if didDraw, _ := NewCandlePlotter(dbClient, 10, "003490", stockItemChecker); !didDraw {
+	if didDraw, _ := NewCandlePlot(dbClient, 10, "003490", stockItemChecker); !didDraw {
 		t.FailNow()
 	}
 }

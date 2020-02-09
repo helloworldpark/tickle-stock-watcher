@@ -325,7 +325,7 @@ func (b *Broker) Description() string {
 
 func (b *Broker) Situation(stockName, stockID string) (bool, string, string) {
 	stockAccess := watcher.NewStockItemChecker(b.dbClient)
-	didDraw, savePath := NewCandlePlotter(b.dbClient, 10, stockID, stockAccess)
+	didDraw, savePath := NewCandlePlot(b.dbClient, 10, stockID, stockAccess)
 	if !didDraw {
 		return false, "", ""
 	}
