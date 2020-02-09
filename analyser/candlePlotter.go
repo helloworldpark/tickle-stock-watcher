@@ -114,9 +114,9 @@ func NewProspect(dbClient *database.DBClient, days int, stockID string) []struct
 			continue
 		}
 
-		if g[6] > 0 {
-			continue
-		}
+		// if g[6] > 0 {
+		// 	continue
+		// }
 
 		isIncreasing := g[6] > g[5] && g[5] > g[4]
 		if !isIncreasing {
