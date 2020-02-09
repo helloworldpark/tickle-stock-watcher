@@ -186,6 +186,50 @@ func SendMessageTelegram(id int64, msg string) {
 	requestTelegram("sendMessage", body, onSuccess, onFailure)
 }
 
+// SendPhotoTelegram send message to telegram
+func SendPhotoTelegram(id int64, caption, picURL string) {
+	body := map[string]interface{}{
+		"chat_id": id,
+		"photo":   picURL,
+		"caption": caption,
+	}
+	onSuccess := func(result map[string]interface{}) {
+		_, ok := result["chat"]
+		if !ok {
+			logger.Error("[Push] Value corresponding to key 'chat' does not exist in response of 'sendMessage': %v", result)
+			return
+		}
+		if result["chat"] == nil {
+			logger.Error("[Push] Value corresponding to key 'chat' is nil")
+			return
+		}
+		user, ok := result["chat"].(map[string]interface{})
+		if !ok {
+			logger.Error("[Push] Cannot convert 'chat' to map[string]interface{}")
+			return
+		}
+		_, ok = user["username"]
+		if !ok {
+			logger.Error("[Push] Value corresponding to key 'username' does not exist")
+			return
+		}
+		if user["username"] == nil {
+			logger.Error("[Push] Value corresponding to key 'username' is nil")
+			return
+		}
+		username, ok := user["username"].(string)
+		if !ok {
+			logger.Error("[Push] Cannot convert 'username' to string")
+			return
+		}
+		logger.Info("[Push] Sent photo to: %s(%d) \n message: %s \n photo: %s", username, id, caption, picURL)
+	}
+	onFailure := func(err error) {
+		logger.Error(newError(err.Error()).Error())
+	}
+	requestTelegram("sendPhoto", body, onSuccess, onFailure)
+}
+
 // URLTelegramUpdate uri where telegram webhook comes
 func URLTelegramUpdate() string {
 	return fmt.Sprintf("/api/telegram/%s", GetTelegramTokenForURL())

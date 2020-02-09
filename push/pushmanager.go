@@ -68,3 +68,18 @@ func (m *Manager) PushMessage(msg string, userid int64) {
 		}
 	}
 }
+
+// PushPhoto pushes photo to Telegram Bot
+func (m *Manager) PushPhoto(caption, picPath string, userid int64) {
+	if len(caption) == 0 {
+		caption = ""
+	}
+	if len(caption) >= msgMaxLength {
+		caption = caption[:msgMaxLength]
+	}
+
+	m.tasksTelegram <- func() {
+		picURL := "https://stock.ticklemeta.kr/" + picPath
+		SendPhotoTelegram(userid, caption, picURL)
+	}
+}

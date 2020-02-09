@@ -264,8 +264,12 @@ func (g *General) Initialize() {
 		if !user.Superuser {
 			return newError("Only superuser can order this")
 		}
-		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg string) {
-			g.pushManager.PushMessage(msg, user.UserID)
+		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg, savePath string) {
+			if len(savePath) > 0 {
+				g.pushManager.PushPhoto(msg, savePath, user.UserID)
+			} else {
+				g.pushManager.PushMessage(msg, user.UserID)
+			}
 		})
 		return nil
 	})
@@ -325,9 +329,13 @@ func (g *General) Initialize() {
 	})
 	findProspect := func() {
 		users := structs.AllUsers(g.dbClient)
-		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg string) {
+		analyser.FindProspects(g.dbClient, g.itemChecker, func(msg, savePath string) {
 			for _, u := range users {
-				g.pushManager.PushMessage(msg, u.UserID)
+				if len(savePath) > 0 {
+					g.pushManager.PushPhoto(msg, savePath, u.UserID)
+				} else {
+					g.pushManager.PushMessage(msg, u.UserID)
+				}
 			}
 		})
 	}

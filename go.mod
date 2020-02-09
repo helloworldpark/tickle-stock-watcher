@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.48.0 // indirect
 	cloud.google.com/go/bigquery v1.2.0 // indirect
 	cloud.google.com/go/logging v1.0.0
-	cloud.google.com/go/storage v1.3.0 // indirect
+	cloud.google.com/go/storage v1.3.0
 	github.com/ajstarks/svgo v0.0.0-20191124160048-bd5c74aaa11c // indirect
 	github.com/anaskhan96/soup v1.1.1
 	github.com/fogleman/gg v1.3.0 // indirect
@@ -28,7 +28,7 @@ require (
 	github.com/sajari/regression v1.0.1-0.20190927054934-24a553fd501a
 	github.com/sdcoffey/big v0.4.1
 	github.com/sdcoffey/techan v0.0.0-20190712174126-35e5bd2670c7
-	github.com/ugorji/go v1.1.7 // indirect
+	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opencensus.io v0.22.2 // indirect
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52 // indirect
@@ -39,8 +39,8 @@ require (
 	golang.org/x/tools v0.0.0-20191220234730-f13409bbebaf // indirect
 	gonum.org/v1/netlib v0.0.0-20191031114514-eccb95939662 // indirect
 	gonum.org/v1/plot v0.0.0-20191107103940-ca91d9d40d0a
+	google.golang.org/api v0.13.0
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20191108220845-16a3f7862a1a
 	google.golang.org/grpc v1.25.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect

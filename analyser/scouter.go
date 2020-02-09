@@ -3,17 +3,25 @@ package analyser
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
+	"github.com/helloworldpark/tickle-stock-watcher/storage"
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 )
 
 func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker, onFind func(msg, savePath string)) {
-	// Delete all past records
+	// Delete all past records(remote)
+	if err := storage.Clean(magicString); err != nil {
+		logger.Error("[Analyser][Prospects] Error while cleaning google storage: %+v", err)
+	}
+
+	// Delete all past records(local)
 	if err := CleanupOldCandleplots(); err != nil {
-		logger.Error("[Analyser][Prospects] Error while cleanup: %+v", err)
+		logger.Error("[Analyser][Prospects] Error while cleaning local: %+v", err)
 		onFind("No prospects today!", "")
 		return
 	}
@@ -49,6 +57,12 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 			stockItemChecker := watcher.NewStockItemChecker(dbClient)
 			didPlot, savePath := NewCandlePlot(dbClient, days, stockID, stockItemChecker)
 			if didPlot {
+				savePath, err := uploadLocalImage(savePath)
+				if err == nil {
+					onFind(buf.String(), "https://www.googleapis.com/storage/v1/ticklemeta-storage/"+savePath)
+				} else {
+					onFind(buf.String(), "")
+				}
 				onFind(buf.String(), savePath)
 			} else {
 				onFind(buf.String(), "")
@@ -60,4 +74,18 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	if count == 0 {
 		onFind("No prospects today", "")
 	}
+}
+
+func uploadLocalImage(localPath string) (string, error) {
+	// Upload new images(today)
+	png := storage.PNGtoBytes(localPath)
+	contentType := http.DetectContentType(png)
+	if !strings.HasSuffix(contentType, "png") {
+		return "", newError("PNG file is not PNG")
+	}
+	splits := strings.Split(localPath, "/")
+	splits = splits[len(splits)-2:]
+	savePath := strings.Join(splits, "/")
+	savePath, err := storage.Write(png, savePath)
+	return savePath, err
 }

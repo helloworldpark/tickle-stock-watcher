@@ -16,19 +16,22 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
+const magicString = "tmpday"
 const saveDirFormat = "tmpday%04d%02d%02d/"
 const savePathFormat = "candle%s.png"
 
-func NewCandlePlotDir(date time.Time) string {
+func newCandlePlotDir(date time.Time) string {
 	y, m, d := date.Date()
 	return fmt.Sprintf(saveDirFormat, y, m, d)
 }
 
+// MkCandlePlotDir mkdir CandlePlotDir
 func MkCandlePlotDir() error {
-	dir := NewCandlePlotDir(commons.Now())
+	dir := newCandlePlotDir(commons.Now())
 	return os.Mkdir(dir, 0755)
 }
 
+// CleanupOldCandleplots rm -rf plots
 func CleanupOldCandleplots() error {
 	now := commons.Now()
 	var err error
@@ -46,7 +49,7 @@ func CleanupOldCandleplots() error {
 
 // NewCandlePlot draws and saves a new candle plot of Stock ID
 //               didPlot bool
-//               savePath string
+//               savePath string, full path
 func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockAccess *watcher.StockItemChecker) (bool, string) {
 
 	stockInfo, isValid := stockAccess.StockFromID(stockID)
@@ -104,7 +107,11 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 		panic(err)
 	}
 
-	return true, savePath
+	wd, _ := os.Getwd()
+	if wd[len(wd)-1] != '/' {
+		wd += "/"
+	}
+	return true, wd + savePath
 }
 
 // NewProspect find new prospect of the day

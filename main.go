@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/helloworldpark/tickle-stock-watcher/controller"
+	"github.com/helloworldpark/tickle-stock-watcher/storage"
 	"github.com/helloworldpark/tickle-stock-watcher/database"
 	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/helloworldpark/tickle-stock-watcher/push"
@@ -45,6 +46,9 @@ func main() {
 
 	// TelegramClient 초기화
 	push.InitTelegram(*telegramPath)
+
+	// Google Cloud Storage 초기화
+	storage.InitStorage()
 
 	// General 생성
 	general := controller.NewGeneral(client)
