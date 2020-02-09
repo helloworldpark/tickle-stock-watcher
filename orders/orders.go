@@ -43,7 +43,7 @@ func (o *simpleOrder) OnAction(user structs.User, s []string) error {
 }
 
 func (o *simpleOrder) IsAsync() bool {
-	return o.IsAsync()
+	return o.isAsync
 }
 
 func (o *simpleOrder) IsPublic() bool {
