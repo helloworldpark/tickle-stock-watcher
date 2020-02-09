@@ -59,7 +59,9 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 			if didPlot {
 				savePath, err := uploadLocalImage(savePath)
 				if err == nil {
-					onFind(buf.String(), "https://www.googleapis.com/storage/v1/ticklemeta-storage/"+savePath)
+					url := "https://storage.googleapis.com/ticklemeta-storage/" + savePath
+					logger.Error("[Scouter] %s", url)
+					onFind(buf.String(), url)
 				} else {
 					onFind(buf.String(), "")
 				}
