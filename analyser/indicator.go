@@ -85,12 +85,12 @@ func newRSI(series *techan.TimeSeries, timeframe int) techan.Indicator {
 }
 
 func newMACD(series *techan.TimeSeries, shortWindow, longWindow int) techan.Indicator {
-	return techan.NewMACDIndicator(techan.NewClosePriceIndicator(series), shortWindow, longWindow)
+	return NewCustomMACDIndicator(techan.NewClosePriceIndicator(series), shortWindow, longWindow)
 }
 
 func newMACDHist(series *techan.TimeSeries, shortWindow, longWindow, signalWindow int) techan.Indicator {
 	macd := newMACD(series, shortWindow, longWindow)
-	return techan.NewMACDHistogramIndicator(macd, signalWindow)
+	return NewCustomMACDHistogramIndicator(macd, signalWindow)
 }
 
 type moneyFlowIndexIndicator struct {
@@ -443,4 +443,66 @@ func newLocalZeroIndicator(indicator techan.Indicator, lag, samples int) techan.
 	const lambda = 0.1
 	ncs.Solve(lambda)
 	return localZeroSplineIndicator{indicator: indicator, lag: lag, samples: samples, ncs: ncs, knots: knots}
+}
+
+// CustomEMAIndicator
+type customEmaIndicator struct {
+	techan.Indicator
+	window      int
+	resultCache []*big.Decimal
+}
+
+// NewCustomEMAIndicator returns a derivative indicator which returns the average of the current and preceding values in
+// the given window, with values closer to current index given more weight. A more in-depth explanation can be found here:
+// http://www.investopedia.com/terms/e/ema.asp
+func NewCustomEMAIndicator(indicator techan.Indicator, window int) techan.Indicator {
+	return &customEmaIndicator{
+		Indicator:   techan.NewEMAIndicator(indicator, window),
+		window:      window,
+		resultCache: make([]*big.Decimal, 10),
+	}
+}
+
+func (ema *customEmaIndicator) Calculate(index int) big.Decimal {
+	if index == 0 {
+		result := ema.Indicator.Calculate(index)
+		return result
+	} else if index+1 < ema.window {
+		result := ema.Indicator.Calculate(index)
+		ema.cacheResult(index, result)
+		return result
+	} else if len(ema.resultCache) > index {
+		if len(ema.resultCache)-(index+1) >= 1 && ema.resultCache[index] != nil {
+			return *ema.resultCache[index]
+		}
+	}
+
+	emaPrev := ema.Calculate(index - 1)
+	mult := big.NewDecimal(2.0 / float64(ema.window+1))
+	result := ema.Indicator.Calculate(index).Sub(emaPrev).Mul(mult).Add(emaPrev)
+	ema.cacheResult(index, result)
+
+	return result
+}
+
+func (ema *customEmaIndicator) cacheResult(index int, val big.Decimal) {
+	if index < len(ema.resultCache) {
+		ema.resultCache[index] = &val
+	} else {
+		ema.resultCache = append(ema.resultCache, &val)
+	}
+}
+
+// NewCustomMACDIndicator returns a derivative Indicator which returns the difference between two EMAIndicators with long and
+// short windows. It's useful for gauging the strength of price movements. A more in-depth explanation can be found here:
+// http://www.investopedia.com/terms/m/macd.asp
+func NewCustomMACDIndicator(baseIndicator techan.Indicator, shortwindow, longwindow int) techan.Indicator {
+	return techan.NewDifferenceIndicator(NewCustomEMAIndicator(baseIndicator, shortwindow), NewCustomEMAIndicator(baseIndicator, longwindow))
+}
+
+// NewCustomMACDHistogramIndicator returns a derivative Indicator based on the MACDIndicator, the result of which is
+// the macd indicator minus it's signalLinewindow EMA. A more in-depth explanation can be found here:
+// http://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:macd-histogram
+func NewCustomMACDHistogramIndicator(macdIdicator techan.Indicator, signalLinewindow int) techan.Indicator {
+	return techan.NewDifferenceIndicator(macdIdicator, NewCustomEMAIndicator(macdIdicator, signalLinewindow))
 }
