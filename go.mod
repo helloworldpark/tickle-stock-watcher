@@ -28,7 +28,7 @@ require (
 	github.com/sajari/regression v1.0.1-0.20190927054934-24a553fd501a
 	github.com/sdcoffey/big v0.4.1
 	github.com/sdcoffey/techan v0.0.0-20190712174126-35e5bd2670c7
-	github.com/ugorji/go/codec v1.1.7 // indirect
+	github.com/ugorji/go v1.1.7 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opencensus.io v0.22.2 // indirect
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52 // indirect

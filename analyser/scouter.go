@@ -73,7 +73,9 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 			count++
 		}
 	}
-	if count == 0 {
+	if count > 0 {
+		onFind(fmt.Sprintf("%d prospects recommended", count), "")
+	} else {
 		onFind("No prospects today", "")
 	}
 }
