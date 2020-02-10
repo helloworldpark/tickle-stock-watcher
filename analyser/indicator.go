@@ -472,7 +472,17 @@ func (ema *customEmaIndicator) Calculate(index int) big.Decimal {
 		ema.cacheResult(index, result)
 		return result
 	} else if len(ema.resultCache) > index {
-		if len(ema.resultCache)-(index+1) >= 1 && ema.resultCache[index] != nil {
+		if len(ema.resultCache)-index == 1 {
+			var emaPrevious = big.ZERO
+			if ema.resultCache[index-1] != nil {
+				emaPrevious = *ema.resultCache[index-1]
+			}
+			mult := big.NewDecimal(2.0 / float64(ema.window+1))
+			result := ema.Indicator.Calculate(index).Sub(emaPrevious).Mul(mult).Add(emaPrevious)
+			ema.cacheResult(index, result)
+			return result
+		}
+		if ema.resultCache[index] != nil {
 			return *ema.resultCache[index]
 		}
 	}
