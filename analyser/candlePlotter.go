@@ -13,7 +13,6 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"github.com/sdcoffey/techan"
 	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
 )
 
@@ -90,9 +89,8 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	}
 	y, m, d := commons.Now().Date()
 	p.Title.Text = fmt.Sprintf("%4d.%02d.%02d#%s", y, m, d, stockInfo.StockID)
-	p.X.Label.Text = "Time"
+	p.X.Label.Text = "Date"
 	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
-	p.Y.Label.Text = "Price"
 
 	saveDir := fmt.Sprintf(saveDirFormat, y, m, d)
 	savePath := saveDir + fmt.Sprintf(savePathFormat, stockID)
@@ -101,7 +99,7 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	downColor := color.RGBA{B: 120, A: 255}
 	cs := NewCandleSticks(candles, ana.timeSeries, days, upColor, downColor)
 	p.Add(cs)
-	p.Add(plotter.NewGlyphBoxes())
+	// p.Add(plotter.NewGlyphBoxes())
 
 	if err := p.Save(vg.Length(days)*vg.Centimeter, vg.Length(days)*vg.Centimeter, savePath); err != nil {
 		panic(err)
