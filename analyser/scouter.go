@@ -140,7 +140,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				stockID = strings.TrimLeft(stockID, "candle")
 				stockID = strings.TrimRight(stockID, ".png")
 				savePath := strings.Join(paths[len(paths)-3:], "/")
-				url := "https://storage.cloud.google.com/ticklemeta-storage/" + savePath
+				url := "https://storage.googleapis.com/ticklemeta-storage/" + savePath
 				prospects[stockID] = url
 			}
 		}
