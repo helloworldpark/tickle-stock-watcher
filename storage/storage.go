@@ -15,6 +15,10 @@ import (
 var client *storage.Client
 var bucket *storage.BucketHandle
 
+// ObjectAttrs alias of storage.ObjectAttrs
+type ObjectAttrs storage.ObjectAttrs
+
+// InitStorage inits google storage
 func InitStorage() {
 	ctx := context.Background()
 	clientYet, err := storage.NewClient(ctx)
@@ -48,10 +52,33 @@ func Remove(contains string) error {
 	return err
 }
 
+// Clean cleans including 'contains'
 func Clean(contains string) error {
 	return Remove(contains)
 }
 
+// FilesInDirectory returns attributes in dirname
+func FilesInDirectory(dirname string) []storage.ObjectAttrs {
+	ctx := context.Background()
+	it := bucket.Objects(ctx, nil)
+	filesAttrs := make([]storage.ObjectAttrs, 0)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+
+		dirs := strings.Split(attrs.Name, "/")
+		for _, d := range dirs {
+			if d == dirname {
+				filesAttrs = append(filesAttrs, *attrs)
+			}
+		}
+	}
+	return filesAttrs
+}
+
+// Write writes []byte to filename in GCS
 func Write(contents []byte, filename string) (string, error) {
 	ctx := context.Background()
 	filePath := "tickle-stock-watcher/" + filename
@@ -65,6 +92,7 @@ func Write(contents []byte, filename string) (string, error) {
 	return filePath, err
 }
 
+// PNGtoBytes converts png to []byte
 // https://www.socketloop.com/tutorials/golang-convert-an-image-file-to-byte
 func PNGtoBytes(filename string) []byte {
 	file, err := os.Open(filename)
@@ -75,7 +103,7 @@ func PNGtoBytes(filename string) []byte {
 	defer file.Close()
 
 	fileInfo, _ := file.Stat()
-	var size int64 = fileInfo.Size()
+	var size = fileInfo.Size()
 	bytes := make([]byte, size)
 
 	buffer := bufio.NewReader(file)

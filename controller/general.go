@@ -339,7 +339,7 @@ func (g *General) Initialize() {
 			}
 		})
 	}
-	scheduler.ScheduleEveryday("FindProspects", 23.0, findProspect)
+	scheduler.ScheduleEveryday("FindProspects", 20, findProspect)
 
 	// DateChecker는 매해 12월 29일 07시, 다음 해의 공휴일 정보를 갱신
 	now = commons.Now()
