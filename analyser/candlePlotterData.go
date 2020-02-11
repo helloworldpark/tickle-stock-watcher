@@ -111,7 +111,7 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 // DataRange DataRange
 func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
 	xmin = cs.Candles[0].Timestamp
-	xmax = cs.Candles[len(cs.Candles)-1].Timestamp + 9*60
+	xmax = cs.Candles[len(cs.Candles)-1].Timestamp + 24*60*60
 
 	ymin = cs.Candles[0].Low
 	ymax = cs.Candles[0].High
@@ -133,13 +133,11 @@ func (cs *CandleSticks) GlyphBoxes(p *plot.Plot) []plot.GlyphBox {
 
 		h := (p.X.Norm(d.Timestamp+24*60*60) - p.X.Norm(d.Timestamp)) * 0.5
 		r := (p.Y.Norm(d.High) - p.Y.Norm(d.Low)) * 0.5
-		if r <= 0.0 {
-			r = 0.0
+
+		boxes[i].Rectangle = vg.Rectangle{
+			Min: vg.Point{X: vg.Length(-h), Y: vg.Length(-r)},
+			Max: vg.Point{X: vg.Length(h), Y: vg.Length(r)},
 		}
-		boxes[i].Rectangle.Min.X = vg.Length(-h)
-		boxes[i].Rectangle.Min.Y = vg.Length(-r)
-		boxes[i].Rectangle.Max.X = vg.Length(h)
-		boxes[i].Rectangle.Max.Y = vg.Length(r)
 	}
 	return boxes
 }
