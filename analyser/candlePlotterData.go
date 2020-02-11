@@ -57,9 +57,6 @@ func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.C
 	}
 }
 
-/* plot.Plot interface methods
- *
- */
 // Plot Plot
 func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	trX, trY := plt.Transforms(&c)
