@@ -2,6 +2,7 @@ package analyser
 
 import (
 	"math"
+	"reflect"
 
 	"github.com/helloworldpark/gonaturalspline/cubicSpline"
 	"github.com/helloworldpark/gonaturalspline/knot"
@@ -457,8 +458,12 @@ type customEmaIndicator struct {
 // the given window, with values closer to current index given more weight. A more in-depth explanation can be found here:
 // http://www.investopedia.com/terms/e/ema.asp
 func NewCustomEMAIndicator(indicator techan.Indicator, window int) techan.Indicator {
+	emaIndiType := reflect.TypeOf(indicator)
+	if emaIndiType != nil {
+		logger.Info("EMA Indicator: %v", emaIndiType)
+	}
 	return &customEmaIndicator{
-		Indicator:   techan.NewEMAIndicator(indicator, window),
+		Indicator:   indicator,
 		window:      window,
 		resultCache: make([]*big.Decimal, 10),
 	}
@@ -481,6 +486,7 @@ func (ema *customEmaIndicator) Calculate(index int) big.Decimal {
 			mult := big.NewDecimal(2.0 / float64(ema.window+1))
 			result := ema.Indicator.Calculate(index).Sub(emaPrevious).Mul(mult).Add(emaPrevious)
 			ema.cacheResult(index, result)
+
 			logger.Info("EMA[%d][%p-%p]: %f, %f", index, ema, ema.Indicator, result.Float(), ema.Indicator.Calculate(index).Float())
 			return result
 		}
