@@ -57,6 +57,7 @@ func runOnFind(stockID, picURL string, itemChecker *watcher.StockItemChecker, no
 	addLine("[Prospect] %v", now)
 	addLine("[Prospect] #%s: %s", stockID, stockInfo.Name)
 	if len(picURL) > 0 {
+		logger.Warn("[Scouter] PIC url = %s", picURL)
 		onFind(buf.String(), picURL)
 	} else {
 		onFind(buf.String(), "")
@@ -74,6 +75,14 @@ func cleanupLocal(onFind func(msg, url string)) {
 		onFind("No prospects today!", "")
 		return
 	}
+}
+
+func cleanupGlobal(t time.Time) {
+	y, m, d := t.Date()
+	storagePath := fmt.Sprintf(saveDirFormat, y, m, d)
+	storagePath = storagePath[:len(storagePath)-1]
+
+	storage.Clean(storagePath)
 }
 
 // FindProspects Find prospects using this function. This function uses cache.
@@ -145,6 +154,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 
 	// 무효한 캐시라면 새로 만들어서 내려보낸다
 	logger.Warn("[Analyser][Scouter] Cache: INVALID, Prospect: Find")
+	cleanupGlobal(latest)
 	cleanupLocal(onFind)
 	prospects := findProspects(dbClient, itemChecker)
 	for stockID, url := range prospects {

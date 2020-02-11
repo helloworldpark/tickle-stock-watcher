@@ -121,10 +121,10 @@ func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
 	xmin = cs.Candles[cs.Len()-cs.days].Timestamp
 	xmax = cs.Candles[cs.Len()-1].Timestamp + 24*60*60
 
-	ymin = cs.Candles[0].Low
-	ymax = cs.Candles[0].High
+	ymin = cs.Candles[cs.Len()-cs.days].Low
+	ymax = cs.Candles[cs.Len()-cs.days].High
 
-	for _, d := range cs.Candles {
+	for _, d := range cs.Candles[cs.Len()-cs.days:] {
 		ymin = math.Min(ymin, d.Low)
 		ymax = math.Max(ymax, d.High)
 	}

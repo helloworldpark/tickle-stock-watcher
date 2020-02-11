@@ -99,7 +99,6 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	downColor := color.RGBA{B: 120, A: 255}
 	cs := NewCandleSticks(candles, ana.timeSeries, days, upColor, downColor)
 	p.Add(cs)
-	// p.Add(plotter.NewGlyphBoxes())
 
 	if err := p.Save(vg.Length(days)*vg.Centimeter, vg.Length(days)*vg.Centimeter, savePath); err != nil {
 		panic(err)
@@ -115,7 +114,7 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 // NewProspect find new prospect of the day
 func NewProspect(dbClient *database.DBClient, days int, stockID string) []structs.StockPrice {
 	ana := NewAnalyser(stockID)
-	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+10))
+	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+additionalDays))
 	var prices []structs.StockPrice
 	_, err := dbClient.Select(&prices,
 		"where StockID=? and Timestamp>=? order by Timestamp",
