@@ -72,7 +72,7 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	candles := Candles{}
 	for i := range prices {
 		ana.AppendPastPrice(prices[i])
-		candles = append(candles, Candle{
+		candles = append(candles, candle{
 			Timestamp: float64(prices[i].Timestamp),
 			Open:      float64(prices[i].Open),
 			Close:     float64(prices[i].Close),
@@ -155,10 +155,6 @@ func NewProspect(dbClient *database.DBClient, days int, stockID string) []struct
 		if len(g) < 7 {
 			continue
 		}
-
-		// if g[6] > 0 {
-		// 	continue
-		// }
 
 		isIncreasing := g[6] > g[5] && g[5] > g[4]
 		if !isIncreasing {

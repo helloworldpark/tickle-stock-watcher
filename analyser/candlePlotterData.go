@@ -11,24 +11,27 @@ import (
 	"gonum.org/v1/plot/vg/draw"
 )
 
+// Candles array of candle
+type Candles []candle
+
+// Len length of the array
+func (c Candles) Len() int { return len(c) }
+
+// Candle timestamp, open, close, high, low
+func (c Candles) Candle(i int) (float64, float64, float64, float64, float64) {
+	return c[i].Timestamp, c[i].Open, c[i].Close, c[i].High, c[i].Low
+}
+
 type candler interface {
 	Len() int
 	Candle(int) (float64, float64, float64, float64, float64)
 }
 
-type Candle struct {
+type candle struct {
 	Timestamp, Open, Close, High, Low float64
 }
 
-type Candles []Candle
-
-func (c Candles) Len() int { return len(c) }
-
-func (c Candles) Candle(i int) (float64, float64, float64, float64, float64) {
-	return c[i].Timestamp, c[i].Open, c[i].Close, c[i].High, c[i].Low
-}
-
-func CopyCandles(data candler) Candles {
+func copyCandles(data candler) Candles {
 	cp := make(Candles, data.Len())
 	for i := range cp {
 		cp[i].Timestamp, cp[i].Open, cp[i].Close, cp[i].High, cp[i].Low = data.Candle(i)
@@ -36,14 +39,16 @@ func CopyCandles(data candler) Candles {
 	return cp
 }
 
+// CandleSticks struct of candle sticks
 type CandleSticks struct {
 	Candles
 	timeSeries         *techan.TimeSeries
 	UpColor, DownColor color.Color
 }
 
+// NewCandleSticks factory method for candle sticks
 func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.Color) *CandleSticks {
-	cp := CopyCandles(cs)
+	cp := copyCandles(cs)
 	return &CandleSticks{
 		Candles:    cp,
 		timeSeries: timeSeries,
@@ -52,6 +57,10 @@ func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.C
 	}
 }
 
+/* plot.Plot interface methods
+ *
+ */
+// Plot Plot
 func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	trX, trY := plt.Transforms(&c)
 
@@ -127,6 +136,7 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	}
 }
 
+// DataRange DataRange
 func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
 	xmin = cs.Candles[0].Timestamp
 	xmax = cs.Candles[len(cs.Candles)-1].Timestamp + 9*60
