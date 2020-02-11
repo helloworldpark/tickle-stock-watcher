@@ -151,3 +151,23 @@ func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
 
 	return xmin, xmax, ymin, ymax
 }
+
+// GlyphBoxes GlyphBoxes
+func (cs *CandleSticks) GlyphBoxes(p *plot.Plot) []plot.GlyphBox {
+	boxes := make([]plot.GlyphBox, cs.Len())
+	for i, d := range cs.Candles {
+		boxes[i].X = p.X.Norm(d.Timestamp + 12*60*60)
+		boxes[i].Y = p.Y.Norm((d.High + d.Low) * 0.5)
+
+		h := (p.X.Norm(d.Timestamp+24*60*60) - p.X.Norm(d.Timestamp)) * 0.5
+		r := (p.Y.Norm(d.High) - p.Y.Norm(d.Low)) * 0.5
+		if r <= 0.0 {
+			r = 0.0
+		}
+		boxes[i].Rectangle.Min.X = vg.Length(-h)
+		boxes[i].Rectangle.Min.Y = vg.Length(-r)
+		boxes[i].Rectangle.Max.X = vg.Length(h)
+		boxes[i].Rectangle.Max.Y = vg.Length(r)
+	}
+	return boxes
+}

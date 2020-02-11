@@ -13,6 +13,7 @@ import (
 	"github.com/helloworldpark/tickle-stock-watcher/watcher"
 	"github.com/sdcoffey/techan"
 	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
 )
 
@@ -102,6 +103,7 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 
 	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
 	p.Add(cs)
+	p.Add(plotter.NewGlyphBoxes())
 
 	if err := p.Save(vg.Length(days)*vg.Centimeter, vg.Length(days)*vg.Centimeter, savePath); err != nil {
 		panic(err)
