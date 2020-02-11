@@ -92,7 +92,6 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	}
 	storagePath := fmt.Sprintf(saveDirFormat, y, m, d)
 	storagePath = storagePath[:len(storagePath)-1]
-	logger.Warn("[Analyser][Scouter] storagePath = %s", storagePath)
 	filesAttrs := storage.FilesInDirectory(storagePath)
 
 	if len(filesAttrs) == 0 {
@@ -104,7 +103,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		for stockID, url := range prospects {
 			runOnFind(stockID, url, itemChecker, now, onFind)
 		}
-		onFind(fmt.Sprintf("%d prospects recommended", len(prospects)), "")
+		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
 
 		// 다 만들었으니 로컬 파일은 삭제
 		cleanupLocal(onFind)
@@ -124,7 +123,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	if isValidCache {
 		logger.Warn("[Analyser][Scouter] Cache: YES, Prospect: Cache")
 		// 유효한 캐시라면 그 캐시값을 내려보낸다
-		result := make(map[string]string)
+		prospects := make(map[string]string)
 		for _, attrs := range filesAttrs {
 			paths := strings.Split(attrs.Name, "/")
 			if len(paths) >= 3 {
@@ -132,14 +131,14 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				stockID = strings.Trim(stockID, "candle")
 				savePath := strings.Join(paths[len(paths)-3:], "/")
 				url := "https://storage.googleapis.com/ticklemeta-storage/" + savePath
-				result[stockID] = url
+				prospects[stockID] = url
 			}
 		}
 
-		for stockID, url := range result {
+		for stockID, url := range prospects {
 			runOnFind(stockID, url, itemChecker, now, onFind)
 		}
-		onFind(fmt.Sprintf("%d prospects recommended", len(result)), "")
+		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
 		return
 	}
 
@@ -150,7 +149,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	for stockID, url := range prospects {
 		runOnFind(stockID, url, itemChecker, now, onFind)
 	}
-	onFind(fmt.Sprintf("%d prospects recommended", len(prospects)), "")
+	onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
 
 	// 다 만들었으니 로컬 파일은 삭제
 	cleanupLocal(onFind)

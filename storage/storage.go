@@ -70,7 +70,6 @@ func FilesInDirectory(dirname string) []storage.ObjectAttrs {
 
 		dirs := strings.Split(attrs.Name, "/")
 		for _, d := range dirs {
-			logger.Warn("[Storage][%s] d = %s", attrs.Name, d)
 			if d == dirname {
 				filesAttrs = append(filesAttrs, *attrs)
 			}
