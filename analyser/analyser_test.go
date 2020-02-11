@@ -138,11 +138,6 @@ func TestTechanValidity(t *testing.T) {
 		panic(err)
 	}
 
-	var timestampX []string
-	for i := range macdHistValues {
-		timestampX = append(timestampX, commons.Unix(int64(macdHistValues[i].X)).Format("01/02 15:04"))
-	}
-
 	macdL, _ := macdHistValues.XY(0)
 	horLineL := plotter.XY{X: macdL, Y: 0.0}
 	macdR, _ := macdHistValues.XY(len(macdHistValues) - 1)
