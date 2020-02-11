@@ -4,7 +4,6 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/sdcoffey/techan"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
@@ -44,16 +43,18 @@ type CandleSticks struct {
 	Candles
 	timeSeries         *techan.TimeSeries
 	UpColor, DownColor color.Color
+	isPromising        func(int) bool
 }
 
 // NewCandleSticks factory method for candle sticks
 func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.Color) *CandleSticks {
 	cp := copyCandles(cs)
 	return &CandleSticks{
-		Candles:    cp,
-		timeSeries: timeSeries,
-		UpColor:    up,
-		DownColor:  down,
+		Candles:     cp,
+		timeSeries:  timeSeries,
+		UpColor:     up,
+		DownColor:   down,
+		isPromising: newProspectCriteriaMACD(timeSeries),
 	}
 }
 
@@ -90,34 +91,8 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 		c.Fill(q.Path())
 	}
 
-	indiFuncs := func(name string, args ...interface{}) techan.Indicator {
-		generator := indicatorMap[name]
-		f, err := generator(cs.timeSeries, args...)
-		if err != nil {
-			logger.Error("Error at %s: +v", name, err)
-		}
-		return f
-	}
-
-	// MACD > 0 && MACDHist == 0
-	const zeroLag = 1
-	const zeroSamples = 7
-	f0 := indiFuncs("macd", 12.0, 26.0)
-	f1 := indiFuncs("macdhist", 12.0, 26.0, 9.0)
-	smoothSpline := newSmoothSplineCalculator(f1, zeroLag, zeroSamples)
 	for i, d := range cs.Candles {
-		v0 := f0.Calculate(i).Float()
-		if v0 <= 0 {
-			continue
-		}
-
-		g := smoothSpline.Graph(i)
-		if len(g) < 7 {
-			continue
-		}
-
-		isIncreasing := g[6] > g[5] && g[5] > g[4]
-		if !isIncreasing {
+		if !cs.isPromising(i) {
 			continue
 		}
 

@@ -101,7 +101,9 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	savePath := saveDir + fmt.Sprintf(savePathFormat, stockID)
 	fmt.Println(savePath)
 
-	cs := NewCandleSticks(candles, ana.timeSeries, color.RGBA{R: 128, A: 255}, color.RGBA{B: 120, A: 255})
+	upColor := color.RGBA{R: 128, A: 255}
+	downColor := color.RGBA{B: 120, A: 255}
+	cs := NewCandleSticks(candles, ana.timeSeries, upColor, downColor)
 	p.Add(cs)
 	p.Add(plotter.NewGlyphBoxes())
 
@@ -129,9 +131,26 @@ func NewProspect(dbClient *database.DBClient, days int, stockID string) []struct
 		return nil
 	}
 
+	isPromising := newProspectCriteriaMACD(ana.timeSeries)
+
+	var promisingPrices []structs.StockPrice
+	for i := range prices {
+		ana.AppendPastPrice(prices[i])
+
+		if !isPromising(i) {
+			continue
+		}
+
+		promisingPrices = append(promisingPrices, prices[i])
+	}
+
+	return promisingPrices
+}
+
+func newProspectCriteriaMACD(timeSeries *techan.TimeSeries) func(index int) bool {
 	indiFuncs := func(name string, args ...interface{}) techan.Indicator {
 		generator := indicatorMap[name]
-		f, err := generator(ana.timeSeries, args...)
+		f, err := generator(timeSeries, args...)
 		if err != nil {
 			logger.Error("Error at %s: +v", name, err)
 		}
@@ -144,27 +163,23 @@ func NewProspect(dbClient *database.DBClient, days int, stockID string) []struct
 	f1 := indiFuncs("macdhist", 12.0, 26.0, 9.0)
 	smoothSpline := newSmoothSplineCalculator(f1, zeroLag, zeroSamples)
 
-	var promisingPrices []structs.StockPrice
-	for i := range prices {
-		ana.AppendPastPrice(prices[i])
-
-		v0 := f0.Calculate(i).Float()
+	result := func(index int) bool {
+		v0 := f0.Calculate(index).Float()
 		if v0 <= 0 {
-			continue
+			return false
 		}
 
-		g := smoothSpline.Graph(i)
+		g := smoothSpline.Graph(index)
 		if len(g) < 7 {
-			continue
+			return false
 		}
 
 		isIncreasing := g[6] > g[5] && g[5] > g[4]
 		if !isIncreasing {
-			continue
+			return false
 		}
 
-		promisingPrices = append(promisingPrices, prices[i])
+		return true
 	}
-
-	return promisingPrices
+	return result
 }
