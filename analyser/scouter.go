@@ -96,6 +96,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	if len(filesAttrs) == 0 {
 		// 캐시가 없다
 		// 새로 만들어서 내려보낸다
+		cleanupLocal(onFind)
 		prospects := findProspects(dbClient, itemChecker)
 		for stockID, url := range prospects {
 			runOnFind(stockID, url, itemChecker, now, onFind)
@@ -139,6 +140,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	}
 
 	// 무효한 캐시라면 새로 만들어서 내려보낸다
+	cleanupLocal(onFind)
 	prospects := findProspects(dbClient, itemChecker)
 	for stockID, url := range prospects {
 		runOnFind(stockID, url, itemChecker, now, onFind)
