@@ -481,7 +481,7 @@ func (ema *customEmaIndicator) Calculate(index int) big.Decimal {
 			mult := big.NewDecimal(2.0 / float64(ema.window+1))
 			result := ema.Indicator.Calculate(index).Sub(emaPrevious).Mul(mult).Add(emaPrevious)
 			ema.cacheResult(index, result)
-			logger.Info("EMA: %f", result.Float())
+			logger.Info("EMA[%d][%p]: %f", index, ema, result.Float())
 			return result
 		}
 		if ema.resultCache[index] != nil {
