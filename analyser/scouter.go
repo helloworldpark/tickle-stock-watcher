@@ -91,6 +91,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		y, m, d = now.Date()
 	}
 	storagePath := fmt.Sprintf(saveDirFormat, y, m, d)
+	storagePath = storagePath[:len(storagePath)-1]
 	logger.Warn("[Analyser][Scouter] storagePath = %s", storagePath)
 	filesAttrs := storage.FilesInDirectory(storagePath)
 
