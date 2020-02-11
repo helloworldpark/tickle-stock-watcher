@@ -126,6 +126,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 			latest = attr.Updated
 		}
 	}
+	latest = latest.In(commons.AsiaSeoul)
 	// 유효한 캐시: referenceTime에서 24시간 이내, 20:00 기준
 	referenceTime := time.Date(y, m, d, 20, 0, 0, 0, commons.AsiaSeoul)
 	isValidCache := latest.After(referenceTime) && latest.Before(referenceTime.AddDate(0, 0, 1))
