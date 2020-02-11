@@ -20,6 +20,7 @@ import (
 const magicString = "tmpday"
 const saveDirFormat = "tmpday%04d%02d%02d/"
 const savePathFormat = "candle%s.png"
+const additionalDays = 50
 
 func newCandlePlotDir(date time.Time) string {
 	y, m, d := date.Date()
@@ -60,7 +61,7 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	}
 
 	ana := NewAnalyser(stockInfo.StockID)
-	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+1))
+	timestampFrom := commons.MaxInt64(ana.NeedPriceFrom(), commons.Now().Unix()-60*60*24*int64(days+additionalDays))
 	var prices []structs.StockPrice
 	_, err := dbClient.Select(&prices,
 		"where StockID=? and Timestamp>=? order by Timestamp",
@@ -93,17 +94,12 @@ func NewCandlePlot(dbClient *database.DBClient, days int, stockID string, stockA
 	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02"}
 	p.Y.Label.Text = "Price"
 
-	if len(candles) >= (days + 1) {
-		candles = candles[len(candles)-days-1:]
-	}
-
 	saveDir := fmt.Sprintf(saveDirFormat, y, m, d)
 	savePath := saveDir + fmt.Sprintf(savePathFormat, stockID)
-	fmt.Println(savePath)
 
 	upColor := color.RGBA{R: 128, A: 255}
 	downColor := color.RGBA{B: 120, A: 255}
-	cs := NewCandleSticks(candles, ana.timeSeries, upColor, downColor)
+	cs := NewCandleSticks(candles, ana.timeSeries, days, upColor, downColor)
 	p.Add(cs)
 	p.Add(plotter.NewGlyphBoxes())
 

@@ -41,16 +41,18 @@ func copyCandles(data candler) Candles {
 // CandleSticks struct of candle sticks
 type CandleSticks struct {
 	Candles
+	days               int
 	timeSeries         *techan.TimeSeries
 	UpColor, DownColor color.Color
 	isPromising        func(int) bool
 }
 
 // NewCandleSticks factory method for candle sticks
-func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, up, down color.Color) *CandleSticks {
+func NewCandleSticks(cs Candles, timeSeries *techan.TimeSeries, days int, up, down color.Color) *CandleSticks {
 	cp := copyCandles(cs)
 	return &CandleSticks{
 		Candles:     cp,
+		days:        days,
 		timeSeries:  timeSeries,
 		UpColor:     up,
 		DownColor:   down,
@@ -63,7 +65,10 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	trX, trY := plt.Transforms(&c)
 
 	// Plot candlestick
-	for _, d := range cs.Candles {
+	for i, d := range cs.Candles {
+		if i < cs.Len()-cs.days {
+			continue
+		}
 		x0 := trX(d.Timestamp)
 		x1 := trX(d.Timestamp + 24*60*60) // 24시간
 		y0 := trY(d.Open)
@@ -92,6 +97,9 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 	}
 
 	for i, d := range cs.Candles {
+		if i < cs.Len()-cs.days {
+			continue
+		}
 		if !cs.isPromising(i) {
 			continue
 		}
@@ -110,8 +118,8 @@ func (cs *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 
 // DataRange DataRange
 func (cs *CandleSticks) DataRange() (xmin, xmax, ymin, ymax float64) {
-	xmin = cs.Candles[0].Timestamp
-	xmax = cs.Candles[len(cs.Candles)-1].Timestamp + 24*60*60
+	xmin = cs.Candles[cs.Len()-cs.days].Timestamp
+	xmax = cs.Candles[cs.Len()-1].Timestamp + 24*60*60
 
 	ymin = cs.Candles[0].Low
 	ymax = cs.Candles[0].High

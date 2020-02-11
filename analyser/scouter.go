@@ -94,6 +94,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	filesAttrs := storage.FilesInDirectory(storagePath)
 
 	if len(filesAttrs) == 0 {
+		logger.Warn("[Analyser][Scouter] Cache: NO, Prospect: Find")
 		// 캐시가 없다
 		// 새로 만들어서 내려보낸다
 		cleanupLocal(onFind)
@@ -119,6 +120,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	referenceTime := time.Date(y, m, d, 20, 0, 0, 0, commons.AsiaSeoul)
 	isValidCache := latest.After(referenceTime) && latest.Before(referenceTime.AddDate(0, 0, 1))
 	if isValidCache {
+		logger.Warn("[Analyser][Scouter] Cache: YES, Prospect: Cache")
 		// 유효한 캐시라면 그 캐시값을 내려보낸다
 		result := make(map[string]string)
 		for _, attrs := range filesAttrs {
@@ -140,6 +142,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	}
 
 	// 무효한 캐시라면 새로 만들어서 내려보낸다
+	logger.Warn("[Analyser][Scouter] Cache: INVALID, Prospect: Find")
 	cleanupLocal(onFind)
 	prospects := findProspects(dbClient, itemChecker)
 	for stockID, url := range prospects {
