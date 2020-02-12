@@ -141,33 +141,30 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
 	}
 
-	if len(filesAttrs) == 0 {
-		logger.Warn("[Analyser][Scouter] Cache: NO, Prospect: Find")
-		// 캐시가 없다
-		// 새로 만들어서 내려보낸다
-		cleanupLocal(onFind)
-		prospects := findProspects(dbClient, itemChecker)
-		showProspects(prospects)
-		// 다 만들었으니 로컬 파일은 삭제
-		cleanupLocal(onFind)
-		return
-	}
-
-	// 캐시가 있다
-	latest := filesAttrs[0].Updated
-	for _, attr := range filesAttrs {
-		if attr.Updated.After(latest) {
-			latest = attr.Updated
+	hasCache := (len(filesAttrs) > 0)
+	isCacheValid := false
+	if hasCache {
+		// 캐시가 있다
+		latest := filesAttrs[0].Updated
+		for _, attr := range filesAttrs {
+			if attr.Updated.After(latest) {
+				latest = attr.Updated
+			}
+		}
+		latest = latest.In(commons.AsiaSeoul)
+		// 유효한 캐시: referenceTime에서 24시간 이내, 20:00 기준
+		referenceTime := time.Date(y, m, d, 20, 0, 0, 0, commons.AsiaSeoul)
+		isCacheValid = latest.After(referenceTime) && latest.Before(referenceTime.AddDate(0, 0, 1))
+		if !isCacheValid {
+			// 무효한 캐시이니 날려버린다
+			cleanupGlobal(latest)
 		}
 	}
-	latest = latest.In(commons.AsiaSeoul)
-	// 유효한 캐시: referenceTime에서 24시간 이내, 20:00 기준
-	referenceTime := time.Date(y, m, d, 20, 0, 0, 0, commons.AsiaSeoul)
-	isValidCache := latest.After(referenceTime) && latest.Before(referenceTime.AddDate(0, 0, 1))
-	if isValidCache {
+
+	var prospects map[string]string
+	if hasCache && isCacheValid {
 		logger.Warn("[Analyser][Scouter] Cache: YES, Prospect: Cache")
 		// 유효한 캐시라면 그 캐시값을 내려보낸다
-		prospects := make(map[string]string)
 		for _, attrs := range filesAttrs {
 			paths := strings.Split(attrs.Name, "/")
 			if len(paths) >= 3 {
@@ -179,19 +176,21 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				prospects[stockID] = url
 			}
 		}
-		showProspects(prospects)
-		return
+	} else {
+		if !hasCache {
+			logger.Warn("[Analyser][Scouter] Cache: NO, Prospect: Find")
+		} else if !isCacheValid {
+			logger.Warn("[Analyser][Scouter] Cache: INVALID, Prospect: Find")
+		}
+
+		// 캐시가 없다
+		// 새로 만들어서 내려보낸다
+		cleanupLocal(onFind)
+		prospects = findProspects(dbClient, itemChecker)
+		// 다 만들었으니 로컬 파일은 삭제
+		cleanupLocal(onFind)
 	}
-
-	// 무효한 캐시라면 새로 만들어서 내려보낸다
-	logger.Warn("[Analyser][Scouter] Cache: INVALID, Prospect: Find")
-	cleanupGlobal(latest)
-	cleanupLocal(onFind)
-	prospects := findProspects(dbClient, itemChecker)
 	showProspects(prospects)
-
-	// 다 만들었으니 로컬 파일은 삭제
-	cleanupLocal(onFind)
 }
 
 func uploadLocalImage(localPath string) (string, error) {
