@@ -5,7 +5,6 @@ import (
 
 	"github.com/helloworldpark/gonaturalspline/cubicSpline"
 	"github.com/helloworldpark/gonaturalspline/knot"
-	"github.com/helloworldpark/tickle-stock-watcher/logger"
 	"github.com/sajari/regression"
 	"github.com/sdcoffey/big"
 	"github.com/sdcoffey/techan"
@@ -485,10 +484,6 @@ func (ema *customEmaIndicator) Calculate(index int) big.Decimal {
 			mult := big.NewDecimal(2.0 / float64(ema.window+1))
 			result := ema.Indicator.Calculate(index).Sub(emaPrevious).Mul(mult).Add(emaPrevious)
 			ema.cacheResult(index, result)
-
-			logger.Info("EMA[%d][%p]: %f, %f", index, ema,
-				result.Float(), ema.Indicator.Calculate(index).Float(),
-			)
 			return result
 		}
 		if ema.resultCache[index] != nil {
