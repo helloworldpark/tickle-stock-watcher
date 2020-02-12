@@ -16,6 +16,7 @@ import (
 
 const days = 10
 const maxProspectsToShow = 5
+const baseURL = "https://storage.googleapis.com/ticklemeta-storage/"
 
 func findProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker) map[string]string {
 	stocks := itemChecker.AllStockID()
@@ -26,18 +27,12 @@ func findProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		prospects := NewProspect(dbClient, days, stockID)
 		if len(prospects) > 0 {
 			didPlot, savePath := NewCandlePlot(dbClient, days, stockID, itemChecker)
+			result[stockID] = ""
 			if didPlot {
 				savePath, err := uploadLocalImage(savePath)
 				if err == nil {
-					url := "https://storage.googleapis.com/ticklemeta-storage/" + savePath
-					result[stockID] = url
-
-					logger.Error("[Scouter] %s", url)
-				} else {
-					result[stockID] = ""
+					result[stockID] = baseURL + savePath
 				}
-			} else {
-				result[stockID] = ""
 			}
 		}
 	}
@@ -172,8 +167,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				stockID = strings.TrimLeft(stockID, "candle")
 				stockID = strings.TrimRight(stockID, ".png")
 				savePath := strings.Join(paths[len(paths)-3:], "/")
-				url := "https://storage.googleapis.com/ticklemeta-storage/" + savePath
-				prospects[stockID] = url
+				prospects[stockID] = baseURL + savePath
 			}
 		}
 	} else {
