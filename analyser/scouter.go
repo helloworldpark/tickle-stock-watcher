@@ -15,6 +15,7 @@ import (
 )
 
 const days = 10
+const maxProspectsToShow = 5
 
 func findProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker) map[string]string {
 	stocks := itemChecker.AllStockID()
@@ -57,7 +58,6 @@ func runOnFind(stockID, picURL string, itemChecker *watcher.StockItemChecker, no
 	addLine("[Prospect] %v", now)
 	addLine("[Prospect] #%s: %s", stockID, stockInfo.Name)
 	if len(picURL) > 0 {
-		logger.Warn("[Scouter] PIC url = %s", picURL)
 		onFind(buf.String(), picURL)
 	} else {
 		onFind(buf.String(), "")
@@ -103,17 +103,51 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	storagePath = storagePath[:len(storagePath)-1]
 	filesAttrs := storage.FilesInDirectory(storagePath)
 
+	addLine := func(buf *bytes.Buffer, str string, args ...interface{}) {
+		if buf == nil {
+			return
+		}
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args...)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	showProspects := func(prospects map[string]string) {
+		if len(prospects) <= maxProspectsToShow {
+			for stockID, url := range prospects {
+				runOnFind(stockID, url, itemChecker, now, onFind)
+			}
+		} else {
+			count := 0
+			var buf bytes.Buffer
+			for stockID, url := range prospects {
+				count++
+				if count <= maxProspectsToShow {
+					runOnFind(stockID, url, itemChecker, now, onFind)
+				} else {
+					stockInfo, _ := itemChecker.StockFromID(stockID)
+					if count == maxProspectsToShow+1 {
+						addLine(&buf, "[Prospect] ...and others!")
+					}
+					addLine(&buf, "    #%s: %s(%s)", stockID, stockInfo.Name, url)
+				}
+			}
+			if count > maxProspectsToShow {
+				onFind(buf.String(), "")
+			}
+		}
+		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
+	}
+
 	if len(filesAttrs) == 0 {
 		logger.Warn("[Analyser][Scouter] Cache: NO, Prospect: Find")
 		// 캐시가 없다
 		// 새로 만들어서 내려보낸다
 		cleanupLocal(onFind)
 		prospects := findProspects(dbClient, itemChecker)
-		for stockID, url := range prospects {
-			runOnFind(stockID, url, itemChecker, now, onFind)
-		}
-		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
-
+		showProspects(prospects)
 		// 다 만들었으니 로컬 파일은 삭제
 		cleanupLocal(onFind)
 		return
@@ -145,11 +179,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 				prospects[stockID] = url
 			}
 		}
-
-		for stockID, url := range prospects {
-			runOnFind(stockID, url, itemChecker, now, onFind)
-		}
-		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
+		showProspects(prospects)
 		return
 	}
 
@@ -158,10 +188,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	cleanupGlobal(latest)
 	cleanupLocal(onFind)
 	prospects := findProspects(dbClient, itemChecker)
-	for stockID, url := range prospects {
-		runOnFind(stockID, url, itemChecker, now, onFind)
-	}
-	onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
+	showProspects(prospects)
 
 	// 다 만들었으니 로컬 파일은 삭제
 	cleanupLocal(onFind)
