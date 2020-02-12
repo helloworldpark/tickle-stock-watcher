@@ -168,6 +168,10 @@ func (w *Watcher) StartWatchingStock(stockID string) <-chan StockPrice {
 		<-afterTimer.C
 		ticker := time.NewTicker(sleepTime)
 		for range ticker.C {
+			if _, ok := w.crawlers[stockID]; !ok {
+				logger.Info("[Watcher] Stock ID already withdrawn: %s", stockID)
+				break
+			}
 			select {
 			case out <- CrawlNow(stockID, 0):
 				continue
