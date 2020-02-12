@@ -161,7 +161,7 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		}
 	}
 
-	var prospects map[string]string
+	prospects := make(map[string]string)
 	if hasCache && isCacheValid {
 		logger.Warn("[Analyser][Scouter] Cache: YES, Prospect: Cache")
 		// 유효한 캐시라면 그 캐시값을 내려보낸다
