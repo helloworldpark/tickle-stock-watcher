@@ -2,22 +2,35 @@ package push
 
 import (
 	"strings"
+	"time"
 
 	"github.com/helloworldpark/tickle-stock-watcher/commons"
 )
+
+type timeChecker struct {
+	lastVisit time.Time
+	waiting   time.Duration
+}
 
 type msgTask = func()
 
 // Manager manager for push
 type Manager struct {
 	tasksTelegram chan msgTask
+	timeChecker   *timeChecker
 }
 
 const msgMaxLength = 4096
 
 // NewManager creates an initialized Push Manager
 func NewManager() *Manager {
-	m := Manager{tasksTelegram: make(chan msgTask)}
+	m := Manager{
+		tasksTelegram: make(chan msgTask),
+		timeChecker: &timeChecker{
+			lastVisit: commons.Now(),
+			waiting:   time.Millisecond * 500,
+		},
+	}
 	runPusher := func(tasks chan msgTask) {
 		for k := range tasks {
 			k()
@@ -29,13 +42,21 @@ func NewManager() *Manager {
 	return &m
 }
 
+func (m *Manager) pushTask(task msgTask) {
+	for commons.Now().Unix() < m.timeChecker.lastVisit.Add(m.timeChecker.waiting).Unix() {
+		continue
+	}
+	m.tasksTelegram <- task
+	m.timeChecker.lastVisit = commons.Now()
+}
+
 // PushMessage pushes message to Telegram Bot
 func (m *Manager) PushMessage(msg string, userid int64) {
 	if len(msg) == 0 {
 		return
 	}
 
-	m.tasksTelegram <- func() {
+	m.pushTask(func() {
 		if len(msg) < msgMaxLength {
 			SendMessageTelegram(userid, msg)
 			return
@@ -66,19 +87,18 @@ func (m *Manager) PushMessage(msg string, userid int64) {
 				SendMessageTelegram(userid, tmpMsg)
 			}
 		}
-	}
+	})
 }
 
 // PushPhoto pushes photo to Telegram Bot
 func (m *Manager) PushPhoto(caption, picURL string, userid int64) {
 	if len(caption) == 0 {
 		caption = ""
-	}
-	if len(caption) >= msgMaxLength {
+	} else if len(caption) >= msgMaxLength {
 		caption = caption[:msgMaxLength]
 	}
 
-	m.tasksTelegram <- func() {
+	m.pushTask(func() {
 		SendPhotoTelegram(userid, caption, picURL)
-	}
+	})
 }
