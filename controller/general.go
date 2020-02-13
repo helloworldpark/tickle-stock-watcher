@@ -33,7 +33,7 @@ var botOrders = map[string]orders.Order{
 	"holiday":        orders.NewDateCheckerDescriptionOrder(),
 	"terminate":      orders.NewTerminationOrder(),
 	"prospect":       orders.NewProspectsOrder(),
-	"appendProspect": orders.NewAppendProspectOrder(),
+	"appendprospect": orders.NewAppendProspectOrder(),
 }
 var newError = commons.NewTaggedError("Controller")
 
@@ -280,7 +280,7 @@ func (g *General) Initialize() {
 	botOrders["scouters"] = botOrders["prospect"]
 
 	// appendProspect
-	botOrders["appendProspect"].SetAction(func(user structs.User, args []string) error {
+	botOrders["appendprospect"].SetAction(func(user structs.User, args []string) error {
 		prospects, now := analyser.ActiveProspects(g.dbClient, g.itemChecker)
 		if len(prospects) == 0 {
 			return newError(fmt.Sprintf("No prospects today(%v)", now))
@@ -291,7 +291,8 @@ func (g *General) Initialize() {
 		}
 		return nil
 	})
-	botOrders["appendProspects"] = botOrders["appendProspect"]
+	botOrders["appendProspect"] = botOrders["appendprospect"]
+	botOrders["appendProspects"] = botOrders["appendprospect"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
