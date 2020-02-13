@@ -177,7 +177,10 @@ func (g *General) Initialize() {
 		buffer := bytes.Buffer{}
 		buffer.WriteString("전략: \n")
 		sort.Slice(strategies, func(i, j int) bool {
-			return strategies[i].OrderSide < strategies[j].OrderSide
+			if strategies[i].OrderSide < strategies[j].OrderSide {
+				return true
+			}
+			return strategies[i].StockID < strategies[j].StockID
 		})
 		for i := range strategies {
 			stock, ok := g.itemChecker.StockFromID(strategies[i].StockID)
@@ -291,8 +294,7 @@ func (g *General) Initialize() {
 		}
 		return nil
 	})
-	botOrders["appendProspect"] = botOrders["appendprospect"]
-	botOrders["appendProspects"] = botOrders["appendprospect"]
+	botOrders["appendprospects"] = botOrders["appendprospect"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
