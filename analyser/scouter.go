@@ -112,31 +112,26 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 		buf.WriteString("\n")
 	}
 
-	showProspects := func(prospects map[string]string) {
-		if len(prospects) <= maxProspectsToShow {
-			for stockID, url := range prospects {
+	showProspects := func(pros map[string]string) {
+		var count = 0
+		var buf bytes.Buffer
+		for stockID, url := range pros {
+			count++
+			if count <= maxProspectsToShow {
 				runOnFind(stockID, url, itemChecker, now, onFind)
-			}
-		} else {
-			count := 0
-			var buf bytes.Buffer
-			for stockID, url := range prospects {
-				count++
-				if count <= maxProspectsToShow {
-					runOnFind(stockID, url, itemChecker, now, onFind)
-				} else {
-					stockInfo, _ := itemChecker.StockFromID(stockID)
-					if count == maxProspectsToShow+1 {
-						addLine(&buf, "[Prospect] ...and others!")
-					}
-					addLine(&buf, "    #%s: %s(%s)", stockID, stockInfo.Name, url)
+			} else {
+				stockInfo, _ := itemChecker.StockFromID(stockID)
+				if count == maxProspectsToShow+1 {
+					addLine(&buf, "[Prospect] ...and others!")
 				}
-			}
-			if count > maxProspectsToShow {
-				onFind(buf.String(), "")
+				addLine(&buf, "    #%s: %s(%s)", stockID, stockInfo.Name, url)
 			}
 		}
-		onFind(fmt.Sprintf("[Prospect] %d recommended", len(prospects)), "")
+		if count > maxProspectsToShow {
+			onFind(buf.String(), "")
+		}
+		onFind(fmt.Sprintf("[Prospect] %d recommended", count), "")
+		onFind("saveProspects 를 입력하여 이들을 전부 감시하십시오", "")
 	}
 
 	hasCache := (len(filesAttrs) > 0)
