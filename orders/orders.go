@@ -64,3 +64,8 @@ func NewTerminationOrder() Order {
 func NewProspectsOrder() Order {
 	return &simpleOrder{name: "prospect", isAsync: true}
 }
+
+// NewAppendProspectOrder order Termination
+func NewAppendProspectOrder() Order {
+	return &simpleOrder{name: "appendProspect", isAsync: true}
+}

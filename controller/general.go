@@ -20,19 +20,20 @@ import (
 )
 
 var botOrders = map[string]orders.Order{
-	"help":      orders.NewHelpOrder(),
-	"invite":    orders.NewInviteOrder(),
-	"join":      orders.NewJoinOrder(),
-	"buy":       orders.NewBuyOrder(),
-	"sell":      orders.NewSellOrder(),
-	"strategy":  orders.NewStrategyOrder(),
-	"stock":     orders.NewStockOrder(),
-	"delete":    orders.NewDeleteOrder(),
-	"watcher":   orders.NewWatcherDescriptionOrder(),
-	"analyser":  orders.NewBrokerDescriptionOrder(),
-	"holiday":   orders.NewDateCheckerDescriptionOrder(),
-	"terminate": orders.NewTerminationOrder(),
-	"prospect":  orders.NewProspectsOrder(),
+	"help":           orders.NewHelpOrder(),
+	"invite":         orders.NewInviteOrder(),
+	"join":           orders.NewJoinOrder(),
+	"buy":            orders.NewBuyOrder(),
+	"sell":           orders.NewSellOrder(),
+	"strategy":       orders.NewStrategyOrder(),
+	"stock":          orders.NewStockOrder(),
+	"delete":         orders.NewDeleteOrder(),
+	"watcher":        orders.NewWatcherDescriptionOrder(),
+	"analyser":       orders.NewBrokerDescriptionOrder(),
+	"holiday":        orders.NewDateCheckerDescriptionOrder(),
+	"terminate":      orders.NewTerminationOrder(),
+	"prospect":       orders.NewProspectsOrder(),
+	"appendProspect": orders.NewAppendProspectOrder(),
 }
 var newError = commons.NewTaggedError("Controller")
 
@@ -277,6 +278,20 @@ func (g *General) Initialize() {
 	botOrders["scout"] = botOrders["prospect"]
 	botOrders["scouter"] = botOrders["prospect"]
 	botOrders["scouters"] = botOrders["prospect"]
+
+	// appendProspect
+	botOrders["appendProspect"].SetAction(func(user structs.User, args []string) error {
+		prospects, now := analyser.ActiveProspects(g.dbClient, g.itemChecker)
+		if len(prospects) == 0 {
+			return newError(fmt.Sprintf("No prospects today(%v)", now))
+		}
+		f := orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess)
+		for stockID := range prospects {
+			f(user, []string{stockID, "macd(12,26)>0&&zero(macdhist(12,26,9),1,7)==1&&mflow(14)<80"})
+		}
+		return nil
+	})
+	botOrders["appendProspects"] = botOrders["appendProspect"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다

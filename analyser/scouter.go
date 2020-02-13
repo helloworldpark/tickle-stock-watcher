@@ -59,15 +59,13 @@ func runOnFind(stockID, picURL string, itemChecker *watcher.StockItemChecker, no
 	}
 }
 
-func cleanupLocal(onFind func(msg, url string)) {
+func cleanupLocal() {
 	if err := CleanupOldCandleplots(); err != nil {
 		logger.Error("[Analyser][Prospects] Error while cleaning local: %+v", err)
-		onFind("No prospects today!", "")
 		return
 	}
 	if err := MkCandlePlotDir(); err != nil {
 		logger.Error("[Analyser][Prospects] Error while making directory for candleplot: %+v", err)
-		onFind("No prospects today!", "")
 		return
 	}
 }
@@ -80,8 +78,7 @@ func cleanupGlobal(t time.Time) {
 	storage.Clean(storagePath)
 }
 
-// FindProspects Find prospects using this function. This function uses cache.
-func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker, onFind func(msg, savePath string)) {
+func ActiveProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker) (map[string]string, time.Time) {
 	now := commons.Now()
 	hour := now.Hour()
 
@@ -100,39 +97,6 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	storagePath := fmt.Sprintf(saveDirFormat, y, m, d)
 	storagePath = storagePath[:len(storagePath)-1]
 	filesAttrs := storage.FilesInDirectory(storagePath)
-
-	addLine := func(buf *bytes.Buffer, str string, args ...interface{}) {
-		if buf == nil {
-			return
-		}
-		if len(args) > 0 {
-			str = fmt.Sprintf(str, args...)
-		}
-		buf.WriteString(str)
-		buf.WriteString("\n")
-	}
-
-	showProspects := func(pros map[string]string) {
-		var count = 0
-		var buf bytes.Buffer
-		for stockID, url := range pros {
-			count++
-			if count <= maxProspectsToShow {
-				runOnFind(stockID, url, itemChecker, now, onFind)
-			} else {
-				stockInfo, _ := itemChecker.StockFromID(stockID)
-				if count == maxProspectsToShow+1 {
-					addLine(&buf, "[Prospect] ...and others!")
-				}
-				addLine(&buf, "    #%s: %s(%s)", stockID, stockInfo.Name, url)
-			}
-		}
-		if count > maxProspectsToShow {
-			onFind(buf.String(), "")
-		}
-		onFind(fmt.Sprintf("[Prospect] %d recommended", count), "")
-		onFind("saveProspects 를 입력하여 이들을 전부 감시하십시오", "")
-	}
 
 	hasCache := (len(filesAttrs) > 0)
 	isCacheValid := false
@@ -177,12 +141,52 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 
 		// 캐시가 없다
 		// 새로 만들어서 내려보낸다
-		cleanupLocal(onFind)
+		cleanupLocal()
 		prospects = findProspects(dbClient, itemChecker)
 		// 다 만들었으니 로컬 파일은 삭제
-		cleanupLocal(onFind)
+		cleanupLocal()
 	}
-	showProspects(prospects)
+
+	return prospects, now
+}
+
+// FindProspects Find prospects using this function. This function uses cache.
+func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemChecker, onFind func(msg, savePath string)) {
+	addLine := func(buf *bytes.Buffer, str string, args ...interface{}) {
+		if buf == nil {
+			return
+		}
+		if len(args) > 0 {
+			str = fmt.Sprintf(str, args...)
+		}
+		buf.WriteString(str)
+		buf.WriteString("\n")
+	}
+
+	showProspects := func(pros map[string]string, now time.Time) {
+		var count = 0
+		var buf bytes.Buffer
+		for stockID, url := range pros {
+			count++
+			if count <= maxProspectsToShow {
+				runOnFind(stockID, url, itemChecker, now, onFind)
+			} else {
+				stockInfo, _ := itemChecker.StockFromID(stockID)
+				if count == maxProspectsToShow+1 {
+					addLine(&buf, "[Prospect] ...and others!")
+				}
+				addLine(&buf, "    #%s: %s(%s)", stockID, stockInfo.Name, url)
+			}
+		}
+		if count > maxProspectsToShow {
+			onFind(buf.String(), "")
+		}
+		onFind(fmt.Sprintf("[Prospect] %d recommended", count), "")
+		onFind("saveProspects 를 입력하여 이들을 전부 감시하십시오", "")
+	}
+
+	prospectMap, timeNow := ActiveProspects(dbClient, itemChecker)
+	showProspects(prospectMap, timeNow)
 }
 
 func uploadLocalImage(localPath string) (string, error) {
