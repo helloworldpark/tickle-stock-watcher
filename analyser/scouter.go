@@ -93,6 +93,9 @@ func FindProspects(dbClient *database.DBClient, itemChecker *watcher.StockItemCh
 	} else {
 		// 당일 20:00 이후
 		y, m, d = now.Date()
+
+		// 전날 쌓아둔 캐시는 혹시 있으면 날린다
+		cleanupGlobal(now.AddDate(0, 0, -1))
 	}
 	storagePath := fmt.Sprintf(saveDirFormat, y, m, d)
 	storagePath = storagePath[:len(storagePath)-1]
