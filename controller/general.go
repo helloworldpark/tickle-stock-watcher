@@ -293,14 +293,21 @@ func (g *General) Initialize() {
 		for _, stock := range g.AccessBroker().GetStrategy(user) {
 			stockIDs[stock.StockID] = true
 		}
+		n := 0
 		for stockID := range prospects {
 			if _, ok := stockIDs[stockID]; !ok {
 				f(user, []string{stockID, "macd(12,26)>0&&zero(macdhist(12,26,9),1,7)==1&&mflow(14)<80"})
+				n++
 			}
+		}
+		if n == 0 {
+			g.pushManager.PushMessage("[Prospects] No prospect to append", user.UserID)
 		}
 		return nil
 	})
 	botOrders["appendprospects"] = botOrders["appendprospect"]
+	botOrders["saveprospect"] = botOrders["appendprospect"]
+	botOrders["saveprospects"] = botOrders["appendprospect"]
 
 	// ItemChecker는 매일 05시, 현재 거래 가능한 주식들을 업데이트
 	// AnalyserBroker는 주중, 장이 열리는 날이면 08시에 과거 가격 정보를 업데이트받는다
