@@ -289,8 +289,14 @@ func (g *General) Initialize() {
 			return newError(fmt.Sprintf("No prospects today(%v)", now))
 		}
 		f := orders.Trade(commons.BUY, g, g, g, g.onStrategyEvent, tradeOnSuccess)
+		stockIDs := make(map[string]bool)
+		for _, stock := range g.AccessBroker().GetStrategy(user) {
+			stockIDs[stock.StockID] = true
+		}
 		for stockID := range prospects {
-			f(user, []string{stockID, "macd(12,26)>0&&zero(macdhist(12,26,9),1,7)==1&&mflow(14)<80"})
+			if _, ok := stockIDs[stockID]; !ok {
+				f(user, []string{stockID, "macd(12,26)>0&&zero(macdhist(12,26,9),1,7)==1&&mflow(14)<80"})
+			}
 		}
 		return nil
 	})
