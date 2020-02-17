@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -151,36 +150,14 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 func ListMyDriveFiles(service *drive.Service) []string {
-	resp, err := http.DefaultClient.Get(service.BasePath + "files")
+	fileList, err := service.Files.List().Do()
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	var jsonBody interface{}
-	json.Unmarshal(body, &jsonBody)
-
-	fmt.Printf("JSON BODY: %+v\n", resp)
-
-	keyJson, ok := jsonBody.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	if _, ok = keyJson["files"]; !ok {
-		return nil
-	}
-	rawDrives, ok := keyJson["files"].([]interface{})
-	if !ok {
-		return nil
+		log.Fatalf("[ListMyDriveFiles] %+v", err)
 	}
 
 	var fileName []string
-	for _, drive := range rawDrives {
-		formattedDrive, ok := drive.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		fileName = append(fileName, formattedDrive["name"].(string))
+	for _, file := range fileList.Files {
+		fileName = append(fileName, file.Name)
 	}
 
 	return fileName
