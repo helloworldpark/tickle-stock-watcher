@@ -61,7 +61,7 @@ func FilesServiceFromFile(jsonPath string) *drive.FilesService {
 }
 
 func DriveServiceFromFile(jsonPath string) *drive.Service {
-	client, err := google.DefaultClient(context.Background(), drive.DriveScope)
+	client, err := google.DefaultClient(context.Background(), drive.DriveScope, drive.DriveFileScope)
 	if err != nil {
 		log.Fatalf("Unable to create Drive client %v", err)
 	}
