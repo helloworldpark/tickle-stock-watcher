@@ -12,6 +12,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -60,22 +61,25 @@ func FilesServiceFromFile(jsonPath string) *drive.FilesService {
 }
 
 func DriveServiceFromFile(jsonPath string) *drive.Service {
-	ctx := context.Background()
-	// service, err := drive.NewService(ctx, option.WithCredentialsFile(jsonPath))
-	service, err := drive.NewService(ctx)
+	b, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
-	f, err := service.Drives.List().Do()
+	// If modifying these scopes, delete your previously saved token.json.
+	config, err := google.ConfigFromJSON(b, drive.DriveScope)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(b)
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	for i := range f.Drives {
-		fmt.Printf("Drive File[%d] = %s\n", i, f.Drives[i].Name)
+	client := getClient(config)
+
+	srv, err := drive.New(client)
+	if err != nil {
+		log.Fatalf("Unable to create people Client %v", err)
 	}
 
-	return service
+	return srv
 }
 
 func StorageClient() {
