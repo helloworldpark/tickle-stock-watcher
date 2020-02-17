@@ -61,22 +61,14 @@ func FilesServiceFromFile(jsonPath string) *drive.FilesService {
 }
 
 func DriveServiceFromFile(jsonPath string) *drive.Service {
-	b, err := ioutil.ReadFile(jsonPath)
+	client, err := google.DefaultClient(context.Background(), drive.DriveScope)
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatalf("Unable to create Drive client %v", err)
 	}
-
-	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, drive.DriveScope)
-	if err != nil {
-		fmt.Println(b)
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(config)
 
 	srv, err := drive.New(client)
 	if err != nil {
-		log.Fatalf("Unable to create people Client %v", err)
+		log.Fatalf("Unable to create Drive service %v", err)
 	}
 
 	return srv
