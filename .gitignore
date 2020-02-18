@@ -13,6 +13,7 @@
 
 tickle-stock-watcher
 *.json
+!ticklemetadrive.json
 vendor/*
 analyser/images/*
 *.png
