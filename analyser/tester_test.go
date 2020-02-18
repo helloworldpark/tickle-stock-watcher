@@ -59,10 +59,17 @@ func FilesServiceFromFile(jsonPath string) *drive.FilesService {
 }
 
 func DriveServiceFromFile(jsonPath string) *drive.Service {
-	fmt.Println("GOOGLE_APPLICATION_CREDENTIALS", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	driveService, err := drive.NewService(context.Background())
-	cred := option.WithCredentialsFile(jsonPath)
-	fmt.Println("Credential: ", cred)
+	envKey := "GOOGLE_APPLICATION_CREDENTIALS"
+	env := os.Getenv(envKey)
+	fmt.Println(envKey, env)
+	var driveService *drive.Service
+	var err error
+	if len(env) == 0 {
+		cred := option.WithCredentialsFile(jsonPath)
+		driveService, err = drive.NewService(context.Background(), cred)
+	} else {
+		driveService, err = drive.NewService(context.Background())
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
