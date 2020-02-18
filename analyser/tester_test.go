@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -60,17 +59,14 @@ func FilesServiceFromFile(jsonPath string) *drive.FilesService {
 }
 
 func DriveServiceFromFile(jsonPath string) *drive.Service {
-	client, err := google.DefaultClient(context.Background(), drive.DriveScope, drive.DriveFileScope)
+	fmt.Println("GOOGLE_APPLICATION_CREDENTIALS", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	driveService, err := drive.NewService(context.Background())
+	cred := option.WithCredentialsFile(jsonPath)
+	fmt.Println("Credential: ", cred)
 	if err != nil {
-		log.Fatalf("Unable to create Drive client %v", err)
+		log.Fatal(err)
 	}
-
-	srv, err := drive.New(client)
-	if err != nil {
-		log.Fatalf("Unable to create Drive service %v", err)
-	}
-
-	return srv
+	return driveService
 }
 
 func StorageClient() {
@@ -164,7 +160,7 @@ func ListMyDriveFiles(service *drive.Service) []string {
 }
 
 func TestListDrives(t *testing.T) {
-	service := DriveServiceFromFile("/Users/shp/Documents/projects/ticklemeta-20200216.json")
+	service := DriveServiceFromFile("../ticklemetadrive.json")
 	fmt.Println("Drives", service)
 	fmt.Println(ListMyDriveFiles(service))
 }
