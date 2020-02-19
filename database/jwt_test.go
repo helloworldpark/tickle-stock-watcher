@@ -64,15 +64,19 @@ func testDriveAPI(accessToken string) {
 	var readJSON interface{}
 	json.Unmarshal(read, &readJSON)
 
-	fmt.Println("FILES")
 	mapJSON, ok := readJSON.(map[string]interface{})
 	if !ok {
 		return
 	}
 	if itemsRaw, ok := mapJSON["items"]; ok {
 		if items, ok := itemsRaw.([]interface{}); ok {
+			fmt.Println("FILES: ", len(items))
 			for _, item := range items {
-				fmt.Println(item)
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					for k, v := range itemMap {
+						fmt.Printf("%s:    %v\n", k, v)
+					}
+				}
 			}
 		}
 	}
