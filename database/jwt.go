@@ -10,7 +10,7 @@ import (
 	"google.golang.org/api/drive/v2"
 )
 
-func CreateJWTToken(jsonPath string) *oauth2.Token {
+func CreateJWTToken(jsonPath string) (*oauth2.Token, bool) {
 	cred, err := google.FindDefaultCredentials(context.Background(), drive.DriveScope, drive.DriveFileScope)
 	if err != nil {
 		fmt.Errorf("%+v", err.Error())
@@ -21,16 +21,21 @@ func CreateJWTToken(jsonPath string) *oauth2.Token {
 	}
 
 	var tokenSource oauth2.TokenSource
+	var requestAccessToken bool
 
-	if cred != nil {
+	if cred != nil && false {
 		tokenSource = cred.TokenSource
 		fmt.Println("Credential is not nil")
 	} else if len(jsonKey) > 0 {
-		tokenSource, err = google.JWTAccessTokenSourceFromJSON(jsonKey, "https://stock.ticklemeta.kr")
-		fmt.Println("Token Source From JWTAccessTokenSourceFromJSON")
+		cfg, err := google.JWTConfigFromJSON(jsonKey, drive.DriveScope, drive.DriveFileScope)
 		if err != nil {
 			fmt.Errorf("%+v", err.Error())
 		}
+		tokenSource = cfg.TokenSource(context.Background())
+		a, _ := tokenSource.Token()
+		fmt.Println("Token Source From JWTConfigFromJSON", a)
+
+		requestAccessToken = true
 	} else {
 		panic("No way")
 	}
@@ -39,5 +44,5 @@ func CreateJWTToken(jsonPath string) *oauth2.Token {
 	if err != nil {
 		fmt.Errorf("%+v", err.Error())
 	}
-	return token
+	return token, requestAccessToken
 }
