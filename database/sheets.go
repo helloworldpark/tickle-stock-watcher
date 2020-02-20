@@ -47,6 +47,11 @@ func (m *SheetManager) RefreshToken() bool {
 
 // CreateSpreadsheet creates a single spreadsheet file
 func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
+	// check duplicated title
+	if m.FindSpreadsheet(title) != nil {
+		return nil
+	}
+
 	rb := &sheets.Spreadsheet{
 		Properties: &sheets.SpreadsheetProperties{
 			Title:      title,
