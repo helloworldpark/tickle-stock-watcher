@@ -10,8 +10,10 @@ import (
 	"google.golang.org/api/drive/v2"
 )
 
+var scope = []string{drive.DriveScope, drive.DriveFileScope}
+
 func CreateJWTToken(jsonPath string) *oauth2.Token {
-	cred, err := google.FindDefaultCredentials(context.Background(), drive.DriveScope, drive.DriveFileScope)
+	cred, err := google.FindDefaultCredentials(context.Background(), scope...)
 	if err != nil {
 		fmt.Errorf("%+v", err.Error())
 	}
