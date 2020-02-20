@@ -20,3 +20,12 @@ func TestSpreadsheet001(t *testing.T) {
 	fmt.Println("------Get sheet ", sheetId, "------")
 	fmt.Println("------    Result ", sheet)
 }
+
+// get
+func TestSpreadsheet002(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheetId := "1QMUZpqgBCHWEFQ7YEWBwmWwkrtU8yNOTJD0srqt4aFc"
+	sheet := manager.GetSpreadsheet(sheetId)
+	fmt.Println("------Get sheet ", sheetId, "------")
+	fmt.Println("------    Result ", sheet.SpreadsheetId)
+}

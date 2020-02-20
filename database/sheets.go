@@ -1,9 +1,10 @@
 package database
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/sheets/v4"
@@ -36,7 +37,9 @@ func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 			AutoRecalc: "ON_CHANGE",
 		},
 	}
-	resp, err := m.service.Spreadsheets.Create(rb).Do()
+	req := m.service.Spreadsheets.Create(rb)
+	req.Header().Add("Authorization", "Bearer "+m.token.AccessToken)
+	resp, err := req.Do()
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +49,9 @@ func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 }
 
 func (m *SheetManager) GetSpreadsheet(spreadsheetId string) *sheets.Spreadsheet {
-	resp, err := m.service.Spreadsheets.Get(spreadsheetId).IncludeGridData(true).Do()
+	req := m.service.Spreadsheets.Get(spreadsheetId).IncludeGridData(true)
+	req.Header().Add("Authorization", "Bearer "+m.token.AccessToken)
+	resp, err := req.Do()
 	if err != nil {
 		panic(err)
 	}
@@ -59,16 +64,32 @@ func (m *SheetManager) GetSpreadsheet(spreadsheetId string) *sheets.Spreadsheet 
 }
 
 func (m *SheetManager) DeleteSpreadsheet(spreadsheetId string) {
-	sheetId, err := strconv.ParseInt(spreadsheetId, 10, 64)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://www.googleapis.com/drive/v3/files/%s", spreadsheetId), nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Add("Authorization", "Bearer "+m.token.AccessToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Delete %s: %d\n", spreadsheetId, resp.StatusCode)
+	read, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		panic(err)
 	}
 
-	var deleteSheet sheets.DeleteSheetRequest
-	deleteSheet.SheetId = sheetId
-	var request []*sheets.Request
-	request = append(request, &(sheets.Request{}))
-	request[0] = &sheets.Request{}
-	request[0].DeleteSheet = &deleteSheet
-	m.service.Spreadsheets.BatchUpdate(spreadsheetId, &sheets.BatchUpdateSpreadsheetRequest{Requests: request})
+	var readJSON interface{}
+	json.Unmarshal(read, &readJSON)
+
+	mapJSON, ok := readJSON.(map[string]interface{})
+	if ok {
+		for k, v := range mapJSON {
+			fmt.Printf("%s    %v\n", k, v)
+			fmt.Println("------------")
+		}
+	} else {
+		fmt.Println(readJSON)
+	}
 }
