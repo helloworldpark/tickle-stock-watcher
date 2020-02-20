@@ -14,9 +14,10 @@ const dbFileStart = "database_file_"
 
 // SheetManager Manage OAuth2 token lifecycle
 type SheetManager struct {
-	client  *http.Client
-	service *sheets.Service
-	token   *oauth2.Token
+	client         *http.Client
+	service        *sheets.Service
+	token          *oauth2.Token
+	credentialJSON string
 }
 
 // NewSheetManager Create new SheetManager
@@ -26,11 +27,22 @@ func NewSheetManager(jsonPath string) *SheetManager {
 	token := CreateJWTToken(jsonPath)
 
 	m := &SheetManager{
-		client:  client,
-		token:   token,
-		service: service,
+		client:         client,
+		token:          token,
+		service:        service,
+		credentialJSON: jsonPath,
 	}
 	return m
+}
+
+// RefreshToken refreshes token if not valid
+func (m *SheetManager) RefreshToken() bool {
+	if m.token.Valid() {
+		return false
+	}
+	token := CreateJWTToken(m.credentialJSON)
+	m.token = token
+	return true
 }
 
 // CreateSpreadsheet creates a single spreadsheet file
