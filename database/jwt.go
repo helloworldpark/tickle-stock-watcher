@@ -10,7 +10,7 @@ import (
 	"google.golang.org/api/drive/v2"
 )
 
-func CreateJWTToken(jsonPath string) (*oauth2.Token, bool) {
+func CreateJWTToken(jsonPath string) *oauth2.Token {
 	cred, err := google.FindDefaultCredentials(context.Background(), drive.DriveScope, drive.DriveFileScope)
 	if err != nil {
 		fmt.Errorf("%+v", err.Error())
@@ -21,7 +21,6 @@ func CreateJWTToken(jsonPath string) (*oauth2.Token, bool) {
 	}
 
 	var tokenSource oauth2.TokenSource
-	var requestAccessToken bool
 
 	if cred != nil && false {
 		tokenSource = cred.TokenSource
@@ -34,8 +33,6 @@ func CreateJWTToken(jsonPath string) (*oauth2.Token, bool) {
 		tokenSource = cfg.TokenSource(context.Background())
 		a, _ := tokenSource.Token()
 		fmt.Println("Token Source From JWTConfigFromJSON", a)
-
-		requestAccessToken = true
 	} else {
 		panic("No way")
 	}
@@ -44,5 +41,5 @@ func CreateJWTToken(jsonPath string) (*oauth2.Token, bool) {
 	if err != nil {
 		fmt.Errorf("%+v", err.Error())
 	}
-	return token, requestAccessToken
+	return token
 }
