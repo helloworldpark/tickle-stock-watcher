@@ -8,9 +8,10 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v2"
+	"google.golang.org/api/sheets/v4"
 )
 
-var scope = []string{drive.DriveScope, drive.DriveFileScope}
+var scope = []string{drive.DriveScope, drive.DriveFileScope, sheets.SpreadsheetsScope}
 
 func CreateJWTToken(jsonPath string) *oauth2.Token {
 	cred, err := google.FindDefaultCredentials(context.Background(), scope...)
