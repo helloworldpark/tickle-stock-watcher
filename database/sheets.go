@@ -146,32 +146,57 @@ func (m *SheetManager) FindSpreadsheet(title string) *sheets.Spreadsheet {
 	return nil
 }
 
-// Database alias api
+/*
+ * Database alias api
+ */
+
+// CreateDatabase creates a new database with the given database_file_`title`.
+// Be careful, 'database_file_' tag is on the start of the title.
 func (m *SheetManager) CreateDatabase(title string) *sheets.Spreadsheet {
-	return m.CreateSpreadsheet(title)
+	return m.CreateSpreadsheet(dbFileStart + title)
 }
 
+// FindDatabase gets a new database with the given database_file_`title`, if exists.
+// If not existing, it will return nil.
+// Be careful, 'database_file_' tag is on the start of the title finding for.
 func (m *SheetManager) FindDatabase(title string) *sheets.Spreadsheet {
-	return m.FindSpreadsheet(title)
+	return m.FindSpreadsheet(dbFileStart + title)
 }
 
+// DeleteDatabase deletes a database with the given database_file_`title`, if exists.
+// If not existing, or failed to delete, it will log and return false.
+// Be careful, 'database_file_' tag is implicitly on the start of the title finding for.
 func (m *SheetManager) DeleteDatabase(title string) bool {
 	db := m.FindDatabase(title)
 	if db == nil {
-		return true
+		return false
 	}
 	return m.DeleteSpreadsheet(db.SpreadsheetId)
 }
 
-// Table api
+/*
+ * Table api
+ */
+
+// CreateTable Creates new sheet(a.k.a. table) with `tableName` on the given Spreadsheet(a.k.a. database)
+// Case handling:
+// database == nil: return nil
+// database != nil && has sheet with tableName: log as existing, and return the existing sheet
+// database != nil && does not have sheet with tableName: log as creating, and return the created sheet
 func (m *SheetManager) CreateTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
 
 }
 
+// GetTable Gets an existing sheet(a.k.a. table) with `tableName` on the given Spreadsheet(a.k.a. database)
+// If exists, returns the existed one
+// If not existing, returns nil
 func (m *SheetManager) GetTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
 
 }
 
+// DeleteTable Deletes an existing sheet(a.k.a. table) with `tableName` on the given Spreadsheet(a.k.a. database)
+// If exists, deletes and returns true
+// If not existing, logs and returns false
 func (m *SheetManager) DeleteTable(database *sheets.Spreadsheet, tableName string) bool {
 
 }
