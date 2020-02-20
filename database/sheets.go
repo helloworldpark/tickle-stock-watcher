@@ -31,6 +31,7 @@ func NewSheetManager(jsonPath string) *SheetManager {
 	return m
 }
 
+// Database
 func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 	rb := &sheets.Spreadsheet{
 		Properties: &sheets.SpreadsheetProperties{
@@ -143,4 +144,34 @@ func (m *SheetManager) FindSpreadsheet(title string) *sheets.Spreadsheet {
 		}
 	}
 	return nil
+}
+
+// Database alias api
+func (m *SheetManager) CreateDatabase(title string) *sheets.Spreadsheet {
+	return m.CreateSpreadsheet(title)
+}
+
+func (m *SheetManager) FindDatabase(title string) *sheets.Spreadsheet {
+	return m.FindSpreadsheet(title)
+}
+
+func (m *SheetManager) DeleteDatabase(title string) bool {
+	db := m.FindDatabase(title)
+	if db == nil {
+		return true
+	}
+	return m.DeleteSpreadsheet(db.SpreadsheetId)
+}
+
+// Table api
+func (m *SheetManager) CreateTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
+
+}
+
+func (m *SheetManager) GetTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
+
+}
+
+func (m *SheetManager) DeleteTable(database *sheets.Spreadsheet, tableName string) bool {
+
 }
