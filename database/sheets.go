@@ -95,7 +95,7 @@ func (m *SheetManager) DeleteSpreadsheet(spreadsheetID string) bool {
 	if err != nil {
 		panic(err)
 	}
-	return resp.StatusCode/200 == 1
+	return resp.StatusCode/100 == 2
 }
 
 // ListSpreadsheets lists spreadsheets' id by []string
