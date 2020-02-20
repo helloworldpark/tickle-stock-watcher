@@ -12,12 +12,14 @@ import (
 
 const dbFileStart = "database_file_"
 
+// SheetManager Manage OAuth2 token lifecycle
 type SheetManager struct {
 	client  *http.Client
 	service *sheets.Service
 	token   *oauth2.Token
 }
 
+// NewSheetManager Create new SheetManager
 func NewSheetManager(jsonPath string) *SheetManager {
 	client := http.DefaultClient
 	service, _ := sheets.New(client)
@@ -31,7 +33,7 @@ func NewSheetManager(jsonPath string) *SheetManager {
 	return m
 }
 
-// Database
+// CreateSpreadsheet creates a single spreadsheet file
 func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 	rb := &sheets.Spreadsheet{
 		Properties: &sheets.SpreadsheetProperties{
@@ -50,8 +52,9 @@ func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 	return resp
 }
 
-func (m *SheetManager) GetSpreadsheet(spreadsheetId string) *sheets.Spreadsheet {
-	req := m.service.Spreadsheets.Get(spreadsheetId).IncludeGridData(true)
+// GetSpreadsheet gets a single spreadsheet file with id, if exists.
+func (m *SheetManager) GetSpreadsheet(spreadsheetID string) *sheets.Spreadsheet {
+	req := m.service.Spreadsheets.Get(spreadsheetID).IncludeGridData(true)
 	req.Header().Add("Authorization", "Bearer "+m.token.AccessToken)
 	resp, err := req.Do()
 	if err != nil {
@@ -60,10 +63,13 @@ func (m *SheetManager) GetSpreadsheet(spreadsheetId string) *sheets.Spreadsheet 
 	return resp
 }
 
+// DeleteSpreadsheet deletes spreadsheet file with `spreadsheetId`
+// Returns true if deleted(status code 20X)
+//         false if else
 // https://stackoverflow.com/questions/46836393/how-do-i-delete-a-spreadsheet-file-using-google-spreadsheets-api
 // https://stackoverflow.com/questions/46310113/consume-a-delete-endpoint-from-golang
-func (m *SheetManager) DeleteSpreadsheet(spreadsheetId string) bool {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://www.googleapis.com/drive/v3/files/%s", spreadsheetId), nil)
+func (m *SheetManager) DeleteSpreadsheet(spreadsheetID string) bool {
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://www.googleapis.com/drive/v3/files/%s", spreadsheetID), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -75,6 +81,7 @@ func (m *SheetManager) DeleteSpreadsheet(spreadsheetId string) bool {
 	return resp.StatusCode/200 == 1
 }
 
+// ListSpreadsheets lists spreadsheets' id by []string
 func (m *SheetManager) ListSpreadsheets() []string {
 	req, err := http.NewRequest("GET", "https://www.googleapis.com/drive/v3/files", nil)
 	if err != nil {
@@ -135,6 +142,7 @@ func (m *SheetManager) ListSpreadsheets() []string {
 	return sheetArr
 }
 
+// FindSpreadsheet finds a spreadsheet with `title`
 func (m *SheetManager) FindSpreadsheet(title string) *sheets.Spreadsheet {
 	sheetIDs := m.ListSpreadsheets()
 	for _, sheetID := range sheetIDs {
@@ -184,19 +192,71 @@ func (m *SheetManager) DeleteDatabase(title string) bool {
 // database != nil && has sheet with tableName: log as existing, and return the existing sheet
 // database != nil && does not have sheet with tableName: log as creating, and return the created sheet
 func (m *SheetManager) CreateTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
-
+	if database == nil {
+		return nil
+	}
+	for _, sheet := range database.Sheets {
+		if sheet.Properties.Title == dbFileStart+tableName {
+			// todo: log
+			return sheet
+		}
+	}
+	request := make([]*sheets.Request, 1)
+	request[0].AddSheet = &sheets.AddSheetRequest{}
+	request[0].AddSheet.Properties.Title = tableName
+	newSheet := m.batchUpdate(database, request)
+	return newSheet.Sheets[len(newSheet.Sheets)-1]
 }
 
 // GetTable Gets an existing sheet(a.k.a. table) with `tableName` on the given Spreadsheet(a.k.a. database)
 // If exists, returns the existed one
 // If not existing, returns nil
 func (m *SheetManager) GetTable(database *sheets.Spreadsheet, tableName string) *sheets.Sheet {
+	tables := m.GetTableList(database)
+	for _, table := range tables {
+		if table.Properties.Title == tableName {
+			return table
+		}
+	}
+	return nil
+}
 
+// GetTableList Gets an existing sheets(a.k.a. table) in the given Spreadsheet(a.k.a. database).
+// If exists, returns the existings
+// If not existing, returns nil
+func (m *SheetManager) GetTableList(database *sheets.Spreadsheet) []*sheets.Sheet {
+	if database == nil {
+		return nil
+	}
+	return database.Sheets
 }
 
 // DeleteTable Deletes an existing sheet(a.k.a. table) with `tableName` on the given Spreadsheet(a.k.a. database)
 // If exists, deletes and returns true
 // If not existing, logs and returns false
 func (m *SheetManager) DeleteTable(database *sheets.Spreadsheet, tableName string) bool {
+	sheetToDelete := m.GetTable(database, tableName)
+	if sheetToDelete == nil {
+		// todo: log
+		return false
+	}
 
+	request := make([]*sheets.Request, 1)
+	request[0].DeleteSheet = &sheets.DeleteSheetRequest{}
+	request[0].DeleteSheet.SheetId = sheetToDelete.Properties.SheetId
+	m.batchUpdate(database, request)
+	return true
+}
+
+func (m *SheetManager) batchUpdate(database *sheets.Spreadsheet, requests []*sheets.Request) *sheets.Spreadsheet {
+	batchRequest := &sheets.BatchUpdateSpreadsheetRequest{}
+	batchRequest.IncludeSpreadsheetInResponse = true
+	batchRequest.Requests = requests
+	req := m.service.Spreadsheets.BatchUpdate(database.SpreadsheetId, batchRequest)
+	req.Header().Add("Authorization", "Bearer "+m.token.AccessToken)
+	resp, err := req.Do()
+	if err != nil {
+		panic(err)
+	}
+	return resp.UpdatedSpreadsheet
 }
