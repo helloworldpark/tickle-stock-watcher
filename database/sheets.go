@@ -219,7 +219,9 @@ func (m *SheetManager) CreateTable(database *sheets.Spreadsheet, tableName strin
 		}
 	}
 	request := make([]*sheets.Request, 1)
+	request[0] = &sheets.Request{}
 	request[0].AddSheet = &sheets.AddSheetRequest{}
+	request[0].AddSheet.Properties = &sheets.SheetProperties{}
 	request[0].AddSheet.Properties.Title = tableName
 	newSheet := m.batchUpdate(database, request)
 	return newSheet.Sheets[len(newSheet.Sheets)-1]
@@ -259,10 +261,11 @@ func (m *SheetManager) DeleteTable(database *sheets.Spreadsheet, tableName strin
 	}
 
 	request := make([]*sheets.Request, 1)
+	request[0] = &sheets.Request{}
 	request[0].DeleteSheet = &sheets.DeleteSheetRequest{}
 	request[0].DeleteSheet.SheetId = sheetToDelete.Properties.SheetId
-	m.batchUpdate(database, request)
-	return true
+	resp := m.batchUpdate(database, request)
+	return resp != nil
 }
 
 func (m *SheetManager) batchUpdate(database *sheets.Spreadsheet, requests []*sheets.Request) *sheets.Spreadsheet {

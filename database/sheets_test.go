@@ -92,13 +92,64 @@ func TestSpreadsheet006(t *testing.T) {
 }
 
 // Create table
-func TestSpreadsheet007(t *testing.T) {
+func TestCreateTable(t *testing.T) {
 	manager := NewSheetManager(jsonPath)
 	sheet := manager.FindDatabase("testdb")
 	if sheet != nil {
-		fmt.Println("------Listing sheet------")
-		fmt.Println("Sheet ID: ", sheet.SpreadsheetId)
-		fmt.Println("Sheet Name: ", sheet.Properties.Title)
-		fmt.Println("Sheet Timezone: ", sheet.Properties.TimeZone)
+		fmt.Println("------This database------")
+		fmt.Println("Database ID:       ", sheet.SpreadsheetId)
+		fmt.Println("Database Name:     ", sheet.Properties.Title)
+		fmt.Println("Database Timezone: ", sheet.Properties.TimeZone)
+		fmt.Println("------Creating table------")
+		manager.CreateTable(sheet, "MAMA")
+		manager.CreateTable(sheet, "NENE")
+		tables := manager.GetTableList(sheet)
+		for i := range tables {
+			fmt.Printf("Table[%d] Name: %s\n", i, tables[i].Properties.Title)
+		}
+	}
+}
+
+// View table
+func TestViewTable(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheet := manager.FindDatabase("testdb")
+	if sheet != nil {
+		fmt.Println("------This database------")
+		fmt.Println("Database ID:       ", sheet.SpreadsheetId)
+		fmt.Println("Database Name:     ", sheet.Properties.Title)
+		fmt.Println("Database Timezone: ", sheet.Properties.TimeZone)
+		fmt.Println("------Viewing table------")
+		tables := manager.GetTableList(sheet)
+		for i := range tables {
+			fmt.Printf("Table[%d] Name: %s\n", i, tables[i].Properties.Title)
+		}
+		table := manager.GetTable(sheet, "NENE")
+		fmt.Printf("Table = %s\n", table.Properties.Title)
+	}
+}
+
+// Delete table
+func TestDeleteTable(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheet := manager.FindDatabase("testdb")
+	if sheet != nil {
+		fmt.Println("------This database------")
+		fmt.Println("Database ID:       ", sheet.SpreadsheetId)
+		fmt.Println("Database Name:     ", sheet.Properties.Title)
+		fmt.Println("Database Timezone: ", sheet.Properties.TimeZone)
+		fmt.Println("------Viewing table------")
+
+		deleted := manager.DeleteTable(sheet, "Sheet1")
+		if deleted {
+			fmt.Println("Deleted Table = Sheet1")
+		} else {
+			fmt.Println("Failed delete Table = Sheet1")
+		}
+
+		tables := manager.GetTableList(sheet)
+		for i := range tables {
+			fmt.Printf("Table[%d] Name: %s\n", i, tables[i].Properties.Title)
+		}
 	}
 }
