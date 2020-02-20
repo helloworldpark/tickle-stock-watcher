@@ -29,3 +29,38 @@ func TestSpreadsheet002(t *testing.T) {
 	fmt.Println("------Get sheet ", sheetId, "------")
 	fmt.Println("------    Result ", sheet.SpreadsheetId)
 }
+
+// create
+func TestSpreadsheet003(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheet := manager.CreateSpreadsheet("Testing!")
+	fmt.Println("------Created sheet------")
+	fmt.Println("Sheet ID: ", sheet.SpreadsheetId)
+	fmt.Println("Sheet Name: ", sheet.Properties.Title)
+	fmt.Println("Sheet Timezone: ", sheet.Properties.TimeZone)
+}
+
+// list
+func TestSpreadsheet004(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheets := manager.ListSpreadsheets()
+	for _, s := range sheets {
+		sheet := manager.GetSpreadsheet(s)
+		fmt.Println("------Listing sheet------")
+		fmt.Println("Sheet ID: ", sheet.SpreadsheetId)
+		fmt.Println("Sheet Name: ", sheet.Properties.Title)
+		fmt.Println("Sheet Timezone: ", sheet.Properties.TimeZone)
+	}
+}
+
+// Find
+func TestSpreadsheet005(t *testing.T) {
+	manager := NewSheetManager(jsonPath)
+	sheet := manager.FindSpreadsheet("Test First!")
+	if sheet != nil {
+		fmt.Println("------Listing sheet------")
+		fmt.Println("Sheet ID: ", sheet.SpreadsheetId)
+		fmt.Println("Sheet Name: ", sheet.Properties.Title)
+		fmt.Println("Sheet Timezone: ", sheet.Properties.TimeZone)
+	}
+}
