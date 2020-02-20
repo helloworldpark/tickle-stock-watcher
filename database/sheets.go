@@ -35,7 +35,7 @@ func (m *SheetManager) CreateSpreadsheet(title string) *sheets.Spreadsheet {
 	rb := &sheets.Spreadsheet{
 		Properties: &sheets.SpreadsheetProperties{
 			Title:      title,
-			TimeZone:   "GMT+09:00",
+			TimeZone:   "Asia/Seoul",
 			AutoRecalc: "ON_CHANGE",
 		},
 	}
@@ -138,7 +138,6 @@ func (m *SheetManager) FindSpreadsheet(title string) *sheets.Spreadsheet {
 	sheetIDs := m.ListSpreadsheets()
 	for _, sheetID := range sheetIDs {
 		s := m.GetSpreadsheet(sheetID)
-		fmt.Printf("[List] Title = %s\n", s.Properties.Title)
 		if s.Properties.Title == title {
 			return s
 		}
