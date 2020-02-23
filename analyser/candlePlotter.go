@@ -37,9 +37,8 @@ func CleanupOldCandleplots() error {
 	now := commons.Now()
 	var err error
 	for t := 3; t >= 0; t-- {
-		before := now.AddDate(0, 0, t)
-		y, m, d := before.Date()
-		oldDirectory := fmt.Sprintf(saveDirFormat, y, m, d)
+		before := now.AddDate(0, 0, -t)
+		oldDirectory := newCandlePlotDir(before)
 		err = os.RemoveAll(oldDirectory)
 	}
 	if os.IsNotExist(err) {
