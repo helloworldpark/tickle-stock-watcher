@@ -43,6 +43,7 @@ func CleanupOldCandleplots() error {
 		err = os.RemoveAll(oldDirectory)
 	}
 	if os.IsNotExist(err) {
+		logger.Error("[CandlePlotter] CleanupOldCandleplots: %+v", err)
 		err = nil
 	}
 	return err
