@@ -1,6 +1,6 @@
 module github.com/helloworldpark/tickle-stock-watcher
 
-go 1.12
+go 1.13
 
 require (
 	cloud.google.com/go v0.48.0 // indirect
@@ -33,7 +33,6 @@ require (
 	go.opencensus.io v0.22.2 // indirect
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	golang.org/x/sys v0.0.0-20191220220014-0732a990476f // indirect
 	golang.org/x/text v0.3.2
