@@ -385,6 +385,9 @@ func (g *General) Initialize() {
 	g.dbClient.Select(&superuser, "where Superuser=?", true)
 	if len(superuser) == 1 {
 		g.pushManager.PushMessage("ticklestock 시작", superuser[0].UserID)
+		logger.Listen(func(msg string) {
+			g.pushManager.PushMessage(msg, superuser[0].UserID)
+		})
 	}
 }
 

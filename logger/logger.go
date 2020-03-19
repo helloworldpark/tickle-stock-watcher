@@ -10,6 +10,9 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Listener Listen to log when ERROR or PANIC
+type Listener func(msg string)
+
 var (
 	isLoggerGCE  bool
 	loggerClient *gce.Client
@@ -18,6 +21,8 @@ var (
 	loggerError  *log.Logger
 	loggerPanic  *gce.Logger
 	logName      string
+
+	listeners []Listener
 )
 
 func init() {
@@ -89,6 +94,11 @@ func Error(format string, v ...interface{}) {
 	handleLog(loggerError, "ERROR", format, v...)
 }
 
+// Errorf prints logs as this format: [ERROR]
+func Errorf(format string, v error) {
+	handleLog(loggerError, "ERROR", format, v.Error())
+}
+
 // Panic prints logs as this format: [PANIC]
 func Panic(format string, v ...interface{}) {
 	handlePanicLog(format, v...)
@@ -98,11 +108,19 @@ func handleLog(logHandle *log.Logger, severity, format string, v ...interface{})
 	msgFormat := "[" + logName + "][" + severity + "] " + format
 
 	checkExtrasStdLogPrint := func(msgFormatStr string, vv ...interface{}) {
-		log.Printf(msgFormatStr, vv...)
+		msg := fmt.Sprintf(msgFormatStr, vv...)
+		if severity == "ERROR" {
+			broadcast(msg)
+		}
+		log.Printf(msg)
 	}
 
 	checkExtrasGCEPrint := func(internalLogHandle *log.Logger, msgFormatStr string, vv ...interface{}) {
-		internalLogHandle.Printf(msgFormatStr, vv...)
+		msg := fmt.Sprintf(msgFormatStr, vv...)
+		if severity == "ERROR" {
+			broadcast(msg)
+		}
+		internalLogHandle.Printf(msg)
 	}
 
 	// Log to Stdout
@@ -116,9 +134,10 @@ func handleLog(logHandle *log.Logger, severity, format string, v ...interface{})
 func handlePanicLog(format string, v ...interface{}) {
 	const severity = gce.Critical
 	msgFormat := "[" + logName + "][PANIC] " + format
+	msg := fmt.Sprintf(msgFormat, v...)
 
 	if loggerPanic == nil {
-		log.Panicf(msgFormat, v...)
+		log.Panicf(msg)
 		return
 	}
 
@@ -130,4 +149,15 @@ func handlePanicLog(format string, v ...interface{}) {
 	loggerPanic.Flush()
 
 	panic("Killed by logger.handlePanicLog")
+}
+
+// Listen listen to ERROR and PANIC
+func Listen(listener func(msg string)) {
+	listeners = append(listeners, listener)
+}
+
+func broadcast(msg string) {
+	for _, listener := range listeners {
+		listener(msg)
+	}
 }
